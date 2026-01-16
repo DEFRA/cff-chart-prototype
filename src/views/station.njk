@@ -1,0 +1,270 @@
+{% extends "govuk/template.njk" %}
+
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+
+{% set mainClasses = "app-main-wrapper" %}
+
+{% block head %}
+  <link rel="shortcut icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
+  <link rel="shortcut icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
+  <link rel="icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ getAssetPath('assets/images/govuk-icon-180.png') }}">
+  <link href="{{ getAssetPath('stylesheets/application.scss') }}" rel="stylesheet">
+{% endblock %}
+
+{% block header %}
+  {{ govukHeader({
+    homepageUrl: "https://www.gov.uk/",
+    classes: "app-header",
+    containerClasses: "govuk-width-container",
+    serviceName: serviceName,
+    serviceUrl: serviceUrl,
+    useTudorCrown: true
+  }) }}
+{% endblock %}
+
+{% block pageTitle %}
+  {{ station.river }} level at {{ station.name }} - {{ serviceName }} - GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+  {{ govukBackLink({
+    text: "Back",
+    href: "/"
+  }) }}
+{% endblock %}
+
+{% block content %}  
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    <h1 class="govuk-heading-xl govuk-!-margin-bottom-0">
+      {{ station.river }} level at {{ station.name }}
+    </h1>
+  </div>
+</div>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    <nav class="defra-navbar defra-navbar--secondary" aria-label="Related levels">
+      <div class="defra-navbar__inner">
+        <div class="defra-navbar__group">
+          <ul class="defra-navbar__list">
+            <li class="defra-navbar__item" id="map-live"></li>
+            <li class="defra-navbar__item">
+              <a href="#upstream">Upstream</a>
+            </li>
+            <li class="defra-navbar__item">
+              <a href="#downstream">Downstream</a>
+            </li>
+            <li class="defra-navbar__item">
+              <a href="/river-and-sea-levels/rloi/{{ station.rloiId }}">Nearby levels</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+  </div>
+</div>
+
+{# Latest Status #}
+{% if station.recentValue %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    <div class="defra-flood-statistics">
+      <div class="govuk-!-margin-top-4" data-toggletip data-toggletip-label="More information" data-toggletip-content="We get readings more often as the risk of flooding increases.">
+        <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
+          Latest at {{ station.recentValue.formattedTime }} on {{ station.recentValue.latestDayFormatted }}
+        </h2>
+      </div>
+      <dl class="defra-flood-statistics__list" aria-label="Latest readings">
+        <div class="defra-flood-statistics__item">
+          <dt class="defra-flood-statistics__key">Height</dt>
+          <dd class="defra-flood-statistics__value">
+            <span data-toggletip data-toggletip-label="More information about the height" data-toggletip-content="This station measures height from a fixed point on or close to the riverbed.">
+              {{ station.recentValue.value }}m
+            </span>
+          </dd>
+        </div>
+        <div class="defra-flood-statistics__item">
+          <dt class="defra-flood-statistics__key">Trend</dt>
+          <dd class="defra-flood-statistics__value">
+            <span data-toggletip data-toggletip-label="More information about the trend" data-toggletip-content="The trend is based on the last 5 readings.">
+              {{ station.trend | capitalize }}
+            </span>
+          </dd>
+        </div>
+        {% if station.hasPercentiles %}
+        <div class="defra-flood-statistics__item">
+          <dt class="defra-flood-statistics__key">State</dt>
+          <dd class="defra-flood-statistics__value">
+            <span data-toggletip data-toggletip-label="More information about the state" data-toggletip-content="There are 3 states: low, normal and high. The latest level is within the normal range.">
+              {{ station.state | capitalize }}
+            </span>
+          </dd>
+        </div>
+        {% endif %}
+      </dl>
+      {% if station.hasPercentiles %}
+      <p class="govuk-body-s govuk-!-margin-top-3 govuk-!-margin-bottom-0" style="color: #505a5f;">
+        Normal range {{ station.stateInformation }}
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Chart Section #}
+<hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible">
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    <div class="defra-line-chart govuk-!-margin-bottom-4">
+      <h2 class="govuk-heading-s govuk-!-margin-top-4 govuk-!-margin-bottom-4">Height in metres over the last 5 days</h2>
+
+      {# Placeholder for chart - will be populated by JavaScript #}
+      <div id="line-chart" class="defra-line-chart__container" style="width: 100%; height: 400px;">
+      </div>
+
+      <a href="/station-csv/{{ station.id }}" class="defra-button-secondary govuk-!-margin-bottom-0">
+        <span class="defra-button-secondary__icon"></span>
+        <span class="defra-button-secondary__text">Download data CSV (12KB)</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+{# Additional Information #}
+<hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-6">
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    <h2 class="govuk-heading-s govuk-!-margin-bottom-4" data-toggletip data-toggletip-label="More information about historical events" data-toggletip-content="Flooding might not happen again at the same historical levels if, for example, flood defences are now in place.">
+      How levels here could affect nearby areas
+    </h2>
+    
+    <p class="govuk-body govuk-!-margin-top-3 govuk-!-margin-bottom-0">
+      <a href="/how-we-measure-river-sea-groundwater-levels" class="govuk-link">
+        How we measure river, sea and groundwater levels
+      </a>
+    </p>
+  </div>
+</div>
+
+<hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-6">
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <h2 class="govuk-heading-s govuk-!-margin-bottom-3">Contact Floodline for advice</h2>
+    <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-2">Floodline helpline</p>
+    <p class="govuk-body govuk-!-margin-bottom-0">Telephone: 0345 988 1188</p>
+    <p class="govuk-body govuk-!-margin-bottom-3">Textphone: 0345 602 6340</p>
+    <p class="govuk-body govuk-!-margin-bottom-3">Open 24 hours a day, 7 days a week</p>
+    <p class="govuk-body govuk-!-margin-bottom-0">
+      <a href="https://www.gov.uk/call-charges" class="govuk-link">Find out more about call charges</a>
+    </p>
+  </div>
+</div>
+
+<hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-6">
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    {# Related Content #}
+    <h2 class="govuk-heading-s govuk-!-margin-bottom-3">Related content</h2>
+    <ul class="govuk-list">
+      <li><a href="/river-and-sea-levels/rloi/{{ station.id }}" class="govuk-link">Nearby levels</a></li>
+      <li><a href="https://www.gov.uk/get-flood-warnings" class="govuk-link">Get flood warnings by phone, text or email</a></li>
+      <li><a href="https://www.gov.uk/prepare-for-flooding" class="govuk-link">Prepare for flooding</a></li>
+      <li><a href="https://www.gov.uk/help-during-flood" class="govuk-link">What to do before or during a flood</a></li>
+      <li><a href="https://www.gov.uk/after-flood" class="govuk-link">What to do after a flood</a></li>
+      <li><a href="https://www.gov.uk/check-long-term-flood-risk" class="govuk-link">Check your long term flood risk</a></li>
+      <li><a href="https://www.gov.uk/report-flood-cause" class="govuk-link">Report a flood</a></li>
+    </ul>
+
+    {# Debug info #}
+    <details class="govuk-details govuk-!-margin-top-6">
+      <summary class="govuk-details__summary">
+        <span class="govuk-details__summary-text">View station data (Debug)</span>
+      </summary>
+      <div class="govuk-details__text">
+        <dl class="govuk-summary-list">
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Station ID</dt>
+            <dd class="govuk-summary-list__value">{{ station.id }}</dd>
+          </div>
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Data type</dt>
+            <dd class="govuk-summary-list__value">{{ dataType }}</dd>
+          </div>
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Station type</dt>
+            <dd class="govuk-summary-list__value">{{ stationType }}</dd>
+          </div>
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Telemetry points</dt>
+            <dd class="govuk-summary-list__value">{{ telemetry.observed | length }} observations</dd>
+          </div>
+        </dl>
+      </div>
+    </details>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block footer %}
+  {{ govukFooter({
+    meta: {
+      items: [
+        {
+          href: "https://www.gov.uk/help/privacy-notice",
+          text: "Privacy"
+        },
+        {
+          href: "https://www.gov.uk/help/cookies",
+          text: "Cookies"
+        },
+        {
+          href: "https://www.gov.uk/help/accessibility",
+          text: "Accessibility statement"
+        }
+      ],
+      html: 'Built by the <a href="https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs" class="govuk-footer__link">Department for Environment Food & Rural Affairs</a>'
+    }
+  }) }}
+{% endblock %}
+
+{% block bodyEnd %}
+  <script>
+    // Make telemetry data available to JavaScript in flood.model format BEFORE loading application.js
+    window.flood = window.flood || {};
+    window.flood.model = {
+      id: '{{ station.id }}',
+      stationId: '{{ station.id }}',
+      telemetry: {{ telemetry | dump | safe }},
+      chartThreshold: []
+    };
+  </script>
+  <script src="{{ getAssetPath('application.js') }}"></script>
+  <script>
+    // Initialize toggletips
+    if (typeof window.flood !== 'undefined' && window.flood.createToggletips) {
+      window.flood.createToggletips();
+    }
+
+    // Create Map button
+    (function() {
+      const mapLiveContainer = document.getElementById('map-live');
+      if (mapLiveContainer) {
+        const mapLink = document.createElement('a');
+        mapLink.href = '#map';
+        mapLink.className = 'defra-link-icon-s';
+        mapLink.innerHTML = '<svg focusable="false" aria-hidden="true" width="15" height="20" viewBox="0 0 15 20"><path d="M15,7.5c0.009,3.778 -4.229,9.665 -7.5,12.5c-3.271,-2.835 -7.509,-8.722 -7.5,-12.5c0,-4.142 3.358,-7.5 7.5,-7.5c4.142,0 7.5,3.358 7.5,7.5Zm-7.5,5.461c3.016,0 5.461,-2.445 5.461,-5.461c0,-3.016 -2.445,-5.461 -5.461,-5.461c-3.016,0 -5.461,2.445 -5.461,5.461c0,3.016 2.445,5.461 5.461,5.461Z"/></svg>Map';
+        mapLiveContainer.appendChild(mapLink);
+      }
+    })();
+  </script>
+{% endblock %}

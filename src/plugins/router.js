@@ -1,6 +1,7 @@
 import Inert from '@hapi/inert'
 import { health } from '../routes/health.js'
 import { index } from '../routes/index.js'
+import { station } from '../routes/station.js'
 import { serveStaticFiles } from '../common/helpers/serve-static-files.js'
 
 export const router = {
@@ -10,6 +11,7 @@ export const router = {
       await server.register([Inert])
       await server.route(health)
       await server.route(index)
+      await server.route(station)
       await server.register([serveStaticFiles])
     }
   }

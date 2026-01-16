@@ -72,7 +72,7 @@ describe('startServer', () => {
       )
       expect(mockHapiLoggerInfo).toHaveBeenNthCalledWith(
         3,
-        'Access your frontend on http://localhost:3097'
+        'CFF Chart Prototype is running on port 3097'
       )
     })
   })

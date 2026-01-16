@@ -1,5 +1,9 @@
 {% extends "govuk/template.njk" %}
 
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
 {% set mainClasses = "app-main-wrapper" %}
 
 {% block head %}
@@ -26,8 +30,79 @@
 
 {% block content %}  
 
-<h1 class="govuk-heading-l">Welcome to the CFF Chart Prototype</h1>
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <h1 class="govuk-heading-l">Select Station Options</h1>
 
+    <form method="post" action="/station">
+      
+      {{ govukInput({
+        label: {
+          text: "Station ID (optional)",
+          classes: "govuk-label--m"
+        },
+        hint: {
+          text: "Leave blank to use default station 8085 (Ouse Burn at Gosforth). Examples: 8085, 7041, E2043"
+        },
+        id: "stationId",
+        name: "stationId"
+      }) }}
+
+      {{ govukRadios({
+        name: "dataType",
+        fieldset: {
+          legend: {
+            text: "Data type",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        items: [
+          {
+            value: "existing",
+            text: "Existing",
+            checked: true
+          },
+          {
+            value: "historic",
+            text: "Historic"
+          }
+        ]
+      }) }}
+
+      {{ govukRadios({
+        name: "stationType",
+        fieldset: {
+          legend: {
+            text: "Station type",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        items: [
+          {
+            value: "S",
+            text: "S - Station"
+          },
+          {
+            value: "M",
+            text: "M - Multi-Station"
+          },
+          {
+            value: "G",
+            text: "G - Groundwater"
+          },
+          {
+            value: "C",
+            text: "C - Coastal"
+          }
+        ]
+      }) }}
+
+      {{ govukButton({
+        text: "Continue to station"
+      }) }}
+    </form>
+  </div>
+</div>
 
 {% endblock %}
 

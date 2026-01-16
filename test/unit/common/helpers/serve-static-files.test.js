@@ -31,9 +31,7 @@ describe('serveStaticFiles', () => {
         url: '/public/assets/images/govuk-crest.svg'
       })
 
-      // In test environment, assets may not exist, so we expect 404
-      // In production with built assets, this would return 200
-      expect(statusCode).toBe(httpConstants.HTTP_STATUS_NOT_FOUND)
+      expect(statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     })
   })
 })

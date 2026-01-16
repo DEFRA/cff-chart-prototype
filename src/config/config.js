@@ -234,6 +234,16 @@ export const config = convict({
       default: 'https://registry.npmjs.org',
       env: 'NPM_REGISTRY_URL'
     }
+  },
+  api: {
+    floodMonitoring: {
+      baseUrl: {
+        doc: 'Environment Agency Flood Monitoring API base URL',
+        format: 'url',
+        default: 'https://environment.data.gov.uk/flood-monitoring',
+        env: 'API_FLOOD_MONITORING_BASE_URL'
+      }
+    }
   }
 
 })
