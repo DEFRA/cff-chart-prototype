@@ -1,0 +1,135 @@
+{% extends "govuk/template.njk" %}
+
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% set mainClasses = "app-main-wrapper" %}
+
+{% block head %}
+  <link href="{{ getAssetPath('stylesheets/application.scss') }}" rel="stylesheet">
+{% endblock %}
+
+{% block header %}
+  {{ govukHeader({
+    homepageUrl: "https://www.gov.uk/",
+    classes: "app-header",
+    containerClasses: "govuk-width-container",
+    serviceName: serviceName,
+    serviceUrl: serviceUrl,
+    useTudorCrown: true
+  }) }}
+{% endblock %}
+
+{% block pageTitle %}
+  {% if pageTitle and pageTitle != serviceName %}{{ pageTitle }} - {% endif %}{{ serviceName }} - GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{% endblock %}
+
+{% block content %}  
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <h1 class="govuk-heading-l">Select Station Options</h1>
+
+    <form method="post" action="/station">
+      
+      {{ govukInput({
+        label: {
+          text: "Station ID (optional)",
+          classes: "govuk-label--m"
+        },
+        hint: {
+          text: "Leave blank to use default station 8085 (Ouse Burn at Gosforth). Examples: 8085, 7041, E2043"
+        },
+        id: "stationId",
+        name: "stationId"
+      }) }}
+
+      {{ govukRadios({
+        name: "dataType",
+        fieldset: {
+          legend: {
+            text: "Data type",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        items: [
+          {
+            value: "existing",
+            text: "Existing",
+            checked: true
+          },
+          {
+            value: "historic",
+            text: "Historic"
+          }
+        ]
+      }) }}
+
+      {{ govukRadios({
+        name: "stationType",
+        fieldset: {
+          legend: {
+            text: "Station type",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        items: [
+          {
+            value: "S",
+            text: "S - Station"
+          },
+          {
+            value: "M",
+            text: "M - Multi-Station"
+          },
+          {
+            value: "G",
+            text: "G - Groundwater"
+          },
+          {
+            value: "C",
+            text: "C - Coastal"
+          }
+        ]
+      }) }}
+
+      {{ govukButton({
+        text: "Continue to station"
+      }) }}
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block footer %}
+  {{ govukFooter({
+    meta: {
+      items: [
+        {
+          href: "https://www.gov.uk/help/privacy-notice",
+          text: "Privacy"
+        },
+        {
+          href: "https://www.gov.uk/help/cookies",
+          text: "Cookies"
+        },
+        {
+          href: "https://www.gov.uk/help/accessibility",
+          text: "Accessibility statement"
+        }
+      ],
+      html: 'Built by the <a class="govuk-footer__link" href="https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs" target="_blank" rel="noopener noreferrer">
+            Department for Environment, Food & Rural Affairs
+          </a>'
+    }
+  }) }}
+{% endblock %}
+
+{% block bodyEnd %}
+  <script type="module" nonce="{{ nonce }}" src="{{ getAssetPath('application.js') }}"></script>
+{% endblock %}

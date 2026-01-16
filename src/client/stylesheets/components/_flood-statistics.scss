@@ -1,0 +1,50 @@
+@use "sass:math";
+@use "govuk-frontend" as govuk;
+
+.defra-flood-statistics {
+  &__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    &:after {
+      content: '';
+      display: block;
+      clear: both;
+    }
+  }
+
+  &__item {
+    width: 33.33%;
+    box-sizing: border-box;
+    padding-right: 10px;
+    float: left;
+    min-width: 6em;
+    display: block;
+
+    @include govuk.govuk-media-query($from: desktop) {
+      width: 25%;
+    }
+  }
+
+  &__key {
+    @include govuk.govuk-font($size: 19);
+    color: govuk.govuk-colour("dark-grey");
+  }
+
+  &__value {
+    @include govuk.govuk-font($size: 27);
+    margin: 0;
+    display: block;
+    box-sizing: border-box;
+
+    &::first-letter {
+      margin-left: -0.075em;
+    }
+  }
+
+  &--border {
+    border: 1px solid govuk.govuk-colour("mid-grey");
+    padding: govuk.govuk-spacing(4);
+  }
+}

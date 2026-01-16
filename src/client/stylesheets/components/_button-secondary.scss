@@ -1,0 +1,48 @@
+@use "sass:math";
+@use "govuk-frontend" as govuk;
+
+.defra-button-secondary {
+  @include govuk.govuk-font($size: 19);
+  display: inline-flex;
+  align-items: center;
+  gap: govuk.govuk-spacing(1);
+  padding: govuk.govuk-spacing(2) govuk.govuk-spacing(3);
+  border: 1px solid govuk.govuk-colour("dark-grey");
+  background-color: govuk.govuk-colour("white");
+  color: govuk.govuk-colour("black");
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 1px 0 govuk.govuk-colour("dark-grey");
+
+  &:hover {
+    background-color: govuk.govuk-colour("light-grey");
+  }
+
+  &:focus {
+    outline: 3px solid govuk.govuk-colour("yellow");
+    outline-offset: 0;
+    background-color: govuk.govuk-colour("yellow");
+    color: govuk.govuk-colour("black");
+    box-shadow: 0 2px 0 govuk.govuk-colour("black");
+  }
+
+  &:active {
+    top: 2px;
+    box-shadow: none;
+  }
+}
+
+.defra-button-secondary__icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none"><path d="M8 1v10M3 7l5 5 5-5M2 15h12" stroke="%23000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.defra-button-secondary__text {
+  font-weight: 400;
+}

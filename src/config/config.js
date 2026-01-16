@@ -1,12 +1,11 @@
 import convict from 'convict'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-
 import convictFormatWithValidator from 'convict-format-with-validator'
+import 'dotenv/config'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const fourHoursMs = 14400000
 const oneWeekMs = 604800000
 
 const isProduction = process.env.NODE_ENV === 'production'
@@ -35,6 +34,12 @@ export const config = convict({
     default: 3000,
     env: 'PORT'
   },
+  environment: {
+    doc: 'The environment the application is running in',
+    format: String,
+    default: 'local',
+    env: 'ENVIRONMENT'
+  },
   staticCacheTimeout: {
     doc: 'Static cache timeout in milliseconds',
     format: Number,
@@ -44,7 +49,7 @@ export const config = convict({
   serviceName: {
     doc: 'Applications Service Name',
     format: String,
-    default: 'cff-chart-prototype'
+    default: 'CFF Chart Prototype'
   },
   root: {
     doc: 'Project root',
@@ -118,88 +123,6 @@ export const config = convict({
     default: isProduction,
     env: 'ENABLE_METRICS'
   },
-  session: {
-    cache: {
-      engine: {
-        doc: 'backend cache is written to',
-        format: ['redis', 'memory'],
-        default: isProduction ? 'redis' : 'memory',
-        env: 'SESSION_CACHE_ENGINE'
-      },
-      name: {
-        doc: 'server side session cache name',
-        format: String,
-        default: 'session',
-        env: 'SESSION_CACHE_NAME'
-      },
-      ttl: {
-        doc: 'server side session cache ttl',
-        format: Number,
-        default: fourHoursMs,
-        env: 'SESSION_CACHE_TTL'
-      }
-    },
-    cookie: {
-      ttl: {
-        doc: 'Session cookie ttl',
-        format: Number,
-        default: fourHoursMs,
-        env: 'SESSION_COOKIE_TTL'
-      },
-      password: {
-        doc: 'session cookie password',
-        format: String,
-        default: 'the-password-must-be-at-least-32-characters-long',
-        env: 'SESSION_COOKIE_PASSWORD',
-        sensitive: true
-      },
-      secure: {
-        doc: 'set secure flag on cookie',
-        format: Boolean,
-        default: isProduction,
-        env: 'SESSION_COOKIE_SECURE'
-      }
-    }
-  },
-  redis: {
-    host: {
-      doc: 'Redis cache host',
-      format: String,
-      default: '127.0.0.1',
-      env: 'REDIS_HOST'
-    },
-    username: {
-      doc: 'Redis cache username',
-      format: String,
-      default: '',
-      env: 'REDIS_USERNAME'
-    },
-    password: {
-      doc: 'Redis cache password',
-      format: '*',
-      default: '',
-      sensitive: true,
-      env: 'REDIS_PASSWORD'
-    },
-    keyPrefix: {
-      doc: 'Redis cache key prefix name used to isolate the cached results across multiple clients',
-      format: String,
-      default: 'cff-chart-prototype:',
-      env: 'REDIS_KEY_PREFIX'
-    },
-    useSingleInstanceCache: {
-      doc: 'Connect to a single instance of redis instead of a cluster.',
-      format: Boolean,
-      default: !isProduction,
-      env: 'USE_SINGLE_INSTANCE_CACHE'
-    },
-    useTLS: {
-      doc: 'Connect to redis using TLS',
-      format: Boolean,
-      default: isProduction,
-      env: 'REDIS_TLS'
-    }
-  },
   nunjucks: {
     watch: {
       doc: 'Reload templates when they are changed.',
@@ -219,7 +142,110 @@ export const config = convict({
       default: 'x-cdp-request-id',
       env: 'TRACING_HEADER'
     }
+  },
+  cookie: {
+    name: {
+      doc: 'The name of the cookie to set',
+      format: String,
+      default: 'fcp-defra-id-stub-session',
+      env: 'COOKIE_NAME'
+    },
+    password: {
+      doc: 'The password used to encrypt the cookie',
+      format: String,
+      default: 'this-must-be-at-least-32-characters-long',
+      env: 'COOKIE_PASSWORD'
+    }
+  },
+  auth: {
+    mode: {
+      doc: 'The authentication mode to use',
+      format: ['basic', 'mock'],
+      default: 'basic',
+      env: 'AUTH_MODE'
+    },
+    override: {
+      doc: 'Override the available data to a specific customer and organisation in the format "crn:firstName:lastName:organisationId:sbi:organisationName"',
+      format: function (val) {
+        if (val === '') {
+          return
+        }
+
+        const regex = /^(\d{10}):([a-zA-Z\s]+):([a-zA-Z\s]+):(\d+):(\d{9}):(.+)$/
+
+        if (!regex.test(val)) {
+          throw new Error('Must be in format "crn:firstName:lastName:organisationId:sbi:organisationName" where crn is 10 digits, firstName/lastName are letters and spaces, organisationId is a number, sbi is 9 digits, and organisationName can be anything')
+        }
+      },
+      default: '',
+      env: 'AUTH_OVERRIDE'
+    },
+    overrideFile: {
+      doc: 'Path to the authentication file in json format.  Must be mounted at /data/*.json',
+      format: function (val) {
+        if (val === '') {
+          return
+        }
+
+        const regex = /^.+\.json$/
+
+        if (!regex.test(val)) {
+          throw new Error('Path must be in format "*.json"')
+        }
+      },
+      default: '',
+      env: 'AUTH_OVERRIDE_FILE'
+    }
+  },
+  github: {
+    token: {
+      doc: 'GitHub personal access token',
+      format: String,
+      default: '',
+      env: 'GITHUB_TOKEN',
+      sensitive: true
+    },
+    owner: {
+      doc: 'GitHub owner/org',
+      format: String,
+      default: 'DEFRA',
+      env: 'GITHUB_OWNER'
+    },
+    repos: {
+      doc: 'Comma-separated list of repos',
+      format: String,
+      default: '',
+      env: 'GITHUB_REPOS'
+    }
+  },
+  node: {
+    latestLts: {
+      doc: 'Latest Node.js LTS version to compare against',
+      nullable: true,
+      format: String,
+      default: '',
+      env: 'LATEST_NODE_LTS'
+    }
+  },
+  npm: {
+    registryUrl: {
+      doc: 'NPM registry URL',
+      format: 'url',
+      default: 'https://registry.npmjs.org',
+      env: 'NPM_REGISTRY_URL'
+    }
+  },
+  api: {
+    floodMonitoring: {
+      baseUrl: {
+        doc: 'Environment Agency Flood Monitoring API base URL',
+        format: 'url',
+        default: 'https://environment.data.gov.uk/flood-monitoring',
+        env: 'API_FLOOD_MONITORING_BASE_URL'
+      }
+    }
   }
+
 })
 
 config.validate({ allowed: 'strict' })

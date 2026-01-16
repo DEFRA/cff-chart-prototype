@@ -4,14 +4,15 @@ import hapiVision from '@hapi/vision'
 import { fileURLToPath } from 'node:url'
 
 import { config } from '../config.js'
-import { context } from './context/context.js'
+import { context } from './context.js'
 import * as filters from './filters/filters.js'
-import * as globals from './globals/globals.js'
+import * as globals from './globals.js'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 const nunjucksEnvironment = nunjucks.configure(
   [
     'node_modules/govuk-frontend/dist/',
+    path.resolve(dirname, '../../views'),
     path.resolve(dirname, '../../server/common/templates'),
     path.resolve(dirname, '../../server/common/components')
   ],
@@ -30,7 +31,7 @@ export const nunjucksConfig = {
   options: {
     engines: {
       njk: {
-        compile(src, options) {
+        compile (src, options) {
           const template = nunjucks.compile(src, options.environment)
           return (ctx) => template.render(ctx)
         }
@@ -40,7 +41,7 @@ export const nunjucksConfig = {
       environment: nunjucksEnvironment
     },
     relativeTo: path.resolve(dirname, '../..'),
-    path: 'server',
+    path: 'views',
     isCached: config.get('isProduction'),
     context
   }

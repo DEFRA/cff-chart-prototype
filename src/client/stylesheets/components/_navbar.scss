@@ -1,0 +1,163 @@
+@use "sass:math";
+@use "govuk-frontend" as govuk;
+
+.defra-navbar {
+  position: relative;
+  z-index: 1;
+  @include govuk.govuk-font($size: 19);
+  margin: 7px -15px 10px -15px;
+
+  @include govuk.govuk-media-query($from: tablet) {
+    @include govuk.govuk-font($size: 16);
+    margin-bottom: 15px;
+  }
+
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  &__inner {
+    flex: 0 0 auto;
+    padding: 3px 15px 4px 15px;
+  }
+
+  &__group {
+    float: left;
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0px;
+    padding: 0px;
+
+    &:after {
+      content: '';
+      clear: both;
+      width: 0px;
+      height: 0px;
+    }
+  }
+
+  &__item {
+    float: left;
+    margin-right: 10px;
+
+    &:last-child {
+      margin-right: 0px;
+    }
+  }
+
+  a {
+    display: inline-block;
+    position: relative;
+    padding: 5px 0px 5px 0px;
+    border: 0px;
+    color: govuk.govuk-colour("black");
+
+    &:visited {
+      color: govuk.govuk-colour("black");
+    }
+
+    &:focus {
+      background-color: govuk.$govuk-focus-colour;
+      color: govuk.govuk-colour("black");
+      border: 0px;
+      box-shadow: 0 4px 0 govuk.govuk-colour("black");
+      outline: 3px solid transparent;
+      outline-offset: 0px;
+    }
+
+    &:not([keyboard-focus]):focus {
+      background-color: white;
+      box-shadow: none;
+      text-decoration: underline;
+    }
+
+    &:hover {
+      color: govuk.$govuk-link-hover-colour;
+    }
+  }
+
+  &--secondary {
+    border-bottom: 1px solid govuk.$govuk-border-colour;
+
+    @include govuk.govuk-media-query($from: tablet) {
+      border-bottom: 0px;
+    }
+
+    &:after {
+      @include govuk.govuk-media-query($from: tablet) {
+        content: '';
+        position: absolute;
+        left: 0px;
+        right: 0px;
+        bottom: 0px;
+        border-bottom: 1px solid govuk.$govuk-border-colour;
+        z-index: -1;
+        left: 15px;
+        right: 15px;
+      }
+    }
+
+    .defra-navbar__inner {
+      padding-bottom: 0px;
+
+      @include govuk.govuk-media-query($from: tablet) {
+        padding-bottom: 8px;
+      }
+    }
+
+    .defra-navbar__item {
+      margin: 0px;
+    }
+
+    .defra-navbar__item a {
+      color: govuk.govuk-colour("black");
+      text-decoration: underline;
+      padding: 7px 6px;
+
+      &:visited {
+        color: govuk.govuk-colour("black");
+      }
+
+      &:hover {
+        color: govuk.$govuk-link-hover-colour;
+      }
+
+      &:focus {
+        color: govuk.govuk-colour("black");
+        background-color: govuk.$govuk-focus-colour;
+        text-decoration: none;
+        box-shadow: 0 4px 0 govuk.govuk-colour("black");
+        outline: 3px solid transparent;
+        outline-offset: 0px;
+      }
+
+      &:not([keyboard-focus]):focus {
+        background-color: white;
+        color: govuk.govuk-colour("black");
+        box-shadow: none;
+      }
+
+      // Map link specific styling
+      &.defra-link-icon-s {
+        display: inline-block;
+        vertical-align: middle;
+
+        svg {
+          margin-right: 6px;
+          margin-bottom: -4px;
+        }
+      }
+    }
+  }
+}

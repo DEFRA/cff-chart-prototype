@@ -18,7 +18,7 @@ RUN npm install
 COPY --chown=node:node --chmod=755 . .
 RUN npm run build:frontend
 
-CMD [ "npm", "run", "docker:dev" ]
+CMD [ "npm", "run", "server:watch" ]
 
 FROM development AS production_build
 
