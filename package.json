@@ -27,8 +27,7 @@
     "start": "NODE_ENV=production node --use-strict .",
     "test": "TZ=UTC vitest run --coverage",
     "test:watch": "TZ=UTC vitest",
-    "docker:test": "npm run lint && mkdir -p -m 755 coverage 2>/dev/null || true && docker compose -p cff-chart-prototype-test down -v && docker compose -f compose.yml -f compose.test.yml run --build --rm cff-chart-prototype",
-    "docker:test:watch": "docker compose -p cff-chart-prototype-test down -v && docker compose -f compose.yml -f compose.test.yml -f compose.test.watch.yml run --build --rm cff-chart-prototype"
+    "docker:test": "npm run lint && npm test"
   },
   "author": "Defra DDTS",
   "contributors": [
