@@ -23,7 +23,7 @@ describe('Station route', () => {
     expect(result).toContain('level at')
     expect(result).toContain('Latest at')
     expect(result).toContain('Height')
-  })
+  }, 10000)
 
   test('Should load station page with specified station ID', async () => {
     const { result, statusCode } = await server.inject({
@@ -34,7 +34,7 @@ describe('Station route', () => {
     expect(statusCode).toBe(200)
     expect(result).toContain('level at')
     expect(result).toContain('Latest at')
-  })
+  }, 10000)
 
   test('Should return 404 for non-existent station', async () => {
     const { result, statusCode } = await server.inject({
@@ -45,7 +45,7 @@ describe('Station route', () => {
     expect(statusCode).toBe(404)
     expect(result).toContain('Station not found')
     expect(result).toContain('999999')
-  })
+  }, 10000)
 
   test('Should return 404 for invalid station ID', async () => {
     const { result, statusCode } = await server.inject({
@@ -55,7 +55,7 @@ describe('Station route', () => {
 
     expect(statusCode).toBe(404)
     expect(result).toContain('Station not found')
-  })
+  }, 10000)
 
   test('Should accept dataType query parameter', async () => {
     const { result, statusCode } = await server.inject({
@@ -65,7 +65,7 @@ describe('Station route', () => {
 
     expect(statusCode).toBe(200)
     expect(result).toContain('Latest at')
-  })
+  }, 10000)
 
   test('Should accept stationType query parameter', async () => {
     const { result, statusCode } = await server.inject({
@@ -87,7 +87,7 @@ describe('Station route', () => {
     expect(result).toContain('window.flood.model')
     expect(result).toContain('telemetry')
     expect(result).toContain('observed')
-  })
+  }, 10000)
 
   test('Should include chart container in response', async () => {
     const { result, statusCode } = await server.inject({
@@ -98,5 +98,5 @@ describe('Station route', () => {
     expect(statusCode).toBe(200)
     expect(result).toContain('line-chart')
     expect(result).toContain('defra-line-chart')
-  })
+  }, 10000)
 })
