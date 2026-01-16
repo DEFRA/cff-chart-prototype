@@ -75,7 +75,7 @@ describe('Station route', () => {
 
     expect(statusCode).toBe(200)
     expect(result).toContain('level at')
-  })
+  }, 10000) // Increase timeout for slow API calls
 
   test('Should include telemetry data in response', async () => {
     const { result, statusCode } = await server.inject({
