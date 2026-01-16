@@ -110,7 +110,7 @@ describe('secureContext', () => {
 
     test('Should log about not finding any TRUSTSTORE_ certs', () => {
       expect(server.logger.info).toHaveBeenCalledWith(
-        'Could not find any TRUSTSTORE_ certificates'
+        'Could not find any TRUSTSTORE_ certificates, using default CA certificates'
       )
     })
   })

@@ -16,7 +16,9 @@ export const secureContext = {
           const trustStoreCerts = getTrustStoreCerts(process.env)
 
           if (!trustStoreCerts.length) {
-            server.logger.info('Could not find any TRUSTSTORE_ certificates')
+            server.logger.info('Could not find any TRUSTSTORE_ certificates, using default CA certificates')
+            // Return default secure context if no custom certs are found
+            return originalTlsCreateSecureContext(options)
           }
 
           const tlsSecureContext = originalTlsCreateSecureContext(options)
