@@ -9,7 +9,7 @@ import { extent, bisector } from 'd3-array'
 
 const DISPLAYED_HOUR_ON_X_AXIS = 6
 
-export function LineChart (containerId, stationId, data, options = {}) {
+export function LineChart(containerId, stationId, data, options = {}) {
   const container = document.getElementById(containerId)
 
   if (!container) {
@@ -250,7 +250,10 @@ export function LineChart (containerId, stationId, data, options = {}) {
     lines = []
 
     if (dataCache.observed && dataCache.observed.length) {
-      dataCache.observed = simplify(dataCache.observed, dataCache.type === 'tide' ? 10000000 : 1000000)
+      // Don't simplify river data to preserve 15-minute intervals
+      if (dataCache.type !== 'river') {
+        dataCache.observed = simplify(dataCache.observed, dataCache.type === 'tide' ? 10000000 : 1000000)
+      }
       const errorFilter = l => !l.err
       const errorAndNegativeFilter = l => errorFilter(l)
       const filterNegativeValues = ['groundwater', 'tide', 'sea'].includes(dataCache.type) ? errorFilter : errorAndNegativeFilter
@@ -258,7 +261,10 @@ export function LineChart (containerId, stationId, data, options = {}) {
       dataPoint = lines[lines.length - 1] || null
     }
     if (dataCache.forecast && dataCache.forecast.length) {
-      dataCache.forecast = simplify(dataCache.forecast, dataCache.type === 'tide' ? 10000000 : 1000000)
+      // Don't simplify river forecast data to preserve 15-minute intervals
+      if (dataCache.type !== 'river') {
+        dataCache.forecast = simplify(dataCache.forecast, dataCache.type === 'tide' ? 10000000 : 1000000)
+      }
       const latestTime = (new Date(dataCache.observed[0].dateTime).getTime())
       const forecastStartTime = (new Date(dataCache.forecast[0].dateTime).getTime())
       const latestValue = dataCache.observed[0].value
