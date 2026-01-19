@@ -10,12 +10,13 @@ export const index = [
     method: 'POST',
     path: '/station',
     handler: async function (request, h) {
-      const { dataType, stationType, stationId } = request.payload
+      const { dataType, stationType, stationId, chartStyle } = request.payload
 
       // Build query params
       const params = new URLSearchParams({
         dataType: dataType || 'existing',
-        stationType: stationType || 'S'
+        stationType: stationType || 'S',
+        chartStyle: chartStyle || 'styleA'
       })
 
       // Add stationId if provided

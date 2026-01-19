@@ -1,6 +1,7 @@
 {% extends "govuk/template.njk" %}
 
 {% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/phase-banner/macro.njk" import govukPhaseBanner %}
 
 {% set mainClasses = "app-main-wrapper" %}
 
@@ -29,6 +30,12 @@
 {% endblock %}
 
 {% block beforeContent %}
+  {{ govukPhaseBanner({
+    tag: {
+      text: "Prototype"
+    },
+    html: 'This is a prototype for testing ideas. It is not a real service.'
+  }) }}
   {{ govukBackLink({
     text: "Back",
     href: "/"
@@ -118,6 +125,26 @@
 
 {# Chart Section #}
 <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible">
+
+{# Chart Style Indicator #}
+{% if chartStyle %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    <div class="govuk-notification-banner" role="region" aria-labelledby="govuk-notification-banner-title" data-module="govuk-notification-banner" style="background-color: #f3f2f1; border-color: #0b0c0c;">
+      <div class="govuk-notification-banner__content">
+        <p class="govuk-notification-banner__heading govuk-!-font-size-16" style="color: #0b0c0c;">
+          <strong>Chart Style: 
+            {% if chartStyle === 'styleA' %}A - Current design (5 days)
+            {% elif chartStyle === 'styleB' %}B - Date range selector (up to 5 years)
+            {% elif chartStyle === 'styleC' %}C - Interactive timeline
+            {% endif %}
+          </strong>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">

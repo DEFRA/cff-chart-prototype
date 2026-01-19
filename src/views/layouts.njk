@@ -1,4 +1,5 @@
 {% extends "govuk/template.njk" %}
+{% from "govuk/components/phase-banner/macro.njk" import govukPhaseBanner %}
 
 {% set mainClasses = "app-main-wrapper" %}
 
@@ -22,6 +23,12 @@
 {% endblock %}
 
 {% block beforeContent %}
+  {{ govukPhaseBanner({
+    tag: {
+      text: "Prototype"
+    },
+    html: 'This is a prototype for testing ideas. It is not a real service.'
+  }) }}
 {% endblock %}
 
 {% block content %}{% endblock %}
