@@ -54,12 +54,14 @@ export async function getStation (stationId) {
     console.log(`No station items found for ${stationId}`)
     return null
   } catch (error) {
-    console.error(`Error fetching station from ${url}:`, {
+    console.error(`Error fetching station from ${url}:`, JSON.stringify({
+      name: error.name,
       message: error.message,
-      cause: error.cause?.message || error.cause,
-      code: error.cause?.code,
-      stack: error.stack?.split('\n').slice(0, 5).join('\n')
-    })
+      cause: error.cause,
+      code: error.code,
+      errno: error.errno,
+      syscall: error.syscall
+    }, null, 2))
     return null
   }
 }
@@ -114,7 +116,12 @@ export async function getStationReadings (stationId, since = null) {
     console.log('Readings data:', data.items?.length, 'items')
     return data.items || []
   } catch (error) {
-    console.error('Error fetching readings:', error)
+    console.error('Error fetching readings:', JSON.stringify({
+      name: error.name,
+      message: error.message,
+      cause: error.cause,
+      code: error.code
+    }, null, 2))
     return []
   }
 }
