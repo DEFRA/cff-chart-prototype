@@ -19,7 +19,9 @@
 
     .grid {
       line {
-        stroke: #b1b4b6;
+        fill: none;
+        color: rgba(govuk.$govuk-text-colour, 0.1);
+        stroke: currentColor;
         stroke-width: 1;
         shape-rendering: crispEdges;
       }
@@ -31,6 +33,7 @@
 
     .axis {
       line {
+        color: govuk.$govuk-border-colour;
         stroke: #0b0c0c;
         stroke-width: 1;
         shape-rendering: crispEdges;
@@ -43,7 +46,27 @@
 
       text {
         fill: #0b0c0c;
-        font-size: 14px;
+        font-size: 16px;
+      }
+    }
+
+    .y.axis {
+      path {
+        stroke-width: 0;
+      }
+
+      .tick line {
+        stroke-width: 0;
+      }
+    }
+
+    .x.axis {
+      .tick line {
+        stroke-width: 0;
+      }
+
+      path {
+        stroke: govuk.$govuk-border-colour;
       }
     }
 
@@ -72,22 +95,22 @@
 
     .time-line {
       stroke: #0b0c0c;
-      stroke-width: 2;
-      stroke-dasharray: 3, 3;
+      stroke-width: 1;
+      shape-rendering: crispEdges;
     }
 
     .time-now-text {
       fill: #0b0c0c;
-      font-size: 12px;
+      font-size: 16px;
       text-anchor: middle;
       font-weight: bold;
     }
 
     .locator {
       &__line {
-        stroke: #0b0c0c;
-        stroke-width: 1;
-        opacity: 0;
+        stroke: #b1b4b6;
+        stroke-width: 0.25;
+        opacity: 1;
 
         &--visible {
           opacity: 1;
@@ -114,12 +137,6 @@
           opacity: 1;
         }
       }
-
-      &--forecast {
-        .locator-point {
-          stroke: #f47738;
-        }
-      }
     }
 
     .tooltip {
@@ -131,16 +148,18 @@
       }
 
       &-bg {
-        fill: #0b0c0c;
+        fill: #fff;
+        stroke: #0b0c0c;
+        stroke-width: 0.5;
       }
 
       &-text {
-        fill: #fff;
-        font-size: 14px;
+        fill: #0b0c0c;
+        font-size: 16px;
 
         &__strong {
           font-weight: 700;
-          font-size: 16px;
+          font-size: 18px;
         }
 
         &__small {
@@ -193,7 +212,7 @@
       }
 
       &--forecast circle {
-        stroke: #f47738;
+        stroke: #1d70b8;
       }
 
       text {

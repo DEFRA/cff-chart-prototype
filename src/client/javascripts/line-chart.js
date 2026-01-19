@@ -86,6 +86,13 @@ export function LineChart(containerId, stationId, data, options = {}) {
         .tickFormat('')
       )
 
+    // Remove grid lines after the latest data point
+    svg.select('.x.grid').selectAll('.tick').each(function (d) {
+      if (d > xExtent[1]) {
+        select(this).remove()
+      }
+    })
+
     // Grid lines don't have labels, so we don't need to remove anything from grid
 
     svg.select('.y.grid')
@@ -111,7 +118,7 @@ export function LineChart(containerId, stationId, data, options = {}) {
       .text(timeFormat('%-e %b')(new Date()))
 
     // Add height to locator line
-    svg.select('.locator-line').attr('y1', 0).attr('y2', height)
+    inner.select('.locator__line').attr('y1', 0).attr('y2', height)
 
     // Draw lines and areas
     if (dataCache.observed.length) {
@@ -202,6 +209,7 @@ export function LineChart(containerId, stationId, data, options = {}) {
     const isForecast = (new Date(dataPoint.dateTime)) > (new Date(dataCache.latestDateTime))
     locator.classed('locator--forecast', isForecast)
     locator.attr('transform', 'translate(' + locatorX + ',' + 0 + ')')
+    locator.select('.locator__line').attr('y2', height)
     locator.select('.locator-point').attr('transform', 'translate(' + 0 + ',' + locatorY + ')')
   }
 
@@ -222,10 +230,12 @@ export function LineChart(containerId, stationId, data, options = {}) {
 
   const setScaleX = () => {
     xExtent = extent(dataCache.observed.concat(dataCache.forecast), (d, i) => { return new Date(d.dateTime) })
-    // Don't extend beyond the last recorded time
-    xScaleInitial = scaleTime().domain(xExtent)
+    // Add padding to the right side (10% of the time range)
+    const timeRange = xExtent[1] - xExtent[0]
+    const paddedMax = new Date(xExtent[1].getTime() + (timeRange * 0.05))
+    xScaleInitial = scaleTime().domain([xExtent[0], paddedMax])
     xScaleInitial.range([0, width])
-    xScale = scaleTime().domain(xExtent)
+    xScale = scaleTime().domain([xExtent[0], paddedMax])
   }
 
   const setScaleY = () => {
@@ -340,8 +350,8 @@ export function LineChart(containerId, stationId, data, options = {}) {
   timeLabel.append('tspan').attr('class', 'time-now-text__date').attr('text-anchor', 'middle').attr('x', 0).attr('dy', '15')
 
   const locator = inner.append('g').attr('class', 'locator')
-  locator.append('line').attr('class', 'locator-line')
-  locator.append('circle').attr('r', 4.5).attr('class', 'locator-point')
+  locator.append('line').attr('class', 'locator__line').attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 0)
+  locator.append('circle').attr('r', 5).attr('class', 'locator-point')
 
   const significantContainer = mainGroup.append('g').attr('class', 'significant').attr('role', 'grid').append('g').attr('role', 'row')
 
@@ -387,7 +397,7 @@ export function LineChart(containerId, stationId, data, options = {}) {
   })
 
   svg.on('click', (e) => {
-    getDataPointByX(pointer(e)[0])
+    getDataPointByX(pointer(e)[0] - margin.left)
     showTooltip(pointer(e)[1])
   })
 
@@ -402,7 +412,7 @@ export function LineChart(containerId, stationId, data, options = {}) {
       return
     }
     interfaceType = 'mouse'
-    getDataPointByX(pointer(e)[0])
+    getDataPointByX(pointer(e)[0] - margin.left)
     showTooltip(pointer(e)[1])
   })
 
@@ -414,7 +424,7 @@ export function LineChart(containerId, stationId, data, options = {}) {
     if (!xScale) return
     const touchEvent = e.targetTouches[0]
     const elementOffsetX = svg.node().getBoundingClientRect().left
-    getDataPointByX(pointer(touchEvent)[0] - elementOffsetX)
+    getDataPointByX(pointer(touchEvent)[0] - elementOffsetX - margin.left)
     showTooltip(10)
   })
 
