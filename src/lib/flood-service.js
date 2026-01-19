@@ -28,19 +28,25 @@ export function proxyFetch (url, options = {}) {
  * Fetch station details by RLOI ID (Check for Flooding ID)
  */
 export async function getStation (stationId) {
+  const url = `${API_BASE_URL}/id/stations?RLOIid=${stationId}`
   try {
-    const response = await proxyFetch(`${API_BASE_URL}/id/stations?RLOIid=${stationId}`)
+    console.log(`Fetching station from: ${url}`)
+    const response = await proxyFetch(url)
+    console.log(`Station API response status: ${response.status} ${response.statusText}`)
+    
     if (!response.ok) {
-      throw new Error(`Failed to fetch station: ${response.statusText}`)
+      throw new Error(`Failed to fetch station: ${response.status} ${response.statusText}`)
     }
     const data = await response.json()
     // The API returns an array of stations in items
     if (data.items && data.items.length > 0) {
+      console.log(`Station data retrieved successfully for ${stationId}`)
       return data.items[0]
     }
+    console.log(`No station items found for ${stationId}`)
     return null
   } catch (error) {
-    console.error('Error fetching station:', error)
+    console.error(`Error fetching station from ${url}:`, error.message, error.cause)
     return null
   }
 }
@@ -49,14 +55,18 @@ export async function getStation (stationId) {
  * Fetch station readings/measurements
  */
 export async function getStationReadings (stationId, since = null) {
+  const stationUrl = `${API_BASE_URL}/id/stations?RLOIid=${stationId}`
   try {
     // First get the station to find its measures
-    const stationResponse = await proxyFetch(`${API_BASE_URL}/id/stations?RLOIid=${stationId}`)
+    console.log(`Fetching station for readings from: ${stationUrl}`)
+    const stationResponse = await proxyFetch(stationUrl)
     if (!stationResponse.ok) {
+      console.error(`Station fetch for readings failed: ${stationResponse.status} ${stationResponse.statusText}`)
       throw new Error('Station not found')
     }
     const stationData = await stationResponse.json()
     if (!stationData.items || stationData.items.length === 0) {
+      console.log(`No station items found for readings: ${stationId}`)
       return []
     }
 
