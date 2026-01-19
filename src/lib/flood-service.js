@@ -1,25 +1,68 @@
-import fetch from 'node-fetch'
+import { ProxyAgent } from 'undici'
 import { config } from '../config/config.js'
 
 const API_BASE_URL = config.get('api.floodMonitoring.baseUrl')
 
 /**
+ * Fetch via proxy using Node.js native fetch
+ * To use the fetch dispatcher option on Node.js native fetch, Node.js v18.2.0 or greater is required
+ */
+export function proxyFetch (url, options = {}) {
+  const proxyUrlConfig = config.get('httpProxy') // bound to HTTP_PROXY
+
+  if (!proxyUrlConfig) {
+    console.log(`[PROXY] No HTTP_PROXY set - using direct fetch for: ${url}`)
+    return fetch(url, options)
+  }
+
+  console.log(`[PROXY] Using proxy ${proxyUrlConfig} for: ${url}`)
+  try {
+    return fetch(url, {
+      ...options,
+      dispatcher: new ProxyAgent({
+        uri: proxyUrlConfig,
+        keepAliveTimeout: 10,
+        keepAliveMaxTimeout: 10
+      })
+    })
+  } catch (error) {
+    console.error(`[PROXY] Error setting up proxy for ${url}:`, error)
+    throw error
+  }
+}
+
+/**
  * Fetch station details by RLOI ID (Check for Flooding ID)
  */
-export async function getStation(stationId) {
+export async function getStation (stationId) {
+  const url = `${API_BASE_URL}/id/stations?RLOIid=${stationId}`
   try {
-    const response = await fetch(`${API_BASE_URL}/id/stations?RLOIid=${stationId}`)
+    console.log(`Fetching station from: ${url}`)
+    const response = await proxyFetch(url)
+    console.log(`Station API response status: ${response.status} ${response.statusText}`)
+    
     if (!response.ok) {
-      throw new Error(`Failed to fetch station: ${response.statusText}`)
+      const errorText = await response.text().catch(() => 'Unable to read error response')
+      throw new Error(`Failed to fetch station: ${response.status} ${response.statusText} - ${errorText}`)
     }
     const data = await response.json()
     // The API returns an array of stations in items
     if (data.items && data.items.length > 0) {
+      console.log(`Station data retrieved successfully for ${stationId}`)
       return data.items[0]
     }
+    console.log(`No station items found for ${stationId}`)
     return null
   } catch (error) {
-    console.error('Error fetching station:', error)
+    // Log everything on the error object
+    console.error(`Error fetching station from ${url}:`)
+    console.error('Error details:', error)
+    console.error('Error keys:', Object.keys(error))
+    console.error('Error cause:', error.cause)
+    if (error.cause) {
+      console.error('Cause keys:', Object.keys(error.cause))
+      console.error('Cause details:', JSON.stringify(error.cause, Object.getOwnPropertyNames(error.cause)))
+    }
     return null
   }
 }
@@ -27,15 +70,19 @@ export async function getStation(stationId) {
 /**
  * Fetch station readings/measurements
  */
-export async function getStationReadings(stationId, since = null) {
+export async function getStationReadings (stationId, since = null) {
+  const stationUrl = `${API_BASE_URL}/id/stations?RLOIid=${stationId}`
   try {
     // First get the station to find its measures
-    const stationResponse = await fetch(`${API_BASE_URL}/id/stations?RLOIid=${stationId}`)
+    console.log(`Fetching station for readings from: ${stationUrl}`)
+    const stationResponse = await proxyFetch(stationUrl)
     if (!stationResponse.ok) {
+      console.error(`Station fetch for readings failed: ${stationResponse.status} ${stationResponse.statusText}`)
       throw new Error('Station not found')
     }
     const stationData = await stationResponse.json()
     if (!stationData.items || stationData.items.length === 0) {
+      console.log(`No station items found for readings: ${stationId}`)
       return []
     }
 
@@ -59,7 +106,7 @@ export async function getStationReadings(stationId, since = null) {
     // Get all available readings - filtering happens in formatTelemetryData
     const url = `${API_BASE_URL}/data/readings?measure=${measureId}&_sorted&_limit=10000`
     console.log('Fetching readings from:', url)
-    const response = await fetch(url)
+    const response = await proxyFetch(url)
 
     if (!response.ok) {
       console.error('Readings API error:', response.status, response.statusText)
@@ -70,7 +117,12 @@ export async function getStationReadings(stationId, since = null) {
     console.log('Readings data:', data.items?.length, 'items')
     return data.items || []
   } catch (error) {
-    console.error('Error fetching readings:', error)
+    console.error('Error fetching readings:', JSON.stringify({
+      name: error.name,
+      message: error.message,
+      cause: error.cause,
+      code: error.code
+    }, null, 2))
     return []
   }
 }
@@ -175,7 +227,7 @@ export async function searchStations(query = {}) {
     if (query.riverName) params.append('riverName', query.riverName)
 
     const url = `${API_BASE_URL}/id/stations?${params.toString()}&_limit=50`
-    const response = await fetch(url)
+    const response = await proxyFetch(url)
 
     if (!response.ok) {
       throw new Error(`Failed to search stations: ${response.statusText}`)
