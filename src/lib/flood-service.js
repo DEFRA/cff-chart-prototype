@@ -7,7 +7,7 @@ const API_BASE_URL = config.get('api.floodMonitoring.baseUrl')
  * Fetch via proxy using Node.js native fetch
  * To use the fetch dispatcher option on Node.js native fetch, Node.js v18.2.0 or greater is required
  */
-function proxyFetch (url, options) {
+export function proxyFetch (url, options = {}) {
   const proxyUrlConfig = config.get('httpProxy') // bound to HTTP_PROXY
 
   if (!proxyUrlConfig) {

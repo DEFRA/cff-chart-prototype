@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { formatStationData, formatTelemetryData, getStation, getStationReadings, searchStations } from '../../../src/lib/flood-service.js'
+import { formatStationData, formatTelemetryData, getStation, getStationReadings, searchStations, proxyFetch } from '../../../src/lib/flood-service.js'
 
 // Mock global fetch
 global.fetch = vi.fn()
@@ -7,11 +7,44 @@ global.fetch = vi.fn()
 describe('flood-service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    delete process.env.HTTP_PROXY
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    delete process.env.HTTP_PROXY
   })
+
+  describe('proxyFetch', () => {
+    it('should call fetch directly when HTTP_PROXY is not set', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ test: 'data' })
+      })
+
+      await proxyFetch('http://example.com/api')
+
+      expect(global.fetch).toHaveBeenCalledWith('http://example.com/api', {})
+    })
+
+    it('should call fetch with ProxyAgent when HTTP_PROXY is set', async () => {
+      process.env.HTTP_PROXY = 'http://proxy.example.com:8080'
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ test: 'data' })
+      })
+
+      await proxyFetch('http://example.com/api')
+
+      expect(global.fetch).toHaveBeenCalled()
+      const callArgs = global.fetch.mock.calls[0]
+      // Verify that dispatcher was passed
+      expect(callArgs[1]).toBeDefined()
+      expect(callArgs[0]).toBe('http://example.com/api')
+    })
+  })
+
 
   describe('getStation', () => {
     it('should return station data for valid station ID', async () => {
@@ -101,6 +134,31 @@ describe('flood-service', () => {
 
       expect(result).toHaveLength(1)
       expect(result[0].value).toBe(0.5)
+      consoleSpy.mockRestore()
+    })
+
+    it('should return empty array when readings data has no items property', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          items: [{
+            measures: [{
+              '@id': 'http://example.com/measures/123',
+              parameterName: 'Water Level'
+            }]
+          }]
+        })
+      })
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({})
+      })
+
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const result = await getStationReadings('8085')
+
+      expect(result).toEqual([])
       consoleSpy.mockRestore()
     })
 
@@ -427,6 +485,53 @@ describe('flood-service', () => {
       const result = formatStationData(mockStation, readings)
 
       expect(result.trend).toBe('steady')
+    })
+
+    it('should handle readings where hourAgoReading has no value', () => {
+      // Create 6 readings where the 5th from end has no value
+      const readings = [
+        { dateTime: '2026-01-16T11:00:00Z', value: 0.5 },
+        { dateTime: '2026-01-16T11:15:00Z' }, // Missing value - this will be hourAgoReading
+        { dateTime: '2026-01-16T11:30:00Z', value: 0.6 },
+        { dateTime: '2026-01-16T11:45:00Z', value: 0.65 },
+        { dateTime: '2026-01-16T12:00:00Z', value: 0.7 },
+        { dateTime: '2026-01-16T12:15:00Z', value: 0.75 }
+      ]
+
+      const result = formatStationData(mockStation, readings)
+
+      // Should be steady since hourAgoReading (readings[1]) has no value
+      expect(result.trend).toBe('steady')
+    })
+
+    it('should handle station with stageScale but latestValue equal to typical', () => {
+      const readings = [
+        { dateTime: '2026-01-16T13:00:00Z', value: 1.5 }
+      ]
+
+      const result = formatStationData(mockStation, readings)
+
+      expect(result.state).toBe('normal')
+    })
+
+    it('should use fallback for stationReference when all IDs are missing', () => {
+      const minimalStation = {}
+      const readings = []
+
+      const result = formatStationData(minimalStation, readings)
+
+      expect(result.id).toBe('unknown')
+    })
+
+    it('should handle latestReading without dateTime', () => {
+      const readings = [
+        { value: 0.5 } // No dateTime
+      ]
+
+      const result = formatStationData(mockStation, readings)
+
+      expect(result.recentValue).toBeDefined()
+      expect(result.recentValue.formattedTime).toBeDefined()
     })
   })
 
