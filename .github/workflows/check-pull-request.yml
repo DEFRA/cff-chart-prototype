@@ -38,7 +38,7 @@ jobs:
         run: mkdir -p -m 777 coverage
 
       - name: Run Tests
-        run: npm test
+        run: npm test -- --coverage
       - name: Test Docker Image Build
         run: |
           set +e
