@@ -54,14 +54,15 @@ export async function getStation (stationId) {
     console.log(`No station items found for ${stationId}`)
     return null
   } catch (error) {
-    console.error(`Error fetching station from ${url}:`, JSON.stringify({
-      name: error.name,
-      message: error.message,
-      cause: error.cause,
-      code: error.code,
-      errno: error.errno,
-      syscall: error.syscall
-    }, null, 2))
+    // Log everything on the error object
+    console.error(`Error fetching station from ${url}:`)
+    console.error('Error details:', error)
+    console.error('Error keys:', Object.keys(error))
+    console.error('Error cause:', error.cause)
+    if (error.cause) {
+      console.error('Cause keys:', Object.keys(error.cause))
+      console.error('Cause details:', JSON.stringify(error.cause, Object.getOwnPropertyNames(error.cause)))
+    }
     return null
   }
 }
