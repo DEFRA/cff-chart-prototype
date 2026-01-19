@@ -18,11 +18,8 @@ export const healthCheck = {
       const testUrl = 'https://environment.data.gov.uk/flood-monitoring/id/stations?RLOIid=8085'
       request.logger.info(`Testing connectivity to: ${testUrl}`)
       
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000)
-      
-      const response = await proxyFetch(testUrl, { signal: controller.signal })
-      clearTimeout(timeoutId)
+      // No timeout - let it fail naturally to see the real error
+      const response = await proxyFetch(testUrl)
       
       results.externalApis.environmentAgency = {
         url: testUrl,

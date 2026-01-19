@@ -11,17 +11,24 @@ export function proxyFetch (url, options = {}) {
   const proxyUrlConfig = config.get('httpProxy') // bound to HTTP_PROXY
 
   if (!proxyUrlConfig) {
+    console.log(`[PROXY] No HTTP_PROXY set - using direct fetch for: ${url}`)
     return fetch(url, options)
   }
 
-  return fetch(url, {
-    ...options,
-    dispatcher: new ProxyAgent({
-      uri: proxyUrlConfig,
-      keepAliveTimeout: 10,
-      keepAliveMaxTimeout: 10
+  console.log(`[PROXY] Using proxy ${proxyUrlConfig} for: ${url}`)
+  try {
+    return fetch(url, {
+      ...options,
+      dispatcher: new ProxyAgent({
+        uri: proxyUrlConfig,
+        keepAliveTimeout: 10,
+        keepAliveMaxTimeout: 10
+      })
     })
-  })
+  } catch (error) {
+    console.error(`[PROXY] Error setting up proxy for ${url}:`, error)
+    throw error
+  }
 }
 
 /**
@@ -35,7 +42,8 @@ export async function getStation (stationId) {
     console.log(`Station API response status: ${response.status} ${response.statusText}`)
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch station: ${response.status} ${response.statusText}`)
+      const errorText = await response.text().catch(() => 'Unable to read error response')
+      throw new Error(`Failed to fetch station: ${response.status} ${response.statusText} - ${errorText}`)
     }
     const data = await response.json()
     // The API returns an array of stations in items
@@ -46,7 +54,12 @@ export async function getStation (stationId) {
     console.log(`No station items found for ${stationId}`)
     return null
   } catch (error) {
-    console.error(`Error fetching station from ${url}:`, error.message, error.cause)
+    console.error(`Error fetching station from ${url}:`, {
+      message: error.message,
+      cause: error.cause?.message || error.cause,
+      code: error.cause?.code,
+      stack: error.stack?.split('\n').slice(0, 5).join('\n')
+    })
     return null
   }
 }
