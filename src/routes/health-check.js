@@ -1,3 +1,5 @@
+import { proxyFetch } from '../lib/flood-service.js'
+
 /**
  * Extended health check endpoint that also tests external API connectivity
  */
@@ -19,7 +21,7 @@ export const healthCheck = {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 5000)
       
-      const response = await fetch(testUrl, { signal: controller.signal })
+      const response = await proxyFetch(testUrl, { signal: controller.signal })
       clearTimeout(timeoutId)
       
       results.externalApis.environmentAgency = {
@@ -38,7 +40,9 @@ export const healthCheck = {
       results.externalApis.environmentAgency = {
         reachable: false,
         error: error.message,
-        errorType: error.name
+        errorType: error.name,
+        errorCause: error.cause?.message || error.cause,
+        stack: error.stack?.split('\n').slice(0, 3).join('\n')
       }
     }
 
