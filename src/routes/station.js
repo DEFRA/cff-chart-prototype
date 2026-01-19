@@ -7,6 +7,8 @@ export const station = {
     const { dataType, stationType, stationId = '8085' } = request.query
 
     try {
+      request.logger.info(`Fetching station data for ID: ${stationId}`)
+      
       // Fetch real data from Environment Agency API
       const [stationData, readings] = await Promise.all([
         getStation(stationId),
@@ -14,6 +16,7 @@ export const station = {
       ])
 
       if (!stationData) {
+        request.logger.warn(`Station not found or API call failed for ID: ${stationId}`)
         return h.view('error.njk', {
           error: 'Station not found',
           message: `Could not find station with ID: ${stationId}`
