@@ -4,11 +4,11 @@ export const station = {
   method: 'GET',
   path: '/station',
   handler: async function (request, h) {
-    const { dataType, stationType, stationId = '8085' } = request.query
+    const { dataType, stationType, stationId = '8085', chartStyle = 'styleA' } = request.query
 
     try {
-      request.logger.info(`Fetching station data for ID: ${stationId}`)
-      
+      request.logger.info(`Fetching station data for ID: ${stationId}, style: ${chartStyle}`)
+
       // Fetch real data from Environment Agency API
       const [stationData, readings] = await Promise.all([
         getStation(stationId),
@@ -31,7 +31,8 @@ export const station = {
         station,
         telemetry,
         dataType: dataType || 'existing',
-        stationType: stationType || station.type
+        stationType: stationType || station.type,
+        chartStyle
       })
     } catch (error) {
       request.logger.error('Error loading station data:', error)

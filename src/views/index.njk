@@ -3,6 +3,7 @@
 {% from "govuk/components/radios/macro.njk" import govukRadios %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/phase-banner/macro.njk" import govukPhaseBanner %}
 
 {% set mainClasses = "app-main-wrapper" %}
 
@@ -26,6 +27,12 @@
 {% endblock %}
 
 {% block beforeContent %}
+  {{ govukPhaseBanner({
+    tag: {
+      text: "Prototype"
+    },
+    html: 'This is a prototype for testing ideas. It is not a real service.'
+  }) }}
 {% endblock %}
 
 {% block content %}  
@@ -93,6 +100,43 @@
           {
             value: "C",
             text: "C - Coastal"
+          }
+        ]
+      }) }}
+
+      {{ govukRadios({
+        name: "chartStyle",
+        fieldset: {
+          legend: {
+            text: "Chart style",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        hint: {
+          text: "Select which chart style variant to view"
+        },
+        items: [
+          {
+            value: "styleA",
+            text: "Style A - Current design (5 days of data)",
+            hint: {
+              text: "The existing implementation with 5 days of recent data"
+            },
+            checked: true
+          },
+          {
+            value: "styleB",
+            text: "Style B - Date range selector (up to 5 years)",
+            hint: {
+              text: "Includes a date range selector at the top to view historical data"
+            }
+          },
+          {
+            value: "styleC",
+            text: "Style C - Interactive timeline (up to 5 years)",
+            hint: {
+              text: "Drag the chart and use scroll wheel to navigate through historical data"
+            }
           }
         ]
       }) }}
