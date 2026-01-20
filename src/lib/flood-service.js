@@ -7,7 +7,7 @@ const API_BASE_URL = config.get('api.floodMonitoring.baseUrl')
  * Fetch via proxy using Node.js native fetch
  * To use the fetch dispatcher option on Node.js native fetch, Node.js v18.2.0 or greater is required
  */
-export function proxyFetch (url, options = {}) {
+export function proxyFetch(url, options = {}) {
   const proxyUrlConfig = config.get('httpProxy') // bound to HTTP_PROXY
 
   if (!proxyUrlConfig) {
@@ -34,13 +34,13 @@ export function proxyFetch (url, options = {}) {
 /**
  * Fetch station details by RLOI ID (Check for Flooding ID)
  */
-export async function getStation (stationId) {
+export async function getStation(stationId) {
   const url = `${API_BASE_URL}/id/stations?RLOIid=${stationId}`
   try {
     console.log(`Fetching station from: ${url}`)
     const response = await proxyFetch(url)
     console.log(`Station API response status: ${response.status} ${response.statusText}`)
-    
+
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unable to read error response')
       throw new Error(`Failed to fetch station: ${response.status} ${response.statusText} - ${errorText}`)
@@ -70,7 +70,7 @@ export async function getStation (stationId) {
 /**
  * Fetch station readings/measurements
  */
-export async function getStationReadings (stationId, since = null) {
+export async function getStationReadings(stationId, since = null) {
   const stationUrl = `${API_BASE_URL}/id/stations?RLOIid=${stationId}`
   try {
     // First get the station to find its measures
@@ -130,10 +130,15 @@ export async function getStationReadings (stationId, since = null) {
 /**
  * Format station data for the view
  */
-export function formatStationData (station, readings) {
+export function formatStationData(station, readings) {
   if (!station) return null
 
-  const latestReading = readings.length > 0 ? readings[readings.length - 1] : null
+  // Get the most recent reading by date (readings might not be sorted correctly)
+  const latestReading = readings.length > 0
+    ? readings.reduce((latest, current) =>
+      new Date(current.dateTime) > new Date(latest.dateTime) ? current : latest
+    )
+    : null
   const latestValue = latestReading?.value || 0
 
   // Calculate trend (simplified - compare to reading from 1 hour ago)
@@ -185,7 +190,7 @@ export function formatStationData (station, readings) {
 /**
  * Format readings for chart
  */
-export function formatTelemetryData (readings) {
+export function formatTelemetryData(readings) {
   // Filter to last 5 days only
   const fiveDaysAgo = new Date()
   fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5)
@@ -214,7 +219,7 @@ export function formatTelemetryData (readings) {
 /**
  * Search for stations
  */
-export async function searchStations (query = {}) {
+export async function searchStations(query = {}) {
   try {
     const params = new URLSearchParams()
     if (query.label) params.append('label', query.label)

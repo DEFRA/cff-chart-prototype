@@ -1,1 +1,10 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Check if npm is available
+if ! command -v npm &> /dev/null; then
+    echo "Warning: npm not found in PATH. Skipping pre-commit hook."
+    exit 0
+fi
+
 npm run git:pre-commit-hook
