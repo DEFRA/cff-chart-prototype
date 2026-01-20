@@ -204,8 +204,7 @@ function processData(dataCache) {
       processedObserved = simplify(processedObserved, tolerance)
     }
 
-    // Filter errors and negative values
-    const shouldFilterNegatives = !['groundwater', 'tide', 'sea'].includes(dataCache.type)
+    // Filter errors
     const filtered = processedObserved.filter(l => {
       if (l.err) return false
       return true
