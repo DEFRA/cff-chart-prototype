@@ -3,13 +3,8 @@ import { createServer } from '../../../../src/server.js'
 
 describe('Health Check Connectivity route', () => {
   let server
-  let originalProxyFetch
 
   beforeEach(async () => {
-    // Import and store original proxyFetch before mocking
-    const floodServiceModule = await import('../../../../src/lib/flood-service.js')
-    originalProxyFetch = floodServiceModule.proxyFetch
-
     server = await createServer()
     await server.initialize()
   })
