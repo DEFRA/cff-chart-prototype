@@ -567,7 +567,7 @@ describe('flood-service', () => {
 
     it('should mark all readings as not errors', () => {
       const readings = [
-        { dateTime: '2026-01-16T12:00:00Z', value: 0.5 }
+        { dateTime: '2026-01-20T12:00:00Z', value: 0.5 }
       ]
 
       const result = formatTelemetryData(readings)
