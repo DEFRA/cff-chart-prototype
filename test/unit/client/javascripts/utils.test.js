@@ -1,22 +1,31 @@
 import { describe, test, expect } from 'vitest'
 import { simplify, forEach } from '../../../../src/client/javascripts/utils.js'
 
+// Test constants
+const TEST_DATETIME = '2024-01-01T00:00:00Z'
+const DATETIME_01H = '2024-01-01T01:00:00Z'
+const DATETIME_02H = '2024-01-01T02:00:00Z'
+const DATETIME_03H = '2024-01-01T03:00:00Z'
+const DATETIME_04H = '2024-01-01T04:00:00Z'
+const TEST_ARRAY_SIZE = 3
+const EXPECTED_DOUBLED_SUM = 6
+
 describe('utils', () => {
   describe('forEach', () => {
     test('should iterate over array elements', () => {
-      const array = [1, 2, 3]
+      const array = [1, 2, TEST_ARRAY_SIZE]
       const result = []
 
       forEach(array, (item) => result.push(item * 2))
 
-      expect(result).toEqual([2, 4, 6])
+      expect(result).toEqual([2, 4, EXPECTED_DOUBLED_SUM])
     })
 
     test('should provide index to callback', () => {
       const array = ['a', 'b', 'c']
       const indices = []
 
-      forEach(array, (item, index) => indices.push(index))
+      forEach(array, (_item, index) => indices.push(index))
 
       expect(indices).toEqual([0, 1, 2])
     })
@@ -33,7 +42,7 @@ describe('utils', () => {
   describe('simplify', () => {
     test('should return original points if length <= 2', () => {
       const points = [
-        { dateTime: '2024-01-01T00:00:00Z', value: 1.0 }
+        { dateTime: TEST_DATETIME, value: 1 }
       ]
 
       const result = simplify(points, 0.1)
@@ -43,25 +52,25 @@ describe('utils', () => {
 
     test('should simplify line with Douglas-Peucker algorithm', () => {
       const points = [
-        { dateTime: '2024-01-01T00:00:00Z', value: 1.0 },
-        { dateTime: '2024-01-01T01:00:00Z', value: 1.1 },
-        { dateTime: '2024-01-01T02:00:00Z', value: 1.0 },
-        { dateTime: '2024-01-01T03:00:00Z', value: 0.9 },
-        { dateTime: '2024-01-01T04:00:00Z', value: 1.0 }
+        { dateTime: TEST_DATETIME, value: 1 },
+        { dateTime: DATETIME_01H, value: 1.1 },
+        { dateTime: DATETIME_02H, value: 1 },
+        { dateTime: DATETIME_03H, value: 0.9 },
+        { dateTime: DATETIME_04H, value: 1 }
       ]
 
       const result = simplify(points, 0.5)
 
       expect(result.length).toBeLessThanOrEqual(points.length)
       expect(result[0]).toEqual({ ...points[0], isSignificant: true })
-      expect(result[result.length - 1]).toEqual({ ...points[points.length - 1], isSignificant: true })
+      expect(result.at(-1)).toEqual({ ...points.at(-1), isSignificant: true })
     })
 
     test('should mark significant points', () => {
       const points = [
-        { dateTime: '2024-01-01T00:00:00Z', value: 1.0 },
-        { dateTime: '2024-01-01T01:00:00Z', value: 2.0 },
-        { dateTime: '2024-01-01T02:00:00Z', value: 1.0 }
+        { dateTime: TEST_DATETIME, value: 1 },
+        { dateTime: DATETIME_01H, value: 2 },
+        { dateTime: DATETIME_02H, value: 1 }
       ]
 
       const result = simplify(points, 0.1)
@@ -74,9 +83,9 @@ describe('utils', () => {
 
     test('should handle zero tolerance', () => {
       const points = [
-        { dateTime: '2024-01-01T00:00:00Z', value: 1.0 },
-        { dateTime: '2024-01-01T01:00:00Z', value: 1.1 },
-        { dateTime: '2024-01-01T02:00:00Z', value: 1.2 }
+        { dateTime: TEST_DATETIME, value: 1 },
+        { dateTime: DATETIME_01H, value: 1.1 },
+        { dateTime: DATETIME_02H, value: 1.2 }
       ]
 
       const result = simplify(points, 0)
@@ -86,17 +95,17 @@ describe('utils', () => {
 
     test('should preserve first and last points', () => {
       const points = [
-        { dateTime: '2024-01-01T00:00:00Z', value: 1.0 },
-        { dateTime: '2024-01-01T01:00:00Z', value: 5.0 },
-        { dateTime: '2024-01-01T02:00:00Z', value: 1.0 },
-        { dateTime: '2024-01-01T03:00:00Z', value: 5.0 },
-        { dateTime: '2024-01-01T04:00:00Z', value: 3.0 }
+        { dateTime: TEST_DATETIME, value: 1 },
+        { dateTime: DATETIME_01H, value: 5 },
+        { dateTime: DATETIME_02H, value: 1 },
+        { dateTime: DATETIME_03H, value: 5 },
+        { dateTime: DATETIME_04H, value: 3 }
       ]
 
-      const result = simplify(points, 1.0)
+      const result = simplify(points, 1)
 
       expect(result[0]).toEqual({ ...points[0], isSignificant: true })
-      expect(result[result.length - 1]).toEqual({ ...points[points.length - 1], isSignificant: true })
+      expect(result.at(-1)).toEqual({ ...points.at(-1), isSignificant: true })
     })
   })
 })
