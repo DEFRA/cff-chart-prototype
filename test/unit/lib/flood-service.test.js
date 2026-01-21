@@ -1,8 +1,20 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { formatStationData, formatTelemetryData, getStation, getStationReadings, searchStations, proxyFetch } from '../../../src/lib/flood-service.js'
 
+// Test constants
+const TEST_API_URL = 'http://example.com/api'
+const TEST_MEASURE_ID = 'http://example.com/measures/123'
+const NETWORK_ERROR_MESSAGE = 'Network error'
+const TEST_STATION_LABEL = 'Test Station'
+const SAMPLE_DATETIME_1 = '2026-01-16T12:00:00Z'
+const SAMPLE_DATETIME_2 = '2026-01-16T12:15:00Z'
+const SAMPLE_DATETIME_3 = '2026-01-16T12:30:00Z'
+const SAMPLE_DATETIME_4 = '2026-01-16T12:45:00Z'
+const SAMPLE_DATETIME_5 = '2026-01-16T13:00:00Z'
+const EXPECTED_READING_COUNT = 3
+
 // Mock global fetch
-global.fetch = vi.fn()
+globalThis.fetch = vi.fn()
 
 describe('flood-service', () => {
   beforeEach(() => {
@@ -17,43 +29,43 @@ describe('flood-service', () => {
 
   describe('proxyFetch', () => {
     it('should call fetch directly when HTTP_PROXY is not set', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ test: 'data' })
       })
 
-      await proxyFetch('http://example.com/api')
+      await proxyFetch(TEST_API_URL)
 
-      expect(global.fetch).toHaveBeenCalledWith('http://example.com/api', {})
+      expect(globalThis.fetch).toHaveBeenCalledWith(TEST_API_URL, {})
     })
 
     it('should call fetch with ProxyAgent when HTTP_PROXY is set', async () => {
       process.env.HTTP_PROXY = 'http://proxy.example.com:8080'
-      
-      global.fetch.mockResolvedValueOnce({
+
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ test: 'data' })
       })
 
-      await proxyFetch('http://example.com/api')
+      await proxyFetch(TEST_API_URL)
 
-      expect(global.fetch).toHaveBeenCalled()
-      const callArgs = global.fetch.mock.calls[0]
+      expect(globalThis.fetch).toHaveBeenCalled()
+      const callArgs = globalThis.fetch.mock.calls[0]
       // Verify that dispatcher was passed
       expect(callArgs[1]).toBeDefined()
-      expect(callArgs[0]).toBe('http://example.com/api')
+      expect(callArgs[0]).toBe(TEST_API_URL)
     })
   })
 
 
   describe('getStation', () => {
     it('should return station data for valid station ID', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           items: [{
             RLOIid: '8085',
-            label: 'Test Station',
+            label: TEST_STATION_LABEL,
             riverName: 'Test River'
           }]
         })
@@ -63,17 +75,17 @@ describe('flood-service', () => {
 
       expect(result).toMatchObject({
         RLOIid: '8085',
-        label: 'Test Station'
+        label: TEST_STATION_LABEL
       })
     })
 
     it('should return null when API response is not ok', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         statusText: 'Not Found'
       })
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       const result = await getStation('99999')
 
       expect(result).toBeNull()
@@ -82,7 +94,7 @@ describe('flood-service', () => {
     })
 
     it('should return null when no items in response', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ items: [] })
       })
@@ -93,9 +105,9 @@ describe('flood-service', () => {
     })
 
     it('should return null on fetch error', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'))
+      globalThis.fetch.mockRejectedValueOnce(new Error(NETWORK_ERROR_MESSAGE))
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       const result = await getStation('8085')
 
       expect(result).toBeNull()
@@ -107,12 +119,12 @@ describe('flood-service', () => {
   describe('getStationReadings', () => {
     it('should return readings for valid station', async () => {
       // First call for station data
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           items: [{
             measures: [{
-              '@id': 'http://example.com/measures/123',
+              '@id': TEST_MEASURE_ID,
               parameterName: 'Water Level'
             }]
           }]
@@ -120,16 +132,16 @@ describe('flood-service', () => {
       })
 
       // Second call for readings
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           items: [
-            { dateTime: '2026-01-16T12:00:00Z', value: 0.5 }
+            { dateTime: SAMPLE_DATETIME_1, value: 0.5 }
           ]
         })
       })
 
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { })
       const result = await getStationReadings('8085')
 
       expect(result).toHaveLength(1)
@@ -138,24 +150,24 @@ describe('flood-service', () => {
     })
 
     it('should return empty array when readings data has no items property', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           items: [{
             measures: [{
-              '@id': 'http://example.com/measures/123',
+              '@id': TEST_MEASURE_ID,
               parameterName: 'Water Level'
             }]
           }]
         })
       })
 
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({})
       })
 
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { })
       const result = await getStationReadings('8085')
 
       expect(result).toEqual([])
@@ -163,12 +175,12 @@ describe('flood-service', () => {
     })
 
     it('should return empty array when station not found', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         statusText: 'Not Found'
       })
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       const result = await getStationReadings('99999')
 
       expect(result).toEqual([])
@@ -176,7 +188,7 @@ describe('flood-service', () => {
     })
 
     it('should return empty array when station has no items', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ items: [] })
       })
@@ -187,7 +199,7 @@ describe('flood-service', () => {
     })
 
     it('should return empty array when station has no measures', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           items: [{ measures: [] }]
@@ -200,12 +212,12 @@ describe('flood-service', () => {
     })
 
     it('should return empty array when no level measure found', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           items: [{
             measures: [{
-              '@id': 'http://example.com/measures/123',
+              '@id': TEST_MEASURE_ID,
               parameterName: 'Flow'
             }]
           }]
@@ -218,25 +230,25 @@ describe('flood-service', () => {
     })
 
     it('should return empty array when readings API fails', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           items: [{
             measures: [{
-              '@id': 'http://example.com/measures/123',
+              '@id': TEST_MEASURE_ID,
               parameter: 'level'
             }]
           }]
         })
       })
 
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
         statusText: 'Server Error'
       })
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       const result = await getStationReadings('8085')
 
       expect(result).toEqual([])
@@ -246,7 +258,7 @@ describe('flood-service', () => {
     it('should return empty array on fetch error', async () => {
       global.fetch.mockRejectedValueOnce(new Error('Network error'))
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       const result = await getStationReadings('8085')
 
       expect(result).toEqual([])
@@ -256,7 +268,7 @@ describe('flood-service', () => {
 
   describe('searchStations', () => {
     it('should search stations with query parameters', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           items: [
@@ -273,7 +285,7 @@ describe('flood-service', () => {
     })
 
     it('should handle empty query object', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           items: []
@@ -286,12 +298,12 @@ describe('flood-service', () => {
     })
 
     it('should return empty array on API error', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         statusText: 'Bad Request'
       })
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       const result = await searchStations({ label: 'Test' })
 
       expect(result).toEqual([])
@@ -301,7 +313,7 @@ describe('flood-service', () => {
     it('should return empty array on fetch error', async () => {
       global.fetch.mockRejectedValueOnce(new Error('Network error'))
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       const result = await searchStations({ label: 'Test' })
 
       expect(result).toEqual([])
@@ -323,11 +335,11 @@ describe('flood-service', () => {
 
     it('should format station data with readings', () => {
       const readings = [
-        { dateTime: '2026-01-16T12:00:00Z', value: 0.5 },
-        { dateTime: '2026-01-16T12:15:00Z', value: 0.52 },
-        { dateTime: '2026-01-16T12:30:00Z', value: 0.54 },
-        { dateTime: '2026-01-16T12:45:00Z', value: 0.56 },
-        { dateTime: '2026-01-16T13:00:00Z', value: 0.58 }
+        { dateTime: SAMPLE_DATETIME_1, value: 0.5 },
+        { dateTime: SAMPLE_DATETIME_2, value: 0.52 },
+        { dateTime: SAMPLE_DATETIME_3, value: 0.54 },
+        { dateTime: SAMPLE_DATETIME_4, value: 0.56 },
+        { dateTime: SAMPLE_DATETIME_5, value: 0.58 }
       ]
 
       const result = formatStationData(mockStation, readings)
@@ -347,11 +359,11 @@ describe('flood-service', () => {
 
     it('should detect falling trend', () => {
       const readings = [
-        { dateTime: '2026-01-16T12:00:00Z', value: 1.0 },
-        { dateTime: '2026-01-16T12:15:00Z', value: 0.95 },
-        { dateTime: '2026-01-16T12:30:00Z', value: 0.90 },
-        { dateTime: '2026-01-16T12:45:00Z', value: 0.85 },
-        { dateTime: '2026-01-16T13:00:00Z', value: 0.80 }
+        { dateTime: SAMPLE_DATETIME_1, value: 1 },
+        { dateTime: SAMPLE_DATETIME_2, value: 0.95 },
+        { dateTime: SAMPLE_DATETIME_3, value: 0.9 },
+        { dateTime: SAMPLE_DATETIME_4, value: 0.85 },
+        { dateTime: SAMPLE_DATETIME_5, value: 0.8 }
       ]
 
       const result = formatStationData(mockStation, readings)
@@ -361,11 +373,11 @@ describe('flood-service', () => {
 
     it('should detect steady trend', () => {
       const readings = [
-        { dateTime: '2026-01-16T12:00:00Z', value: 0.5 },
-        { dateTime: '2026-01-16T12:15:00Z', value: 0.51 },
-        { dateTime: '2026-01-16T12:30:00Z', value: 0.50 },
-        { dateTime: '2026-01-16T12:45:00Z', value: 0.51 },
-        { dateTime: '2026-01-16T13:00:00Z', value: 0.50 }
+        { dateTime: SAMPLE_DATETIME_1, value: 0.5 },
+        { dateTime: SAMPLE_DATETIME_2, value: 0.51 },
+        { dateTime: SAMPLE_DATETIME_3, value: 0.5 },
+        { dateTime: SAMPLE_DATETIME_4, value: 0.51 },
+        { dateTime: SAMPLE_DATETIME_5, value: 0.5 }
       ]
 
       const result = formatStationData(mockStation, readings)
@@ -375,7 +387,7 @@ describe('flood-service', () => {
 
     it('should detect high state', () => {
       const readings = [
-        { dateTime: '2026-01-16T13:00:00Z', value: 2.0 }
+        { dateTime: SAMPLE_DATETIME_5, value: 2 }
       ]
 
       const result = formatStationData(mockStation, readings)
@@ -399,11 +411,11 @@ describe('flood-service', () => {
     it('should handle station without stageScale', () => {
       const stationWithoutScale = {
         RLOIid: 8085,
-        label: 'Test Station',
+        label: TEST_STATION_LABEL,
         riverName: 'Test River'
       }
       const readings = [
-        { dateTime: '2026-01-16T13:00:00Z', value: 0.5 }
+        { dateTime: SAMPLE_DATETIME_5, value: 0.5 }
       ]
 
       const result = formatStationData(stationWithoutScale, readings)
@@ -415,7 +427,7 @@ describe('flood-service', () => {
 
     it('should detect low state', () => {
       const readings = [
-        { dateTime: '2026-01-16T13:00:00Z', value: 0.1 }
+        { dateTime: SAMPLE_DATETIME_5, value: 0.1 }
       ]
 
       const result = formatStationData(mockStation, readings)
@@ -478,8 +490,8 @@ describe('flood-service', () => {
 
     it('should handle readings with less than 5 items for trend', () => {
       const readings = [
-        { dateTime: '2026-01-16T12:00:00Z', value: 0.5 },
-        { dateTime: '2026-01-16T12:15:00Z', value: 0.6 }
+        { dateTime: SAMPLE_DATETIME_1, value: 0.5 },
+        { dateTime: SAMPLE_DATETIME_2, value: 0.6 }
       ]
 
       const result = formatStationData(mockStation, readings)
@@ -494,8 +506,8 @@ describe('flood-service', () => {
         { dateTime: '2026-01-16T11:15:00Z' }, // Missing value - this will be hourAgoReading
         { dateTime: '2026-01-16T11:30:00Z', value: 0.6 },
         { dateTime: '2026-01-16T11:45:00Z', value: 0.65 },
-        { dateTime: '2026-01-16T12:00:00Z', value: 0.7 },
-        { dateTime: '2026-01-16T12:15:00Z', value: 0.75 }
+        { dateTime: SAMPLE_DATETIME_1, value: 0.7 },
+        { dateTime: SAMPLE_DATETIME_2, value: 0.75 }
       ]
 
       const result = formatStationData(mockStation, readings)
@@ -506,7 +518,7 @@ describe('flood-service', () => {
 
     it('should handle station with stageScale but latestValue equal to typical', () => {
       const readings = [
-        { dateTime: '2026-01-16T13:00:00Z', value: 1.5 }
+        { dateTime: SAMPLE_DATETIME_5, value: 1.5 }
       ]
 
       const result = formatStationData(mockStation, readings)
@@ -549,11 +561,11 @@ describe('flood-service', () => {
 
       const result = formatTelemetryData(readings)
 
-      expect(result.observed).toHaveLength(3)
+      expect(result.observed).toHaveLength(EXPECTED_READING_COUNT)
       expect(result.observed[0].value).toBe(0.5)
       expect(result.forecast).toHaveLength(0)
       expect(result.type).toBe('river')
-      expect(result.latestDateTime).toBe('2026-01-16T12:00:00Z')
+      expect(result.latestDateTime).toBe(SAMPLE_DATETIME_1)
 
       vi.useRealTimers()
     })
