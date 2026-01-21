@@ -16,7 +16,7 @@ const EXPECTED_READING_COUNT = 3
 // Mock global fetch
 globalThis.fetch = vi.fn()
 
-describe('flood-service', () => {
+describe('flood-service - proxyFetch', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     delete process.env.HTTP_PROXY
@@ -56,7 +56,16 @@ describe('flood-service', () => {
       expect(callArgs[0]).toBe(TEST_API_URL)
     })
   })
+})
 
+describe('flood-service - getStation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
 
   describe('getStation', () => {
     it('should return station data for valid station ID', async () => {
@@ -114,6 +123,16 @@ describe('flood-service', () => {
       expect(consoleSpy).toHaveBeenCalled()
       consoleSpy.mockRestore()
     })
+  })
+})
+
+describe('flood-service - getStationReadings', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   describe('getStationReadings', () => {
@@ -256,7 +275,7 @@ describe('flood-service', () => {
     })
 
     it('should return empty array on fetch error', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'))
+      globalThis.fetch.mockRejectedValueOnce(new Error(NETWORK_ERROR_MESSAGE))
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       const result = await getStationReadings('8085')
@@ -264,6 +283,16 @@ describe('flood-service', () => {
       expect(result).toEqual([])
       consoleSpy.mockRestore()
     })
+  })
+})
+
+describe('flood-service - searchStations', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   describe('searchStations', () => {
@@ -311,7 +340,7 @@ describe('flood-service', () => {
     })
 
     it('should return empty array on fetch error', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'))
+      globalThis.fetch.mockRejectedValueOnce(new Error(NETWORK_ERROR_MESSAGE))
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       const result = await searchStations({ label: 'Test' })
@@ -320,271 +349,310 @@ describe('flood-service', () => {
       consoleSpy.mockRestore()
     })
   })
+})
 
-  describe('formatStationData', () => {
-    const mockStation = {
-      RLOIid: 8085,
-      label: 'Teme at Knightsford Bridge',
-      riverName: 'River Teme',
-      stationType: 'S',
-      stageScale: {
-        typicalRangeHigh: 1.5,
-        typicalRangeLow: 0.2
-      }
+describe('formatStationData - Basic Operations', () => {
+  const mockStation = {
+    RLOIid: 8085,
+    label: 'Teme at Knightsford Bridge',
+    riverName: 'River Teme',
+    stationType: 'S',
+    stageScale: {
+      typicalRangeHigh: 1.5,
+      typicalRangeLow: 0.2
     }
+  }
 
-    it('should format station data with readings', () => {
-      const readings = [
-        { dateTime: SAMPLE_DATETIME_1, value: 0.5 },
-        { dateTime: SAMPLE_DATETIME_2, value: 0.52 },
-        { dateTime: SAMPLE_DATETIME_3, value: 0.54 },
-        { dateTime: SAMPLE_DATETIME_4, value: 0.56 },
-        { dateTime: SAMPLE_DATETIME_5, value: 0.58 }
-      ]
+  it('should format station data with readings', () => {
+    const readings = [
+      { dateTime: SAMPLE_DATETIME_1, value: 0.5 },
+      { dateTime: SAMPLE_DATETIME_2, value: 0.52 },
+      { dateTime: SAMPLE_DATETIME_3, value: 0.54 },
+      { dateTime: SAMPLE_DATETIME_4, value: 0.56 },
+      { dateTime: SAMPLE_DATETIME_5, value: 0.58 }
+    ]
 
-      const result = formatStationData(mockStation, readings)
+    const result = formatStationData(mockStation, readings)
 
-      expect(result).toMatchObject({
-        id: 8085,
-        name: 'Teme at Knightsford Bridge',
-        river: 'River Teme',
-        type: 'S',
-        recentValue: {
-          value: '0.58'
-        }
-      })
-      expect(result.trend).toBe('rising')
-      expect(result.state).toBe('normal')
-    })
-
-    it('should detect falling trend', () => {
-      const readings = [
-        { dateTime: SAMPLE_DATETIME_1, value: 1 },
-        { dateTime: SAMPLE_DATETIME_2, value: 0.95 },
-        { dateTime: SAMPLE_DATETIME_3, value: 0.9 },
-        { dateTime: SAMPLE_DATETIME_4, value: 0.85 },
-        { dateTime: SAMPLE_DATETIME_5, value: 0.8 }
-      ]
-
-      const result = formatStationData(mockStation, readings)
-
-      expect(result.trend).toBe('falling')
-    })
-
-    it('should detect steady trend', () => {
-      const readings = [
-        { dateTime: SAMPLE_DATETIME_1, value: 0.5 },
-        { dateTime: SAMPLE_DATETIME_2, value: 0.51 },
-        { dateTime: SAMPLE_DATETIME_3, value: 0.5 },
-        { dateTime: SAMPLE_DATETIME_4, value: 0.51 },
-        { dateTime: SAMPLE_DATETIME_5, value: 0.5 }
-      ]
-
-      const result = formatStationData(mockStation, readings)
-
-      expect(result.trend).toBe('steady')
-    })
-
-    it('should detect high state', () => {
-      const readings = [
-        { dateTime: SAMPLE_DATETIME_5, value: 2 }
-      ]
-
-      const result = formatStationData(mockStation, readings)
-
-      expect(result.state).toBe('high')
-    })
-
-    it('should handle empty readings', () => {
-      const result = formatStationData(mockStation, [])
-
-      expect(result.recentValue.value).toBe('0.00')
-      expect(result.trend).toBe('steady')
-    })
-
-    it('should return null for null station', () => {
-      const result = formatStationData(null, [])
-
-      expect(result).toBeNull()
-    })
-
-    it('should handle station without stageScale', () => {
-      const stationWithoutScale = {
-        RLOIid: 8085,
-        label: TEST_STATION_LABEL,
-        riverName: 'Test River'
+    expect(result).toMatchObject({
+      id: 8085,
+      name: 'Teme at Knightsford Bridge',
+      river: 'River Teme',
+      type: 'S',
+      recentValue: {
+        value: '0.58'
       }
-      const readings = [
-        { dateTime: SAMPLE_DATETIME_5, value: 0.5 }
-      ]
-
-      const result = formatStationData(stationWithoutScale, readings)
-
-      expect(result.state).toBe('normal')
-      expect(result.stateInformation).toBe('Data not available')
-      expect(result.hasPercentiles).toBe(false)
     })
+    expect(result.trend).toBe('rising')
+    expect(result.state).toBe('normal')
+  })
+})
 
-    it('should detect low state', () => {
-      const readings = [
-        { dateTime: SAMPLE_DATETIME_5, value: 0.1 }
-      ]
+describe('formatStationData - Trend Detection', () => {
+  const mockStation = {
+    RLOIid: 8085,
+    label: 'Teme at Knightsford Bridge',
+    riverName: 'River Teme',
+    stationType: 'S',
+    stageScale: {
+      typicalRangeHigh: 1.5,
+      typicalRangeLow: 0.2
+    }
+  }
 
-      const result = formatStationData(mockStation, readings)
+  it('should detect falling trend', () => {
+    const readings = [
+      { dateTime: SAMPLE_DATETIME_1, value: 1 },
+      { dateTime: SAMPLE_DATETIME_2, value: 0.95 },
+      { dateTime: SAMPLE_DATETIME_3, value: 0.9 },
+      { dateTime: SAMPLE_DATETIME_4, value: 0.85 },
+      { dateTime: SAMPLE_DATETIME_5, value: 0.8 }
+    ]
 
-      expect(result.state).toBe('low')
-    })
+    const result = formatStationData(mockStation, readings)
 
-    it('should use fallback values for missing station properties', () => {
-      const minimalStation = {
-        notation: '12345'
-      }
-      const readings = []
-
-      const result = formatStationData(minimalStation, readings)
-
-      expect(result.id).toBe('12345')
-      expect(result.name).toBe('Unknown')
-      expect(result.river).toBe('Unknown River')
-      expect(result.type).toBe('S')
-    })
-
-    it('should handle station with stationReference', () => {
-      const stationWithRef = {
-        stationReference: 'E8085',
-        town: 'Test Town'
-      }
-      const readings = []
-
-      const result = formatStationData(stationWithRef, readings)
-
-      expect(result.id).toBe('E8085')
-      expect(result.name).toBe('Test Town')
-    })
-
-    it('should handle station status Active', () => {
-      const activeStation = {
-        ...mockStation,
-        status: 'Active'
-      }
-      const readings = []
-
-      const result = formatStationData(activeStation, readings)
-
-      expect(result.isActive).toBe(true)
-      expect(result.status).toBe('active')
-    })
-
-    it('should handle station status Closed', () => {
-      const closedStation = {
-        ...mockStation,
-        status: 'Closed'
-      }
-      const readings = []
-
-      const result = formatStationData(closedStation, readings)
-
-      expect(result.isActive).toBe(false)
-      expect(result.status).toBe('closed')
-    })
-
-    it('should handle readings with less than 5 items for trend', () => {
-      const readings = [
-        { dateTime: SAMPLE_DATETIME_1, value: 0.5 },
-        { dateTime: SAMPLE_DATETIME_2, value: 0.6 }
-      ]
-
-      const result = formatStationData(mockStation, readings)
-
-      expect(result.trend).toBe('steady')
-    })
-
-    it('should handle readings where hourAgoReading has no value', () => {
-      // Create 6 readings where the 5th from end has no value
-      const readings = [
-        { dateTime: '2026-01-16T11:00:00Z', value: 0.5 },
-        { dateTime: '2026-01-16T11:15:00Z' }, // Missing value - this will be hourAgoReading
-        { dateTime: '2026-01-16T11:30:00Z', value: 0.6 },
-        { dateTime: '2026-01-16T11:45:00Z', value: 0.65 },
-        { dateTime: SAMPLE_DATETIME_1, value: 0.7 },
-        { dateTime: SAMPLE_DATETIME_2, value: 0.75 }
-      ]
-
-      const result = formatStationData(mockStation, readings)
-
-      // Should be steady since hourAgoReading (readings[1]) has no value
-      expect(result.trend).toBe('steady')
-    })
-
-    it('should handle station with stageScale but latestValue equal to typical', () => {
-      const readings = [
-        { dateTime: SAMPLE_DATETIME_5, value: 1.5 }
-      ]
-
-      const result = formatStationData(mockStation, readings)
-
-      expect(result.state).toBe('normal')
-    })
-
-    it('should use fallback for stationReference when all IDs are missing', () => {
-      const minimalStation = {}
-      const readings = []
-
-      const result = formatStationData(minimalStation, readings)
-
-      expect(result.id).toBe('unknown')
-    })
-
-    it('should handle latestReading without dateTime', () => {
-      const readings = [
-        { value: 0.5 } // No dateTime
-      ]
-
-      const result = formatStationData(mockStation, readings)
-
-      expect(result.recentValue).toBeDefined()
-      expect(result.recentValue.formattedTime).toBeDefined()
-    })
+    expect(result.trend).toBe('falling')
   })
 
-  describe('formatTelemetryData', () => {
-    it('should format telemetry data with 5-day filter', () => {
-      const now = new Date('2026-01-16T13:00:00Z')
-      const readings = [
-        { dateTime: '2026-01-10T12:00:00Z', value: 0.4 }, // 6 days ago - should be filtered
-        { dateTime: '2026-01-12T12:00:00Z', value: 0.5 }, // 4 days ago - included
-        { dateTime: '2026-01-15T12:00:00Z', value: 0.6 }, // 1 day ago - included
-        { dateTime: '2026-01-16T12:00:00Z', value: 0.7 } // today - included
-      ]
+  it('should detect steady trend', () => {
+    const readings = [
+      { dateTime: SAMPLE_DATETIME_1, value: 0.5 },
+      { dateTime: SAMPLE_DATETIME_2, value: 0.51 },
+      { dateTime: SAMPLE_DATETIME_3, value: 0.5 },
+      { dateTime: SAMPLE_DATETIME_4, value: 0.51 },
+      { dateTime: SAMPLE_DATETIME_5, value: 0.5 }
+    ]
 
-      vi.setSystemTime(now)
+    const result = formatStationData(mockStation, readings)
 
-      const result = formatTelemetryData(readings)
+    expect(result.trend).toBe('steady')
+  })
+})
 
-      expect(result.observed).toHaveLength(EXPECTED_READING_COUNT)
-      expect(result.observed[0].value).toBe(0.5)
-      expect(result.forecast).toHaveLength(0)
-      expect(result.type).toBe('river')
-      expect(result.latestDateTime).toBe(SAMPLE_DATETIME_1)
+describe('formatStationData - State Detection', () => {
+  const mockStation = {
+    RLOIid: 8085,
+    label: 'Teme at Knightsford Bridge',
+    riverName: 'River Teme',
+    stationType: 'S',
+    stageScale: {
+      typicalRangeHigh: 1.5,
+      typicalRangeLow: 0.2
+    }
+  }
 
-      vi.useRealTimers()
-    })
+  it('should detect high state', () => {
+    const readings = [
+      { dateTime: SAMPLE_DATETIME_5, value: 2 }
+    ]
 
-    it('should handle empty readings', () => {
-      const result = formatTelemetryData([])
+    const result = formatStationData(mockStation, readings)
 
-      expect(result.observed).toHaveLength(0)
-      expect(result.forecast).toHaveLength(0)
-    })
+    expect(result.state).toBe('high')
+  })
+})
 
-    it('should mark all readings as not errors', () => {
-      const readings = [
-        { dateTime: '2026-01-20T12:00:00Z', value: 0.5 }
-      ]
+describe('formatStationData - Edge Cases', () => {
+  const mockStation = {
+    RLOIid: 8085,
+    label: 'Teme at Knightsford Bridge',
+    riverName: 'River Teme',
+    stationType: 'S',
+    stageScale: {
+      typicalRangeHigh: 1.5,
+      typicalRangeLow: 0.2
+    }
+  }
 
-      const result = formatTelemetryData(readings)
+  it('should handle empty readings', () => {
+    const result = formatStationData(mockStation, [])
 
-      expect(result.observed[0].err).toBe(false)
-    })
+    expect(result.recentValue.value).toBe('0.00')
+    expect(result.trend).toBe('steady')
+  })
+
+  it('should return null for null station', () => {
+    const result = formatStationData(null, [])
+
+    expect(result).toBeNull()
+  })
+
+  it('should handle station without stageScale', () => {
+    const stationWithoutScale = {
+      RLOIid: 8085,
+      label: TEST_STATION_LABEL,
+      riverName: 'Test River'
+    }
+    const readings = [
+      { dateTime: SAMPLE_DATETIME_5, value: 0.5 }
+    ]
+
+    const result = formatStationData(stationWithoutScale, readings)
+
+    expect(result.state).toBe('normal')
+    expect(result.stateInformation).toBe('Data not available')
+    expect(result.hasPercentiles).toBe(false)
+  })
+
+  it('should detect low state', () => {
+    const readings = [
+      { dateTime: SAMPLE_DATETIME_5, value: 0.1 }
+    ]
+
+    const result = formatStationData(mockStation, readings)
+
+    expect(result.state).toBe('low')
+  })
+
+  it('should use fallback values for missing station properties', () => {
+    const minimalStation = {
+      notation: '12345'
+    }
+    const readings = []
+
+    const result = formatStationData(minimalStation, readings)
+
+    expect(result.id).toBe('12345')
+    expect(result.name).toBe('Unknown')
+    expect(result.river).toBe('Unknown River')
+    expect(result.type).toBe('S')
+  })
+
+  it('should handle station with stationReference', () => {
+    const stationWithRef = {
+      stationReference: 'E8085',
+      town: 'Test Town'
+    }
+    const readings = []
+
+    const result = formatStationData(stationWithRef, readings)
+
+    expect(result.id).toBe('E8085')
+    expect(result.name).toBe('Test Town')
+  })
+
+  it('should handle station status Active', () => {
+    const activeStation = {
+      ...mockStation,
+      status: 'Active'
+    }
+    const readings = []
+
+    const result = formatStationData(activeStation, readings)
+
+    expect(result.isActive).toBe(true)
+    expect(result.status).toBe('active')
+  })
+
+  it('should handle station status Closed', () => {
+    const closedStation = {
+      ...mockStation,
+      status: 'Closed'
+    }
+    const readings = []
+
+    const result = formatStationData(closedStation, readings)
+
+    expect(result.isActive).toBe(false)
+    expect(result.status).toBe('closed')
+  })
+
+  it('should handle readings with less than 5 items for trend', () => {
+    const readings = [
+      { dateTime: SAMPLE_DATETIME_1, value: 0.5 },
+      { dateTime: SAMPLE_DATETIME_2, value: 0.6 }
+    ]
+
+    const result = formatStationData(mockStation, readings)
+
+    expect(result.trend).toBe('steady')
+  })
+
+  it('should handle readings where hourAgoReading has no value', () => {
+    // Create 6 readings where the 5th from end has no value
+    const readings = [
+      { dateTime: '2026-01-16T11:00:00Z', value: 0.5 },
+      { dateTime: '2026-01-16T11:15:00Z' }, // Missing value - this will be hourAgoReading
+      { dateTime: '2026-01-16T11:30:00Z', value: 0.6 },
+      { dateTime: '2026-01-16T11:45:00Z', value: 0.65 },
+      { dateTime: SAMPLE_DATETIME_1, value: 0.7 },
+      { dateTime: SAMPLE_DATETIME_2, value: 0.75 }
+    ]
+
+    const result = formatStationData(mockStation, readings)
+
+    // Should be steady since hourAgoReading (readings[1]) has no value
+    expect(result.trend).toBe('steady')
+  })
+
+  it('should handle station with stageScale but latestValue equal to typical', () => {
+    const readings = [
+      { dateTime: SAMPLE_DATETIME_5, value: 1.5 }
+    ]
+
+    const result = formatStationData(mockStation, readings)
+
+    expect(result.state).toBe('normal')
+  })
+
+  it('should use fallback for stationReference when all IDs are missing', () => {
+    const minimalStation = {}
+    const readings = []
+
+    const result = formatStationData(minimalStation, readings)
+
+    expect(result.id).toBe('unknown')
+  })
+
+  it('should handle latestReading without dateTime', () => {
+    const readings = [
+      { value: 0.5 } // No dateTime
+    ]
+
+    const result = formatStationData(mockStation, readings)
+
+    expect(result.recentValue).toBeDefined()
+    expect(result.recentValue.formattedTime).toBeDefined()
+  })
+})
+
+describe('formatTelemetryData', () => {
+  it('should format telemetry data with 5-day filter', () => {
+    const now = new Date('2026-01-16T13:00:00Z')
+    const readings = [
+      { dateTime: '2026-01-10T12:00:00Z', value: 0.4 }, // 6 days ago - should be filtered
+      { dateTime: '2026-01-12T12:00:00Z', value: 0.5 }, // 4 days ago - included
+      { dateTime: '2026-01-15T12:00:00Z', value: 0.6 }, // 1 day ago - included
+      { dateTime: '2026-01-16T12:00:00Z', value: 0.7 } // today - included
+    ]
+
+    vi.setSystemTime(now)
+
+    const result = formatTelemetryData(readings)
+
+    expect(result.observed).toHaveLength(EXPECTED_READING_COUNT)
+    expect(result.observed[0].value).toBe(0.5)
+    expect(result.forecast).toHaveLength(0)
+    expect(result.type).toBe('river')
+    expect(result.latestDateTime).toBe(SAMPLE_DATETIME_1)
+
+    vi.useRealTimers()
+  })
+
+  it('should handle empty readings', () => {
+    const result = formatTelemetryData([])
+
+    expect(result.observed).toHaveLength(0)
+    expect(result.forecast).toHaveLength(0)
+  })
+
+  it('should mark all readings as not errors', () => {
+    const readings = [
+      { dateTime: '2026-01-20T12:00:00Z', value: 0.5 }
+    ]
+
+    const result = formatTelemetryData(readings)
+
+    expect(result.observed[0].err).toBe(false)
   })
 })

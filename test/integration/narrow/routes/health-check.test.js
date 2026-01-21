@@ -5,8 +5,9 @@ import { createServer } from '../../../../src/server.js'
 const HTTP_OK = 200
 const HTTP_NOT_FOUND = 404
 const HEALTH_CONNECTIVITY_PATH = '/health/connectivity'
+const NETWORK_ERROR_MESSAGE = 'Network error'
 
-describe('Health Check Connectivity route', () => {
+describe('Health Check Connectivity route - API reachable', () => {
   let server
 
   beforeEach(async () => {
@@ -44,13 +45,27 @@ describe('Health Check Connectivity route', () => {
     expect(result.externalApis.environmentAgency.status).toBe(HTTP_OK)
     expect(result.externalApis.environmentAgency.itemsCount).toBe(1)
   })
+})
+
+describe('Health Check Connectivity route - Edge cases', () => {
+  let server
+
+  beforeEach(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
+
+  afterEach(async () => {
+    await server.stop({ timeout: 0 })
+    vi.restoreAllMocks()
+  })
 
   test('Should handle API connectivity failure gracefully', async () => {
     const floodServiceModule = await import('../../../../src/lib/flood-service.js')
 
     // Mock network error
     vi.spyOn(floodServiceModule, 'proxyFetch').mockRejectedValueOnce(
-      new Error('Network error')
+      new Error(NETWORK_ERROR_MESSAGE)
     )
 
     const { result, statusCode } = await server.inject({
@@ -61,7 +76,7 @@ describe('Health Check Connectivity route', () => {
     expect(statusCode).toBe(HTTP_OK)
     expect(result.service).toBe('ok')
     expect(result.externalApis.environmentAgency.reachable).toBe(false)
-    expect(result.externalApis.environmentAgency.error).toBe('Network error')
+    expect(result.externalApis.environmentAgency.error).toBe(NETWORK_ERROR_MESSAGE)
     expect(result.externalApis.environmentAgency.errorType).toBe('Error')
   })
 
@@ -108,6 +123,82 @@ describe('Health Check Connectivity route', () => {
     expect(result.externalApis.environmentAgency.itemsCount).toBe(0)
   })
 
+  test('Should include timestamp in response', async () => {
+    const floodServiceModule = await import('../../../../src/lib/flood-service.js')
+
+    vi.spyOn(floodServiceModule, 'proxyFetch').mockResolvedValueOnce({
+      ok: true,
+      status: HTTP_OK,
+      statusText: 'OK',
+      json: async () => ({ items: [] })
+    })
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: HEALTH_CONNECTIVITY_PATH
+    })
+
+    expect(statusCode).toBe(HTTP_OK)
+    expect(result.timestamp).toBeDefined()
+    expect(new Date(result.timestamp).toString()).not.toBe('Invalid Date')
+  })
+})
+
+describe('Health Check Connectivity route - Error cases', () => {
+  let server
+
+  beforeEach(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
+
+  afterEach(async () => {
+    await server.stop({ timeout: 0 })
+    vi.restoreAllMocks()
+  })
+
+  test('Should handle API connectivity failure gracefully', async () => {
+    const floodServiceModule = await import('../../../../src/lib/flood-service.js')
+
+    // Mock network error
+    vi.spyOn(floodServiceModule, 'proxyFetch').mockRejectedValueOnce(
+      new Error(NETWORK_ERROR_MESSAGE)
+    )
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: HEALTH_CONNECTIVITY_PATH
+    })
+
+    expect(statusCode).toBe(HTTP_OK)
+    expect(result.service).toBe('ok')
+    expect(result.externalApis.environmentAgency.reachable).toBe(false)
+    expect(result.externalApis.environmentAgency.error).toBe(NETWORK_ERROR_MESSAGE)
+    expect(result.externalApis.environmentAgency.errorType).toBe('Error')
+  })
+
+  test('Should handle API returning non-ok status', async () => {
+    const floodServiceModule = await import('../../../../src/lib/flood-service.js')
+
+    // Mock 404 response
+    vi.spyOn(floodServiceModule, 'proxyFetch').mockResolvedValueOnce({
+      ok: false,
+      status: HTTP_NOT_FOUND,
+      statusText: 'Not Found',
+      json: async () => ({ error: 'Not found' })
+    })
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: HEALTH_CONNECTIVITY_PATH
+    })
+
+    expect(statusCode).toBe(HTTP_OK)
+    expect(result.service).toBe('ok')
+    expect(result.externalApis.environmentAgency.reachable).toBe(false)
+    expect(result.externalApis.environmentAgency.status).toBe(HTTP_NOT_FOUND)
+  })
+
   test('Should handle API returning malformed JSON', async () => {
     const floodServiceModule = await import('../../../../src/lib/flood-service.js')
 
@@ -128,26 +219,6 @@ describe('Health Check Connectivity route', () => {
     expect(result.service).toBe('ok')
     expect(result.externalApis.environmentAgency.reachable).toBe(false)
     expect(result.externalApis.environmentAgency.error).toBe('Invalid JSON')
-  })
-
-  test('Should include timestamp in response', async () => {
-    const floodServiceModule = await import('../../../../src/lib/flood-service.js')
-
-    vi.spyOn(floodServiceModule, 'proxyFetch').mockResolvedValueOnce({
-      ok: true,
-      status: HTTP_OK,
-      statusText: 'OK',
-      json: async () => ({ items: [] })
-    })
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: HEALTH_CONNECTIVITY_PATH
-    })
-
-    expect(statusCode).toBe(HTTP_OK)
-    expect(result.timestamp).toBeDefined()
-    expect(new Date(result.timestamp).toString()).not.toBe('Invalid Date')
   })
 
   test('Should include error stack in failure response', async () => {
