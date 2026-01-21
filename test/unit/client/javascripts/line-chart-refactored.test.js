@@ -325,7 +325,6 @@ describe('line-chart-refactored - Data Processing Helpers', () => {
     })
 
     test('should adjust margin based on number of characters', () => {
-      const isMobile = false
       const MARGIN_CHAR_MULTIPLIER = 9
       const DESKTOP_MARGIN_RIGHT_BASE = 36
 
