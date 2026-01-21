@@ -350,9 +350,8 @@ function renderSignificantPoints(container, observedPoints, forecastPoints, xSca
  */
 function createTooltipManager(tooltipConfig) {
   const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, xScale, yScale, height, dataType, latestDateTime } = tooltipConfig
-  let currentDataPoint = null
 
-  function setPosition(x, y) {
+  function setPosition(x, y, dataPoint) {
     const text = tooltip.select('text')
     const txtHeight = Math.round(text.node().getBBox().height) + TOOLTIP_TEXT_HEIGHT_OFFSET
     const pathLength = TOOLTIP_PATH_LENGTH
@@ -374,14 +373,18 @@ function createTooltipManager(tooltipConfig) {
       y = tooltipMarginTop
     } else if (y > tooltipMarginBottom) {
       y = tooltipMarginBottom
-    } else {
-      // y is within bounds, no adjustment needed
-
-      locator.classed('locator--forecast', isForecast)
-      locator.attr('transform', `translate(${locatorX},0)`)
-      locator.select('.locator__line').attr('y2', height)
-      locator.select('.locator-point').attr('transform', `translate(0,${locatorY})`)
     }
+
+    tooltip.attr('transform', `translate(${x.toFixed(0)},${y.toFixed(0)})`)
+    tooltip.classed('tooltip--visible', true)
+
+    const locatorX = Math.floor(xScale(new Date(dataPoint.dateTime)))
+    const locatorY = Math.floor(yScale(dataType === 'river' && dataPoint.value < 0 ? 0 : dataPoint.value))
+    const isForecast = (new Date(dataPoint.dateTime)) > (new Date(latestDateTime))
+    locator.classed('locator--forecast', isForecast)
+    locator.attr('transform', `translate(${locatorX},0)`)
+    locator.select('.locator__line').attr('y2', height)
+    locator.select('.locator-point').attr('transform', `translate(0,${locatorY})`)
   }
 
   function show(dataPoint, tooltipY = DEFAULT_TOOLTIP_Y) {
@@ -389,7 +392,6 @@ function createTooltipManager(tooltipConfig) {
       return
     }
 
-    currentDataPoint = dataPoint
     const value = dataType === 'river' && (Math.round(dataPoint.value * 100) / 100) <= 0 ? '0' : dataPoint.value.toFixed(2)
 
     tooltipValue.text(`${value}m`)
@@ -398,20 +400,15 @@ function createTooltipManager(tooltipConfig) {
     locator.classed('locator--visible', true)
 
     const tooltipX = xScale(new Date(dataPoint.dateTime))
-    setPosition(tooltipX, tooltipY)
+    setPosition(tooltipX, tooltipY, dataPoint)
   }
 
   function hide() {
     tooltip.classed('tooltip--visible', false)
     locator.classed('locator--visible', false)
-    currentDataPoint = null
   }
 
-  function setDataPoint(dataPoint) {
-    currentDataPoint = dataPoint
-  }
-
-  return { show, hide, setDataPoint }
+  return { show, hide }
 }
 
 /**
