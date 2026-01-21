@@ -10,7 +10,10 @@ import { extent, bisector } from 'd3-array'
 const DISPLAYED_HOUR_ON_X_AXIS = 6
 const Y_AXIS_CLASS = '.y.axis'
 const TEXT_ANCHOR_START = 'start'
+const TEXT_ANCHOR_MIDDLE = 'middle'
+const TEXT_ANCHOR_ATTR = 'text-anchor'
 const ARIA_HIDDEN = true
+const ARIA_HIDDEN_STRING = 'aria-hidden'
 const RANGE_BUFFER_DIVISOR = 3
 const MIN_RANGE_VALUE = 1
 const TIME_RANGE_PADDING = 0.05
@@ -140,7 +143,7 @@ function renderAxes(svg, xScale, yScale, width, height, _isMobile) {
   removeLastTickLabel(svg)
 
   // Position Y axis ticks
-  svg.select(Y_AXIS_CLASS).style('text-anchor', TEXT_ANCHOR_START)
+  svg.select(Y_AXIS_CLASS).style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
   svg.selectAll(`${Y_AXIS_CLASS} .tick line`).attr('x1', TICK_OFFSET_X1).attr('x2', DISPLAYED_HOUR_ON_X_AXIS)
   svg.selectAll(`${Y_AXIS_CLASS} .tick text`).attr('x', TICK_TEXT_OFFSET_X)
 }
@@ -227,51 +230,64 @@ function hideOverlappingTicks(timeLabel) {
 }
 
 /**
+ * Simplify data based on type
+ */
+function simplifyByType(data, dataType) {
+  if (dataType === 'river') {
+    return data
+  }
+  const tolerance = dataType === 'tide' ? TOLERANCE_TIDE : TOLERANCE_DEFAULT
+  return simplify(data, tolerance)
+}
+
+/**
+ * Mark first forecast as significant if different from last observed
+ */
+function markFirstForecastSignificance(observed, forecast) {
+  if (!observed || observed.length === 0) {
+    return
+  }
+  const latestObserved = observed[0]
+  const firstForecast = forecast[0]
+  const isSame = new Date(latestObserved.dateTime).getTime() === new Date(firstForecast.dateTime).getTime() &&
+    latestObserved.value === firstForecast.value
+  forecast[0].isSignificant = !isSame
+}
+
+/**
+ * Process observed data points
+ */
+function processObservedData(observed, dataType) {
+  const processed = simplifyByType(observed, dataType)
+  const filtered = processed.filter(l => !l.err)
+  return filtered.map(l => ({ ...l, type: 'observed' })).reverse()
+}
+
+/**
+ * Process forecast data points
+ */
+function processForecastData(forecast, dataType, observed) {
+  const processed = simplifyByType(forecast, dataType)
+  markFirstForecastSignificance(observed, processed)
+  return processed.map(l => ({ ...l, type: 'forecast' }))
+}
+
+/**
  * Process and filter data for rendering
  */
 function processData(dataCache) {
-  let lines = []
   let observedPoints = []
   let forecastPoints = []
 
   if (dataCache.observed?.length) {
-    let processedObserved = dataCache.observed
-
-    // Simplify non-river data
-    if (dataCache.type !== 'river') {
-      const tolerance = dataCache.type === 'tide' ? TOLERANCE_TIDE : TOLERANCE_DEFAULT
-      processedObserved = simplify(processedObserved, tolerance)
-    }
-
-    // Filter errors
-    const filtered = processedObserved.filter(l => !l.err)
-
-    observedPoints = filtered.map(l => ({ ...l, type: 'observed' })).reverse()
-    lines = observedPoints
+    observedPoints = processObservedData(dataCache.observed, dataCache.type)
   }
 
   if (dataCache.forecast?.length) {
-    let processedForecast = dataCache.forecast
-
-    // Simplify non-river data
-    if (dataCache.type !== 'river') {
-      const tolerance = dataCache.type === 'tide' ? TOLERANCE_TIDE : TOLERANCE_DEFAULT
-      processedForecast = simplify(processedForecast, tolerance)
-    }
-
-    // Mark first forecast point as significant if different from last observed
-    if (dataCache.observed && dataCache.observed.length > 0) {
-      const latestObserved = dataCache.observed[0]
-      const firstForecast = processedForecast[0]
-      const isSame = new Date(latestObserved.dateTime).getTime() === new Date(firstForecast.dateTime).getTime() &&
-        latestObserved.value === firstForecast.value
-      processedForecast[0].isSignificant = !isSame
-    }
-
-    forecastPoints = processedForecast.map(l => ({ ...l, type: 'forecast' }))
-    lines = lines.concat(forecastPoints)
+    forecastPoints = processForecastData(dataCache.forecast, dataCache.type, dataCache.observed)
   }
 
+  const lines = observedPoints.concat(forecastPoints)
   return { lines, observedPoints, forecastPoints }
 }
 
@@ -327,7 +343,7 @@ function renderSignificantPoints(container, observedPoints, forecastPoints, xSca
     .attr('data-index', (_d, i) => i)
 
   cells.append('circle')
-    .attr('aria-hidden', ARIA_HIDDEN)
+    .attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
     .attr('r', '5')
     .attr('cx', d => xScale(new Date(d.dateTime)))
     .attr('cy', d => yScale(d.value))
@@ -373,6 +389,8 @@ function createTooltipManager(tooltipConfig) {
       y = tooltipMarginTop
     } else if (y > tooltipMarginBottom) {
       y = tooltipMarginBottom
+    } else {
+      // y is within bounds, no adjustment needed
     }
 
     tooltip.attr('transform', `translate(${x.toFixed(0)},${y.toFixed(0)})`)
@@ -453,12 +471,12 @@ function initializeSVG(containerId) {
 
   const mainGroup = svg.append('g').attr('class', 'chart-main')
 
-  mainGroup.append('g').attr('class', 'y grid').attr('aria-hidden', ARIA_HIDDEN)
-  mainGroup.append('g').attr('class', 'x grid').attr('aria-hidden', ARIA_HIDDEN)
-  mainGroup.append('g').attr('class', 'x axis').attr('aria-hidden', ARIA_HIDDEN)
-  mainGroup.append('g').attr('class', 'y axis').attr('aria-hidden', ARIA_HIDDEN).style('text-anchor', TEXT_ANCHOR_START)
+  mainGroup.append('g').attr('class', 'y grid').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  mainGroup.append('g').attr('class', 'x grid').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  mainGroup.append('g').attr('class', 'x axis').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  mainGroup.append('g').attr('class', 'y axis').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN).style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
 
-  const inner = mainGroup.append('g').attr('class', 'inner').attr('aria-hidden', ARIA_HIDDEN)
+  const inner = mainGroup.append('g').attr('class', 'inner').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   inner.append('g').attr('class', 'observed observed-focus')
   inner.append('g').attr('class', 'forecast')
   inner.select('.observed').append('path').attr('class', 'observed-area')
@@ -466,10 +484,10 @@ function initializeSVG(containerId) {
   inner.select('.forecast').append('path').attr('class', 'forecast-area')
   inner.select('.forecast').append('path').attr('class', 'forecast-line')
 
-  const timeLine = mainGroup.append('line').attr('class', 'time-line').attr('aria-hidden', ARIA_HIDDEN)
-  const timeLabel = mainGroup.append('text').attr('class', 'time-now-text').attr('aria-hidden', ARIA_HIDDEN)
-  timeLabel.append('tspan').attr('class', 'time-now-text__time').attr('text-anchor', 'middle').attr('x', 0)
-  timeLabel.append('tspan').attr('class', 'time-now-text__date').attr('text-anchor', 'middle').attr('x', 0).attr('dy', TIME_NOW_TSPAN_DY)
+  const timeLine = mainGroup.append('line').attr('class', 'time-line').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  const timeLabel = mainGroup.append('text').attr('class', 'time-now-text').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  timeLabel.append('tspan').attr('class', 'time-now-text__time').attr(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_MIDDLE).attr('x', 0)
+  timeLabel.append('tspan').attr('class', 'time-now-text__date').attr(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_MIDDLE).attr('x', 0).attr('dy', TIME_NOW_TSPAN_DY)
 
   const locator = inner.append('g').attr('class', 'locator')
   locator.append('line').attr('class', 'locator__line').attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 0)
@@ -477,7 +495,7 @@ function initializeSVG(containerId) {
 
   const significantContainer = mainGroup.append('g').attr('class', 'significant').attr('role', 'grid').append('g').attr('role', 'row')
 
-  const tooltip = mainGroup.append('g').attr('class', 'tooltip').attr('aria-hidden', ARIA_HIDDEN)
+  const tooltip = mainGroup.append('g').attr('class', 'tooltip').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   const tooltipPath = tooltip.append('path').attr('class', 'tooltip-bg')
   const tooltipText = tooltip.append('text').attr('class', 'tooltip-text')
   const tooltipValue = tooltipText.append('tspan').attr('class', 'tooltip-text__strong').attr('x', TOOLTIP_TEXT_X_OFFSET).attr('dy', TSPAN_DY_OFFSET)
