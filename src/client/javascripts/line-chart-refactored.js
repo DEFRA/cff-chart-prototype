@@ -8,6 +8,45 @@ import { select, selectAll, pointer } from 'd3-selection'
 import { extent, bisector } from 'd3-array'
 
 const DISPLAYED_HOUR_ON_X_AXIS = 6
+const Y_AXIS_CLASS = '.y.axis'
+const TEXT_ANCHOR_START = 'start'
+const TEXT_ANCHOR_MIDDLE = 'middle'
+const TEXT_ANCHOR_ATTR = 'text-anchor'
+const ARIA_HIDDEN = true
+const ARIA_HIDDEN_STRING = 'aria-hidden'
+const RANGE_BUFFER_DIVISOR = 3
+const MIN_RANGE_VALUE = 1
+const TIME_RANGE_PADDING = 0.05
+const Y_AXIS_NICE_TICKS = 5
+const TICK_OFFSET_X1 = -5
+const TICK_TEXT_OFFSET_X = 9
+const TIME_LABEL_OFFSET_Y = 9
+const TIME_LABEL_OFFSET_X_MOBILE = -20
+const TIME_LABEL_OFFSET_X_DESKTOP = -24
+const TICK_OVERLAP_MARGIN = 5
+const TOOLTIP_TEXT_HEIGHT_OFFSET = 23
+const TOOLTIP_PATH_LENGTH = 140
+const TOOLTIP_MARGIN_TOP = 10
+const TOOLTIP_MARGIN_BOTTOM_OFFSET = 10
+const TOOLTIP_VERTICAL_OFFSET = 40
+const LOCATOR_CIRCLE_RADIUS = 5
+const TOOLTIP_TEXT_X_OFFSET = 12
+const TSPAN_DY_OFFSET = '0.5em'
+const TSPAN_DY_OFFSET_LARGE = '1.4em'
+const TIME_NOW_TSPAN_DY = '15'
+const MARGIN_TOP = 20
+const MARGIN_BOTTOM = 45
+const MARGIN_LEFT = 15
+const MOBILE_MARGIN_RIGHT_BASE = 31
+const DESKTOP_MARGIN_RIGHT_BASE = 36
+const MARGIN_CHAR_MULTIPLIER = 9
+const MOBILE_BREAKPOINT = '(max-width: 640px)'
+const TOLERANCE_TIDE = 10000000
+const TOLERANCE_DEFAULT = 1000000
+const DEFAULT_TOOLTIP_Y = 10
+const DECIMAL_PLACES = 2
+const DEFAULT_WIDTH = 800
+const DEFAULT_HEIGHT = 400
 
 /**
  * Format X axis labels with time and date
@@ -29,19 +68,23 @@ function calculateYScaleDomain(lines, dataType) {
   const yExtentDataMax = yExtent[1]
 
   let range = yExtentDataMax - yExtentDataMin
-  range = range < 1 ? 1 : range
+  range = Math.max(range, MIN_RANGE_VALUE)
 
-  const yRangeUpperBuffered = yExtentDataMax + (range / 3)
-  const yRangeLowerBuffered = yExtentDataMin - (range / 3)
+  const yRangeUpperBuffered = yExtentDataMax + (range / RANGE_BUFFER_DIVISOR)
+  const yRangeLowerBuffered = yExtentDataMin - (range / RANGE_BUFFER_DIVISOR)
 
-  const upperBound = yExtentDataMax <= yRangeUpperBuffered ? yRangeUpperBuffered : yExtentDataMax
-  const lowerBound = dataType === 'river'
-    ? (yRangeLowerBuffered < 0 ? 0 : yRangeLowerBuffered)
-    : yRangeLowerBuffered
+  const upperBound = Math.max(yExtentDataMax, yRangeUpperBuffered)
+
+  let lowerBound
+  if (dataType === 'river') {
+    lowerBound = Math.max(yRangeLowerBuffered, 0)
+  } else {
+    lowerBound = yRangeLowerBuffered
+  }
 
   return {
     min: lowerBound,
-    max: upperBound < 1 ? 1 : upperBound
+    max: Math.max(upperBound, MIN_RANGE_VALUE)
   }
 }
 
@@ -51,7 +94,7 @@ function calculateYScaleDomain(lines, dataType) {
 function createXScale(observed, forecast, width) {
   const xExtent = extent(observed.concat(forecast), (d) => new Date(d.dateTime))
   const timeRange = xExtent[1] - xExtent[0]
-  const paddedMax = new Date(xExtent[1].getTime() + (timeRange * 0.05))
+  const paddedMax = new Date(xExtent[1].getTime() + (timeRange * TIME_RANGE_PADDING))
 
   const scale = scaleTime().domain([xExtent[0], paddedMax]).range([0, width])
 
@@ -66,13 +109,13 @@ function createYScale(lines, dataType, height) {
   return scaleLinear()
     .domain([domain.min, domain.max])
     .range([height, 0])
-    .nice(5)
+    .nice(Y_AXIS_NICE_TICKS)
 }
 
 /**
  * Render X and Y axes
  */
-function renderAxes(svg, xScale, yScale, width, height, isMobile) {
+function renderAxes(svg, xScale, yScale, width, height, _isMobile) {
   const xAxis = axisBottom()
     .scale(xScale)
     .ticks(timeHour.filter(d => d.getHours() === DISPLAYED_HOUR_ON_X_AXIS))
@@ -81,15 +124,15 @@ function renderAxes(svg, xScale, yScale, width, height, isMobile) {
 
   const yAxis = axisLeft()
     .scale(yScale)
-    .ticks(5)
-    .tickFormat(d => parseFloat(d).toFixed(1))
+    .ticks(Y_AXIS_NICE_TICKS)
+    .tickFormat(d => Number.parseFloat(d).toFixed(1))
     .tickSizeOuter(0)
 
   svg.select('.x.axis')
     .attr('transform', `translate(0,${height})`)
     .call(xAxis)
 
-  svg.select('.y.axis')
+  svg.select(Y_AXIS_CLASS)
     .attr('transform', `translate(${width}, 0)`)
     .call(yAxis)
 
@@ -100,9 +143,9 @@ function renderAxes(svg, xScale, yScale, width, height, isMobile) {
   removeLastTickLabel(svg)
 
   // Position Y axis ticks
-  svg.select('.y.axis').style('text-anchor', 'start')
-  svg.selectAll('.y.axis .tick line').attr('x1', -5).attr('x2', DISPLAYED_HOUR_ON_X_AXIS)
-  svg.selectAll('.y.axis .tick text').attr('x', 9)
+  svg.select(Y_AXIS_CLASS).style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
+  svg.selectAll(`${Y_AXIS_CLASS} .tick line`).attr('x1', TICK_OFFSET_X1).attr('x2', DISPLAYED_HOUR_ON_X_AXIS)
+  svg.selectAll(`${Y_AXIS_CLASS} .tick text`).attr('x', TICK_TEXT_OFFSET_X)
 }
 
 /**
@@ -141,7 +184,7 @@ function renderGridLines(svg, xScale, yScale, height, width, xExtent) {
   svg.select('.y.grid')
     .attr('transform', 'translate(0, 0)')
     .call(axisLeft(yScale)
-      .ticks(5)
+      .ticks(Y_AXIS_NICE_TICKS)
       .tickSize(-width, 0, 0)
       .tickFormat('')
     )
@@ -150,17 +193,17 @@ function renderGridLines(svg, xScale, yScale, height, width, xExtent) {
 /**
  * Update time indicator line and label
  */
-function updateTimeIndicator(svg, timeLabel, timeLine, xScale, height, isMobile) {
+function updateTimeIndicator(_svg, timeLabel, timeLine, xScale, height, isMobile) {
   const now = new Date()
   const timeX = Math.floor(xScale(now))
 
   timeLine.attr('y1', 0).attr('y2', height).attr('transform', `translate(${timeX},0)`)
 
   timeLabel
-    .attr('y', height + 9)
+    .attr('y', height + TIME_LABEL_OFFSET_Y)
     .attr('transform', `translate(${timeX},0)`)
     .attr('dy', '0.71em')
-    .attr('x', isMobile ? -20 : -24)
+    .attr('x', isMobile ? TIME_LABEL_OFFSET_X_MOBILE : TIME_LABEL_OFFSET_X_DESKTOP)
 
   timeLabel.select('.time-now-text__time')
     .text(timeFormat('%-I:%M%p')(now).toLowerCase())
@@ -178,64 +221,73 @@ function hideOverlappingTicks(timeLabel) {
   const ticks = selectAll('.x .tick')
   const tickNodes = ticks.nodes()
 
-  for (let i = 0; i < tickNodes.length; i++) {
-    const tick = tickNodes[i]
+  for (const tick of tickNodes) {
     const tickX = tick.getBoundingClientRect().left
     const tickWidth = tick.getBoundingClientRect().width
-    const isOverlap = (tickX + tickWidth + 5) > timeNowX && tickX <= (timeNowX + timeNowWidth + 5)
+    const isOverlap = (tickX + tickWidth + TICK_OVERLAP_MARGIN) > timeNowX && tickX <= (timeNowX + timeNowWidth + TICK_OVERLAP_MARGIN)
     select(tick).classed('tick--hidden', isOverlap)
   }
+}
+
+/**
+ * Simplify data based on type
+ */
+function simplifyByType(data, dataType) {
+  if (dataType === 'river') {
+    return data
+  }
+  const tolerance = dataType === 'tide' ? TOLERANCE_TIDE : TOLERANCE_DEFAULT
+  return simplify(data, tolerance)
+}
+
+/**
+ * Mark first forecast as significant if different from last observed
+ */
+function markFirstForecastSignificance(observed, forecast) {
+  if (!observed || observed.length === 0) {
+    return
+  }
+  const latestObserved = observed[0]
+  const firstForecast = forecast[0]
+  const isSame = new Date(latestObserved.dateTime).getTime() === new Date(firstForecast.dateTime).getTime() &&
+    latestObserved.value === firstForecast.value
+  forecast[0].isSignificant = !isSame
+}
+
+/**
+ * Process observed data points
+ */
+function processObservedData(observed, dataType) {
+  const processed = simplifyByType(observed, dataType)
+  const filtered = processed.filter(l => !l.err)
+  return filtered.map(l => ({ ...l, type: 'observed' })).reverse()
+}
+
+/**
+ * Process forecast data points
+ */
+function processForecastData(forecast, dataType, observed) {
+  const processed = simplifyByType(forecast, dataType)
+  markFirstForecastSignificance(observed, processed)
+  return processed.map(l => ({ ...l, type: 'forecast' }))
 }
 
 /**
  * Process and filter data for rendering
  */
 function processData(dataCache) {
-  let lines = []
   let observedPoints = []
   let forecastPoints = []
 
-  if (dataCache.observed && dataCache.observed.length) {
-    let processedObserved = dataCache.observed
-
-    // Simplify non-river data
-    if (dataCache.type !== 'river') {
-      const tolerance = dataCache.type === 'tide' ? 10000000 : 1000000
-      processedObserved = simplify(processedObserved, tolerance)
-    }
-
-    // Filter errors
-    const filtered = processedObserved.filter(l => {
-      if (l.err) return false
-      return true
-    })
-
-    observedPoints = filtered.map(l => ({ ...l, type: 'observed' })).reverse()
-    lines = observedPoints
+  if (dataCache.observed?.length) {
+    observedPoints = processObservedData(dataCache.observed, dataCache.type)
   }
 
-  if (dataCache.forecast && dataCache.forecast.length) {
-    let processedForecast = dataCache.forecast
-
-    // Simplify non-river data
-    if (dataCache.type !== 'river') {
-      const tolerance = dataCache.type === 'tide' ? 10000000 : 1000000
-      processedForecast = simplify(processedForecast, tolerance)
-    }
-
-    // Mark first forecast point as significant if different from last observed
-    if (dataCache.observed && dataCache.observed.length > 0) {
-      const latestObserved = dataCache.observed[0]
-      const firstForecast = processedForecast[0]
-      const isSame = new Date(latestObserved.dateTime).getTime() === new Date(firstForecast.dateTime).getTime() &&
-        latestObserved.value === firstForecast.value
-      processedForecast[0].isSignificant = !isSame
-    }
-
-    forecastPoints = processedForecast.map(l => ({ ...l, type: 'forecast' }))
-    lines = lines.concat(forecastPoints)
+  if (dataCache.forecast?.length) {
+    forecastPoints = processForecastData(dataCache.forecast, dataCache.type, dataCache.observed)
   }
 
+  const lines = observedPoints.concat(forecastPoints)
   return { lines, observedPoints, forecastPoints }
 }
 
@@ -286,12 +338,12 @@ function renderSignificantPoints(container, observedPoints, forecastPoints, xSca
     .append('g')
     .attr('role', 'gridcell')
     .attr('class', d => `point point--${d.type}`)
-    .attr('tabindex', (d, i) => i === significantPoints.length - 1 ? 0 : -1)
+    .attr('tabindex', (_d, i) => i === significantPoints.length - 1 ? 0 : -1)
     .attr('data-point', '')
-    .attr('data-index', (d, i) => i)
+    .attr('data-index', (_d, i) => i)
 
   cells.append('circle')
-    .attr('aria-hidden', true)
+    .attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
     .attr('r', '5')
     .attr('cx', d => xScale(new Date(d.dateTime)))
     .attr('cy', d => yScale(d.value))
@@ -312,13 +364,13 @@ function renderSignificantPoints(container, observedPoints, forecastPoints, xSca
 /**
  * Create tooltip manager
  */
-function createTooltipManager(tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, xScale, yScale, height, dataType, latestDateTime) {
-  let currentDataPoint = null
+function createTooltipManager(tooltipConfig) {
+  const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, xScale, yScale, height, dataType, latestDateTime } = tooltipConfig
 
-  function setPosition(x, y) {
+  function setPosition(x, y, dataPoint) {
     const text = tooltip.select('text')
-    const txtHeight = Math.round(text.node().getBBox().height) + 23
-    const pathLength = 140
+    const txtHeight = Math.round(text.node().getBBox().height) + TOOLTIP_TEXT_HEIGHT_OFFSET
+    const pathLength = TOOLTIP_PATH_LENGTH
     const pathCentre = `M${pathLength},${txtHeight}l0,-${txtHeight}l-${pathLength},0l0,${txtHeight}l${pathLength},0Z`
 
     if (x > pathLength) {
@@ -329,30 +381,35 @@ function createTooltipManager(tooltip, tooltipPath, tooltipValue, tooltipDescrip
     }
 
     const tooltipHeight = tooltipPath.node().getBBox().height
-    const tooltipMarginTop = 10
-    const tooltipMarginBottom = height - (tooltipHeight + 10)
-    y -= tooltipHeight + 40
-    y = y < tooltipMarginTop ? tooltipMarginTop : y > tooltipMarginBottom ? tooltipMarginBottom : y
+    const tooltipMarginTop = TOOLTIP_MARGIN_TOP
+    const tooltipMarginBottom = height - (tooltipHeight + TOOLTIP_MARGIN_BOTTOM_OFFSET)
+    y -= tooltipHeight + TOOLTIP_VERTICAL_OFFSET
+
+    if (y < tooltipMarginTop) {
+      y = tooltipMarginTop
+    } else if (y > tooltipMarginBottom) {
+      y = tooltipMarginBottom
+    } else {
+      // y is within bounds, no adjustment needed
+    }
 
     tooltip.attr('transform', `translate(${x.toFixed(0)},${y.toFixed(0)})`)
     tooltip.classed('tooltip--visible', true)
 
-    if (currentDataPoint) {
-      const locatorX = Math.floor(xScale(new Date(currentDataPoint.dateTime)))
-      const locatorY = Math.floor(yScale(dataType === 'river' && currentDataPoint.value < 0 ? 0 : currentDataPoint.value))
-      const isForecast = new Date(currentDataPoint.dateTime) > new Date(latestDateTime)
-
-      locator.classed('locator--forecast', isForecast)
-      locator.attr('transform', `translate(${locatorX},0)`)
-      locator.select('.locator__line').attr('y2', height)
-      locator.select('.locator-point').attr('transform', `translate(0,${locatorY})`)
-    }
+    const locatorX = Math.floor(xScale(new Date(dataPoint.dateTime)))
+    const locatorY = Math.floor(yScale(dataType === 'river' && dataPoint.value < 0 ? 0 : dataPoint.value))
+    const isForecast = (new Date(dataPoint.dateTime)) > (new Date(latestDateTime))
+    locator.classed('locator--forecast', isForecast)
+    locator.attr('transform', `translate(${locatorX},0)`)
+    locator.select('.locator__line').attr('y2', height)
+    locator.select('.locator-point').attr('transform', `translate(0,${locatorY})`)
   }
 
-  function show(dataPoint, tooltipY = 10) {
-    if (!dataPoint) return
+  function show(dataPoint, tooltipY = DEFAULT_TOOLTIP_Y) {
+    if (!dataPoint) {
+      return
+    }
 
-    currentDataPoint = dataPoint
     const value = dataType === 'river' && (Math.round(dataPoint.value * 100) / 100) <= 0 ? '0' : dataPoint.value.toFixed(2)
 
     tooltipValue.text(`${value}m`)
@@ -361,27 +418,24 @@ function createTooltipManager(tooltip, tooltipPath, tooltipValue, tooltipDescrip
     locator.classed('locator--visible', true)
 
     const tooltipX = xScale(new Date(dataPoint.dateTime))
-    setPosition(tooltipX, tooltipY)
+    setPosition(tooltipX, tooltipY, dataPoint)
   }
 
   function hide() {
     tooltip.classed('tooltip--visible', false)
     locator.classed('locator--visible', false)
-    currentDataPoint = null
   }
 
-  function setDataPoint(dataPoint) {
-    currentDataPoint = dataPoint
-  }
-
-  return { show, hide, setDataPoint }
+  return { show, hide }
 }
 
 /**
  * Find data point by X coordinate
  */
 function findDataPointByX(x, lines, xScale) {
-  if (!lines || lines.length === 0 || !xScale) return null
+  if (!lines || lines.length === 0 || !xScale) {
+    return null
+  }
 
   const mouseDate = xScale.invert(x)
   const bisectDate = bisector((d) => new Date(d.dateTime)).left
@@ -389,7 +443,9 @@ function findDataPointByX(x, lines, xScale) {
   const d0 = lines[i - 1]
   const d1 = lines[i] || lines[i - 1]
 
-  if (!d0 || !d1) return null
+  if (!d0 || !d1) {
+    return null
+  }
 
   return mouseDate - new Date(d0.dateTime) > new Date(d1.dateTime) - mouseDate ? d1 : d0
 }
@@ -415,12 +471,12 @@ function initializeSVG(containerId) {
 
   const mainGroup = svg.append('g').attr('class', 'chart-main')
 
-  mainGroup.append('g').attr('class', 'y grid').attr('aria-hidden', true)
-  mainGroup.append('g').attr('class', 'x grid').attr('aria-hidden', true)
-  mainGroup.append('g').attr('class', 'x axis').attr('aria-hidden', true)
-  mainGroup.append('g').attr('class', 'y axis').attr('aria-hidden', true).style('text-anchor', 'start')
+  mainGroup.append('g').attr('class', 'y grid').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  mainGroup.append('g').attr('class', 'x grid').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  mainGroup.append('g').attr('class', 'x axis').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  mainGroup.append('g').attr('class', 'y axis').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN).style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
 
-  const inner = mainGroup.append('g').attr('class', 'inner').attr('aria-hidden', true)
+  const inner = mainGroup.append('g').attr('class', 'inner').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   inner.append('g').attr('class', 'observed observed-focus')
   inner.append('g').attr('class', 'forecast')
   inner.select('.observed').append('path').attr('class', 'observed-area')
@@ -428,22 +484,22 @@ function initializeSVG(containerId) {
   inner.select('.forecast').append('path').attr('class', 'forecast-area')
   inner.select('.forecast').append('path').attr('class', 'forecast-line')
 
-  const timeLine = mainGroup.append('line').attr('class', 'time-line').attr('aria-hidden', true)
-  const timeLabel = mainGroup.append('text').attr('class', 'time-now-text').attr('aria-hidden', true)
-  timeLabel.append('tspan').attr('class', 'time-now-text__time').attr('text-anchor', 'middle').attr('x', 0)
-  timeLabel.append('tspan').attr('class', 'time-now-text__date').attr('text-anchor', 'middle').attr('x', 0).attr('dy', '15')
+  const timeLine = mainGroup.append('line').attr('class', 'time-line').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  const timeLabel = mainGroup.append('text').attr('class', 'time-now-text').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  timeLabel.append('tspan').attr('class', 'time-now-text__time').attr(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_MIDDLE).attr('x', 0)
+  timeLabel.append('tspan').attr('class', 'time-now-text__date').attr(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_MIDDLE).attr('x', 0).attr('dy', TIME_NOW_TSPAN_DY)
 
   const locator = inner.append('g').attr('class', 'locator')
   locator.append('line').attr('class', 'locator__line').attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 0)
-  locator.append('circle').attr('r', 5).attr('class', 'locator-point')
+  locator.append('circle').attr('r', LOCATOR_CIRCLE_RADIUS).attr('class', 'locator-point')
 
   const significantContainer = mainGroup.append('g').attr('class', 'significant').attr('role', 'grid').append('g').attr('role', 'row')
 
-  const tooltip = mainGroup.append('g').attr('class', 'tooltip').attr('aria-hidden', true)
+  const tooltip = mainGroup.append('g').attr('class', 'tooltip').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   const tooltipPath = tooltip.append('path').attr('class', 'tooltip-bg')
   const tooltipText = tooltip.append('text').attr('class', 'tooltip-text')
-  const tooltipValue = tooltipText.append('tspan').attr('class', 'tooltip-text__strong').attr('x', 12).attr('dy', '0.5em')
-  const tooltipDescription = tooltipText.append('tspan').attr('class', 'tooltip-text').attr('x', 12).attr('dy', '1.4em')
+  const tooltipValue = tooltipText.append('tspan').attr('class', 'tooltip-text__strong').attr('x', TOOLTIP_TEXT_X_OFFSET).attr('dy', TSPAN_DY_OFFSET)
+  const tooltipDescription = tooltipText.append('tspan').attr('class', 'tooltip-text').attr('x', TOOLTIP_TEXT_X_OFFSET).attr('dy', TSPAN_DY_OFFSET_LARGE)
 
   return {
     svg,
@@ -463,15 +519,19 @@ function initializeSVG(containerId) {
 /**
  * Setup event handlers
  */
-function setupEventHandlers(container, svg, margin, tooltipManager, lines, xScale, dataType) {
+function setupEventHandlers(container, svg, margin, tooltipManager, lines, xScale, _dataType) {
   let interfaceType = null
   let lastClientX, lastClientY
 
   const handleMouseMove = (e) => {
-    if (lastClientX === e.clientX && lastClientY === e.clientY) return
+    if (lastClientX === e.clientX && lastClientY === e.clientY) {
+      return
+    }
     lastClientX = e.clientX
     lastClientY = e.clientY
-    if (!xScale) return
+    if (!xScale) {
+      return
+    }
     if (interfaceType === 'touch') {
       interfaceType = 'mouse'
       return
@@ -489,12 +549,14 @@ function setupEventHandlers(container, svg, margin, tooltipManager, lines, xScal
   }
 
   const handleTouchMove = (e) => {
-    if (!xScale) return
+    if (!xScale) {
+      return
+    }
     const touchEvent = e.targetTouches[0]
     const elementOffsetX = svg.node().getBoundingClientRect().left
     const dataPoint = findDataPointByX(pointer(touchEvent)[0] - elementOffsetX - margin.left, lines, xScale)
     tooltipManager.setDataPoint(dataPoint)
-    tooltipManager.show(dataPoint, 10)
+    tooltipManager.show(dataPoint, DEFAULT_TOOLTIP_Y)
   }
 
   svg.on('click', handleClick)
@@ -508,7 +570,7 @@ function setupEventHandlers(container, svg, margin, tooltipManager, lines, xScal
 /**
  * Main LineChart function
  */
-export function LineChart(containerId, stationId, data, options = {}) {
+export function lineChart(containerId, _stationId, data, _options = {}) {
   const container = document.getElementById(containerId)
 
   if (!container) {
@@ -527,7 +589,7 @@ export function LineChart(containerId, stationId, data, options = {}) {
   const svgElements = initializeSVG(containerId)
   const { svg, mainGroup, timeLine, timeLabel, locator, significantContainer, tooltip, tooltipPath, tooltipValue, tooltipDescription } = svgElements
 
-  let isMobile = window.matchMedia('(max-width: 640px)').matches
+  let isMobile = globalThis.matchMedia(MOBILE_BREAKPOINT).matches
   let width, height, margin, xScale, yScale, xExtent, lines, observedPoints, forecastPoints
 
   const renderChart = () => {
@@ -543,15 +605,15 @@ export function LineChart(containerId, stationId, data, options = {}) {
     }
 
     // Create scales
-    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, width || 800)
+    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, width || DEFAULT_WIDTH)
     xScale = xScaleNew
     xExtent = xExtentNew
 
-    yScale = createYScale(lines, dataCache.type, height || 400)
+    yScale = createYScale(lines, dataCache.type, height || DEFAULT_HEIGHT)
 
     // Calculate margins
-    const numChars = yScale.domain()[1].toFixed(1).length - 2
-    margin = { top: 20, bottom: 45, left: 15, right: (isMobile ? 31 : 36) + (numChars * 9) }
+    const numChars = yScale.domain()[1].toFixed(1).length - DECIMAL_PLACES
+    margin = { top: MARGIN_TOP, bottom: MARGIN_BOTTOM, left: MARGIN_LEFT, right: (isMobile ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (numChars * MARGIN_CHAR_MULTIPLIER) }
 
     // Calculate dimensions
     const containerBoundingRect = container.getBoundingClientRect()
@@ -578,10 +640,18 @@ export function LineChart(containerId, stationId, data, options = {}) {
   }
 
   // Create tooltip manager
-  const tooltipManager = createTooltipManager(
-    tooltip, tooltipPath, tooltipValue, tooltipDescription, locator,
-    xScale, yScale, height, dataCache.type, dataCache.latestDateTime
-  )
+  const tooltipManager = createTooltipManager({
+    tooltip,
+    tooltipPath,
+    tooltipValue,
+    tooltipDescription,
+    locator,
+    xScale,
+    yScale,
+    height,
+    dataType: dataCache.type,
+    latestDateTime: dataCache.latestDateTime
+  })
 
   // Initial render
   renderChart()
@@ -590,14 +660,14 @@ export function LineChart(containerId, stationId, data, options = {}) {
   setupEventHandlers(container, svg, margin, tooltipManager, lines, xScale, dataCache.type)
 
   // Responsive handlers
-  const mobileMediaQuery = window.matchMedia('(max-width: 640px)')
+  const mobileMediaQuery = globalThis.matchMedia(MOBILE_BREAKPOINT)
   mobileMediaQuery[mobileMediaQuery.addEventListener ? 'addEventListener' : 'addListener']('change', (e) => {
     isMobile = e.matches
     tooltipManager.hide()
     renderChart()
   })
 
-  window.addEventListener('resize', () => {
+  globalThis.addEventListener('resize', () => {
     tooltipManager.hide()
     renderChart()
   })
