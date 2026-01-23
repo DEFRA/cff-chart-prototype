@@ -3,7 +3,7 @@ import { area as d3Area, line as d3Line, curveMonotoneX } from 'd3-shape'
 import { axisBottom, axisLeft } from 'd3-axis'
 import { scaleLinear, scaleTime } from 'd3-scale'
 import { timeFormat } from 'd3-time-format'
-import { timeHour } from 'd3-time'
+import { timeHour, timeDay, timeWeek, timeMonth } from 'd3-time'
 import { select, selectAll, pointer } from 'd3-selection'
 import { extent, bisector } from 'd3-array'
 
@@ -49,14 +49,73 @@ const DEFAULT_WIDTH = 800
 const DEFAULT_HEIGHT = 400
 
 /**
+ * Generate custom tick values at consistent intervals
+ */
+function generateCustomTicks(xExtent, intervalDays) {
+  const ticks = []
+  const start = new Date(xExtent[0])
+  const end = new Date(xExtent[1])
+
+  // Start from the first date at midnight
+  const current = new Date(start)
+  current.setHours(0, 0, 0, 0)
+
+  while (current <= end) {
+    ticks.push(new Date(current))
+    current.setDate(current.getDate() + intervalDays)
+  }
+
+  return ticks
+}
+
+/**
+ * Calculate appropriate tick interval based on time range
+ */
+function calculateTickInterval(xExtent) {
+  const timeDiff = xExtent[1] - xExtent[0]
+  const days = timeDiff / (1000 * 60 * 60 * 24)
+
+  if (days <= 7) {
+    // Up to 7 days: show every day at 6am
+    return { interval: timeDay.every(1), formatTime: true, formatDate: true, removeLastNTicks: 1 }
+  } else if (days <= 30) {
+    // 1 month: show every 3 days with custom tick generation
+    return { customTicks: generateCustomTicks(xExtent, 3), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+  } else if (days <= 90) {
+    // 3 months: show every week
+    return { interval: timeWeek.every(1), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+  } else if (days <= 180) {
+    // 6 months: show every 2 weeks
+    return { interval: timeWeek.every(2), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+  } else if (days <= 365) {
+    // 1 year: show monthly
+    return { interval: timeMonth.every(1), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+  } else if (days <= 730) {
+    // 2 years: show every 2 months
+    return { interval: timeMonth.every(2), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+  } else if (days <= 1095) {
+    // 3 years: show every 3 months (quarterly)
+    return { interval: timeMonth.every(3), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+  } else {
+    // More than 3 years: show every 6 months
+    return { interval: timeMonth.every(6), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+  }
+}
+
+/**
  * Format X axis labels with time and date
  */
-function formatXAxisLabels(d, i, nodes) {
+function formatXAxisLabels(d, i, nodes, showTime) {
   const element = select(nodes[i])
-  const formattedTime = timeFormat('%-I%p')(new Date(d.setHours(DISPLAYED_HOUR_ON_X_AXIS, 0, 0, 0))).toLocaleLowerCase()
-  const formattedDate = timeFormat('%-e %b')(new Date(d))
-  element.append('tspan').text(formattedTime)
-  element.append('tspan').attr('x', 0).attr('dy', '15').text(formattedDate)
+  if (showTime) {
+    const formattedTime = timeFormat('%-I%p')(new Date(d.setHours(DISPLAYED_HOUR_ON_X_AXIS, 0, 0, 0))).toLocaleLowerCase()
+    const formattedDate = timeFormat('%-e %b')(new Date(d))
+    element.append('tspan').text(formattedTime)
+    element.append('tspan').attr('x', 0).attr('dy', '15').text(formattedDate)
+  } else {
+    const formattedDate = timeFormat('%-e %b')(new Date(d))
+    element.append('tspan').text(formattedDate)
+  }
 }
 
 /**
@@ -115,12 +174,19 @@ function createYScale(lines, dataType, height) {
 /**
  * Render X and Y axes
  */
-function renderAxes(svg, xScale, yScale, width, height, _isMobile) {
+function renderAxes(svg, xScale, yScale, width, height, xExtent, _isMobile) {
+  const tickConfig = calculateTickInterval(xExtent)
+
   const xAxis = axisBottom()
     .scale(xScale)
-    .ticks(timeHour.filter(d => d.getHours() === DISPLAYED_HOUR_ON_X_AXIS))
-    .tickFormat('')
     .tickSizeOuter(0)
+    .tickFormat('')
+
+  if (tickConfig.customTicks) {
+    xAxis.tickValues(tickConfig.customTicks)
+  } else {
+    xAxis.ticks(tickConfig.interval)
+  }
 
   const yAxis = axisLeft()
     .scale(yScale)
@@ -137,10 +203,10 @@ function renderAxes(svg, xScale, yScale, width, height, _isMobile) {
     .call(yAxis)
 
   // Format X axis labels
-  svg.select('.x.axis').selectAll('text').each(formatXAxisLabels)
+  svg.select('.x.axis').selectAll('text').each((d, i, nodes) => formatXAxisLabels(d, i, nodes, tickConfig.formatTime))
 
-  // Remove last tick label if it's 6am
-  removeLastTickLabel(svg)
+  // Remove last tick label(s) to avoid overlap with time indicator
+  removeLastTickLabel(svg, tickConfig.removeLastNTicks)
 
   // Position Y axis ticks
   svg.select(Y_AXIS_CLASS).style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
@@ -149,15 +215,17 @@ function renderAxes(svg, xScale, yScale, width, height, _isMobile) {
 }
 
 /**
- * Remove the last 6am tick label but keep the line
+ * Remove the last N tick labels to avoid overlap with time indicator
  */
-function removeLastTickLabel(svg) {
+function removeLastTickLabel(svg, count = 1) {
   const xAxisTicks = svg.select('.x.axis').selectAll('.tick')
-  if (xAxisTicks.size() > 0) {
-    const lastTick = xAxisTicks.nodes()[xAxisTicks.size() - 1]
-    const lastTickData = select(lastTick).datum()
-    if (lastTickData && lastTickData.getHours() === DISPLAYED_HOUR_ON_X_AXIS) {
-      select(lastTick).select('text').remove()
+  const tickCount = xAxisTicks.size()
+
+  if (tickCount > 0) {
+    for (let i = 0; i < count && i < tickCount; i++) {
+      const tickIndex = tickCount - 1 - i
+      const tick = xAxisTicks.nodes()[tickIndex]
+      select(tick).select('text').remove()
     }
   }
 }
@@ -166,13 +234,21 @@ function removeLastTickLabel(svg) {
  * Render grid lines
  */
 function renderGridLines(svg, xScale, yScale, height, width, xExtent) {
+  const tickConfig = calculateTickInterval(xExtent)
+
+  const xGrid = axisBottom(xScale)
+    .tickSize(-height, 0, 0)
+    .tickFormat('')
+
+  if (tickConfig.customTicks) {
+    xGrid.tickValues(tickConfig.customTicks)
+  } else {
+    xGrid.ticks(tickConfig.interval)
+  }
+
   svg.select('.x.grid')
     .attr('transform', `translate(0,${height})`)
-    .call(axisBottom(xScale)
-      .ticks(timeHour.filter(d => d.getHours() === DISPLAYED_HOUR_ON_X_AXIS))
-      .tickSize(-height, 0, 0)
-      .tickFormat('')
-    )
+    .call(xGrid)
 
   // Remove grid lines after latest data point
   svg.select('.x.grid').selectAll('.tick').each(function (d) {
@@ -365,24 +441,23 @@ function renderSignificantPoints(container, observedPoints, forecastPoints, xSca
  * Create tooltip manager
  */
 function createTooltipManager(tooltipConfig) {
-  const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, xScale, yScale, height, dataType, latestDateTime } = tooltipConfig
+  const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, getHeight, dataType, latestDateTime } = tooltipConfig
 
-  function setPosition(x, y, dataPoint) {
+  function setPosition(x, y, dataPoint, yScaleFunc) {
+    const currentHeight = getHeight()
+    const locatorX = x // Save original X for locator positioning
     const text = tooltip.select('text')
     const txtHeight = Math.round(text.node().getBBox().height) + TOOLTIP_TEXT_HEIGHT_OFFSET
     const pathLength = TOOLTIP_PATH_LENGTH
     const pathCentre = `M${pathLength},${txtHeight}l0,-${txtHeight}l-${pathLength},0l0,${txtHeight}l${pathLength},0Z`
 
-    if (x > pathLength) {
-      tooltipPath.attr('d', pathCentre)
-      x -= pathLength
-    } else {
-      tooltipPath.attr('d', pathCentre)
-    }
+    // Center tooltip horizontally on the locator line
+    tooltipPath.attr('d', pathCentre)
+    x -= (pathLength / 2)
 
     const tooltipHeight = tooltipPath.node().getBBox().height
     const tooltipMarginTop = TOOLTIP_MARGIN_TOP
-    const tooltipMarginBottom = height - (tooltipHeight + TOOLTIP_MARGIN_BOTTOM_OFFSET)
+    const tooltipMarginBottom = currentHeight - (tooltipHeight + TOOLTIP_MARGIN_BOTTOM_OFFSET)
     y -= tooltipHeight + TOOLTIP_VERTICAL_OFFSET
 
     if (y < tooltipMarginTop) {
@@ -396,16 +471,16 @@ function createTooltipManager(tooltipConfig) {
     tooltip.attr('transform', `translate(${x.toFixed(0)},${y.toFixed(0)})`)
     tooltip.classed('tooltip--visible', true)
 
-    const locatorX = Math.floor(xScale(new Date(dataPoint.dateTime)))
-    const locatorY = Math.floor(yScale(dataType === 'river' && dataPoint.value < 0 ? 0 : dataPoint.value))
+    const locatorY = Math.floor(yScaleFunc(dataType === 'river' && dataPoint.value < 0 ? 0 : dataPoint.value))
     const isForecast = (new Date(dataPoint.dateTime)) > (new Date(latestDateTime))
     locator.classed('locator--forecast', isForecast)
-    locator.attr('transform', `translate(${locatorX},0)`)
-    locator.select('.locator__line').attr('y2', height)
+    locator.attr('transform', `translate(${locatorX.toFixed(0)},0)`)
+    const lineElement = locator.select('.locator__line')
+    lineElement.attr('y2', currentHeight)
     locator.select('.locator-point').attr('transform', `translate(0,${locatorY})`)
   }
 
-  function show(dataPoint, tooltipY = DEFAULT_TOOLTIP_Y) {
+  function show(dataPoint, tooltipY, xScaleFunc, yScaleFunc) {
     if (!dataPoint) {
       return
     }
@@ -417,8 +492,8 @@ function createTooltipManager(tooltipConfig) {
 
     locator.classed('locator--visible', true)
 
-    const tooltipX = xScale(new Date(dataPoint.dateTime))
-    setPosition(tooltipX, tooltipY, dataPoint)
+    const tooltipX = xScaleFunc(new Date(dataPoint.dateTime))
+    setPosition(tooltipX, tooltipY, dataPoint, yScaleFunc)
   }
 
   function hide() {
@@ -438,16 +513,23 @@ function findDataPointByX(x, lines, xScale) {
   }
 
   const mouseDate = xScale.invert(x)
-  const bisectDate = bisector((d) => new Date(d.dateTime)).left
-  const i = bisectDate(lines, mouseDate, 1)
-  const d0 = lines[i - 1]
-  const d1 = lines[i] || lines[i - 1]
+  const mouseTime = mouseDate.getTime()
 
-  if (!d0 || !d1) {
-    return null
+  // Find closest point by iterating through all points
+  let closestPoint = lines[0]
+  let minDistance = Math.abs(mouseTime - new Date(closestPoint.dateTime).getTime())
+
+  for (let i = 1; i < lines.length; i++) {
+    const pointTime = new Date(lines[i].dateTime).getTime()
+    const distance = Math.abs(mouseTime - pointTime)
+
+    if (distance < minDistance) {
+      minDistance = distance
+      closestPoint = lines[i]
+    }
   }
 
-  return mouseDate - new Date(d0.dateTime) > new Date(d1.dateTime) - mouseDate ? d1 : d0
+  return closestPoint
 }
 
 /**
@@ -455,6 +537,9 @@ function findDataPointByX(x, lines, xScale) {
  */
 function initializeSVG(containerId) {
   const container = document.getElementById(containerId)
+
+  // Clear any existing chart content
+  container.innerHTML = ''
 
   const description = document.createElement('span')
   description.className = 'govuk-visually-hidden'
@@ -498,7 +583,7 @@ function initializeSVG(containerId) {
   const tooltip = mainGroup.append('g').attr('class', 'tooltip').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   const tooltipPath = tooltip.append('path').attr('class', 'tooltip-bg')
   const tooltipText = tooltip.append('text').attr('class', 'tooltip-text')
-  const tooltipValue = tooltipText.append('tspan').attr('class', 'tooltip-text__strong').attr('x', TOOLTIP_TEXT_X_OFFSET).attr('dy', TSPAN_DY_OFFSET)
+  const tooltipValue = tooltipText.append('tspan').attr('class', 'tooltip-text__strong').attr('x', TOOLTIP_TEXT_X_OFFSET).attr('y', 30).attr('dy', 0)
   const tooltipDescription = tooltipText.append('tspan').attr('class', 'tooltip-text').attr('x', TOOLTIP_TEXT_X_OFFSET).attr('dy', TSPAN_DY_OFFSET_LARGE)
 
   return {
@@ -519,9 +604,14 @@ function initializeSVG(containerId) {
 /**
  * Setup event handlers
  */
-function setupEventHandlers(container, svg, margin, tooltipManager, lines, xScale, _dataType) {
+function setupEventHandlers(container, svg, mainGroup, getState, tooltipManager) {
   let interfaceType = null
   let lastClientX, lastClientY
+
+  const getMousePosition = (e, svgNode) => {
+    const rect = svgNode.getBoundingClientRect()
+    return [e.clientX - rect.left, e.clientY - rect.top]
+  }
 
   const handleMouseMove = (e) => {
     if (lastClientX === e.clientX && lastClientY === e.clientY) {
@@ -529,6 +619,7 @@ function setupEventHandlers(container, svg, margin, tooltipManager, lines, xScal
     }
     lastClientX = e.clientX
     lastClientY = e.clientY
+    const { margin, lines, xScale, yScale } = getState()
     if (!xScale) {
       return
     }
@@ -537,34 +628,54 @@ function setupEventHandlers(container, svg, margin, tooltipManager, lines, xScal
       return
     }
     interfaceType = 'mouse'
-    const dataPoint = findDataPointByX(pointer(e)[0] - margin.left, lines, xScale)
-    tooltipManager.setDataPoint(dataPoint)
-    tooltipManager.show(dataPoint, pointer(e)[1])
+    const [mouseX, mouseY] = getMousePosition(e, svg.node())
+    const chartX = mouseX - margin.left
+    const chartY = mouseY - margin.top
+    const dataPoint = findDataPointByX(chartX, lines, xScale)
+    tooltipManager.show(dataPoint, chartY, xScale, yScale)
   }
 
   const handleClick = (e) => {
-    const dataPoint = findDataPointByX(pointer(e)[0] - margin.left, lines, xScale)
-    tooltipManager.setDataPoint(dataPoint)
-    tooltipManager.show(dataPoint, pointer(e)[1])
+    const { margin, lines, xScale, yScale } = getState()
+    const [mouseX, mouseY] = getMousePosition(e, svg.node())
+    const chartX = mouseX - margin.left
+    const chartY = mouseY - margin.top
+    const dataPoint = findDataPointByX(chartX, lines, xScale)
+    tooltipManager.show(dataPoint, chartY, xScale, yScale)
+  }
+
+  const handleTouchStart = () => {
+    interfaceType = 'touch'
   }
 
   const handleTouchMove = (e) => {
+    const { margin, lines, xScale, yScale } = getState()
     if (!xScale) {
       return
     }
-    const touchEvent = e.targetTouches[0]
-    const elementOffsetX = svg.node().getBoundingClientRect().left
-    const dataPoint = findDataPointByX(pointer(touchEvent)[0] - elementOffsetX - margin.left, lines, xScale)
-    tooltipManager.setDataPoint(dataPoint)
-    tooltipManager.show(dataPoint, DEFAULT_TOOLTIP_Y)
+    const touchEvent = e.touches[0]
+    const [mouseX] = getMousePosition(touchEvent, svg.node())
+    const chartX = mouseX - margin.left
+    const dataPoint = findDataPointByX(chartX, lines, xScale)
+    tooltipManager.show(dataPoint, DEFAULT_TOOLTIP_Y, xScale, yScale)
   }
 
-  svg.on('click', handleClick)
-  svg.on('mousemove', handleMouseMove)
-  svg.on('touchstart', () => { interfaceType = 'touch' })
-  svg.on('touchmove', handleTouchMove)
-  svg.on('touchend', () => { interfaceType = null })
-  container.addEventListener('mouseleave', () => tooltipManager.hide())
+  const handleTouchEnd = () => {
+    interfaceType = null
+  }
+
+  const handleMouseLeave = () => {
+    tooltipManager.hide()
+  }
+
+  // Use native event listeners for better Edge compatibility
+  const svgNode = svg.node()
+  svgNode.addEventListener('click', handleClick)
+  svgNode.addEventListener('mousemove', handleMouseMove)
+  svgNode.addEventListener('touchstart', handleTouchStart)
+  svgNode.addEventListener('touchmove', handleTouchMove)
+  svgNode.addEventListener('touchend', handleTouchEnd)
+  container.addEventListener('mouseleave', handleMouseLeave)
 }
 
 /**
@@ -582,8 +693,6 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     console.error('LineChart: No data provided')
     return
   }
-
-  console.log('LineChart initializing with data:', data)
 
   const dataCache = data
   const svgElements = initializeSVG(containerId)
@@ -628,7 +737,7 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     mainGroup.attr('transform', `translate(${margin.left},${margin.top})`)
 
     // Render chart elements
-    renderAxes(svg, xScale, yScale, width, height, isMobile)
+    renderAxes(svg, xScale, yScale, width, height, xExtent, isMobile)
     renderGridLines(svg, xScale, yScale, height, width, xExtent)
     updateTimeIndicator(svg, timeLabel, timeLine, xScale, height, isMobile)
     hideOverlappingTicks(timeLabel)
@@ -646,9 +755,7 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     tooltipValue,
     tooltipDescription,
     locator,
-    xScale,
-    yScale,
-    height,
+    getHeight: () => height,
     dataType: dataCache.type,
     latestDateTime: dataCache.latestDateTime
   })
@@ -656,8 +763,9 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
   // Initial render
   renderChart()
 
-  // Setup event handlers
-  setupEventHandlers(container, svg, margin, tooltipManager, lines, xScale, dataCache.type)
+  // Setup event handlers with state getter
+  const getState = () => ({ margin, lines, xScale, yScale })
+  setupEventHandlers(container, svg, mainGroup, getState, tooltipManager)
 
   // Responsive handlers
   const mobileMediaQuery = globalThis.matchMedia(MOBILE_BREAKPOINT)

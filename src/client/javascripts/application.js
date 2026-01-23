@@ -2,12 +2,151 @@ import { initAll } from 'govuk-frontend'
 import './utils.js'
 import './toggletip.js'
 import { lineChart } from './line-chart.js'
+import {
+  parseHistoricCSV,
+  saveHistoricData,
+  loadHistoricData,
+  mergeData,
+  filterDataByTimeRange,
+  getTimeRangeLabel
+} from './historic-data.js'
 
 initAll()
 
-// Initialize chart if telemetry data is available
+// Initialize chart with historic data support
 if (typeof document !== 'undefined' && typeof window !== 'undefined') {
   if (document.getElementById('line-chart') && window.flood && window.flood.model) {
-    lineChart('line-chart', window.flood.model.id, window.flood.model.telemetry)
+    const stationId = window.flood.model.id
+    const realtimeTelemetry = window.flood.model.telemetry
+
+    // Current filter state (default to 5 days)
+    let currentFilter = '5d'
+
+    // Load any stored historic data
+    let historicData = []
+
+      // Initialize async
+      ; (async () => {
+        historicData = await loadHistoricData() || []
+
+        // Initial render with default filter (5 days)
+        renderChart()
+
+        // Set initial button states based on historic data availability
+        updateFilterButtonStates()
+      })()
+
+    /**
+     * Update filter button states based on historic data availability
+     */
+    function updateFilterButtonStates() {
+      const hasHistoricData = historicData && historicData.length > 0
+      document.querySelectorAll('.time-filter-btn').forEach(btn => {
+        const filter = btn.dataset.filter
+        // Disable all filters except 5d if no historic data
+        if (filter !== '5d') {
+          btn.disabled = !hasHistoricData
+        }
+      })
+    }
+
+    /**
+     * Render the chart with current filter and data
+     */
+    function renderChart() {
+      // Get the observed data array from telemetry
+      const realtimeObserved = realtimeTelemetry?.observed || []
+
+      // Merge historic and realtime observed data
+      const mergedObserved = mergeData(historicData, realtimeObserved) || []
+
+      // Apply time filter
+      const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
+
+      // Create telemetry object with filtered observed data
+      const filteredTelemetry = {
+        ...realtimeTelemetry,
+        observed: filteredObserved
+      }
+
+      // Update the time range label
+      const timeRangeLabel = document.getElementById('chart-time-range')
+      if (timeRangeLabel) {
+        timeRangeLabel.textContent = getTimeRangeLabel(currentFilter)
+      }
+
+      // Update active button state
+      document.querySelectorAll('.time-filter-btn').forEach(btn => {
+        if (btn.dataset.filter === currentFilter) {
+          btn.classList.remove('govuk-button--secondary')
+          btn.classList.add('govuk-button--primary')
+        } else {
+          btn.classList.remove('govuk-button--primary')
+          btn.classList.add('govuk-button--secondary')
+        }
+      })
+
+      // Render the chart with filtered telemetry
+      lineChart('line-chart', stationId, filteredTelemetry)
+    }
+
+    // Set up time filter button handlers
+    document.querySelectorAll('.time-filter-btn').forEach(button => {
+      button.addEventListener('click', function () {
+        currentFilter = this.dataset.filter
+        renderChart()
+      })
+    })
+
+    // Set up upload button handler
+    const uploadBtn = document.getElementById('upload-historic-btn')
+    const fileInput = document.getElementById('historic-data-upload')
+
+    if (uploadBtn && fileInput) {
+      uploadBtn.addEventListener('click', () => {
+        fileInput.click()
+      })
+
+      fileInput.addEventListener('change', async (event) => {
+        const file = event.target.files[0]
+        if (!file) return
+
+        try {
+          // Read the file
+          const text = await file.text()
+
+          // Parse the CSV
+          const parsedData = parseHistoricCSV(text)
+
+          if (parsedData.length === 0) {
+            alert('No valid data found in the CSV file (or all data is older than 5 years)')
+            return
+          }
+
+          // Save to IndexedDB (replaces any previous upload)
+          historicData = parsedData
+          const saved = await saveHistoricData(parsedData)
+
+          if (saved) {
+            // Re-render the chart with the new data
+            renderChart()
+
+            // Enable all filter buttons now that we have historic data
+            updateFilterButtonStates()
+
+            alert(`Successfully uploaded ${parsedData.length} data points from the last 5 years`)
+          } else {
+            alert('Failed to upload historic data. Please try again.')
+          }
+        } catch (error) {
+          console.error('Error processing CSV file:', error)
+          alert(`Error processing CSV file: ${error.message}`)
+        }
+
+        // Reset file input
+        event.target.value = ''
+      })
+    }
   }
 }
+

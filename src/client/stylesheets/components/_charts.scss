@@ -109,8 +109,8 @@
     .locator {
       &__line {
         stroke: #b1b4b6;
-        stroke-width: 0.25;
-        opacity: 1;
+        stroke-width: 1;
+        opacity: 0;
 
         &--visible {
           opacity: 1;
@@ -130,10 +130,15 @@
         fill: #fff;
         stroke: #1d70b8;
         stroke-width: 2;
+        opacity: 0;
       }
 
       &--visible {
         .locator__line {
+          opacity: 1;
+        }
+
+        .locator-point {
           opacity: 1;
         }
       }
