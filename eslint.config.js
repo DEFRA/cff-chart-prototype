@@ -8,6 +8,17 @@ export default [
     noStyle: true
   }),
   {
+    files: ['src/client/javascripts/**/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        alert: 'readonly',
+        localStorage: 'readonly'
+      }
+    }
+  },
+  {
     files: ['**/*.test.js', '**/*.spec.js'],
     languageOptions: {
       globals: {

@@ -12,7 +12,7 @@ const manifestPath = path.join(
 
 let webpackManifest
 
-export function context (request) {
+export function context(request) {
   const ctx = request.response.source?.context || {}
   if (!webpackManifest) {
     try {
@@ -24,11 +24,11 @@ export function context (request) {
 
   return {
     ...ctx,
-    assetPath: `${assetPath}/assets/rebrand`,
+    assetPath,
     serviceName: config.get('serviceName'),
     serviceUrl: '/',
     breadcrumbs: [],
-    getAssetPath (asset) {
+    getAssetPath(asset) {
       const webpackAssetPath = webpackManifest?.[asset]
       return `${assetPath}/${webpackAssetPath ?? asset}`
     }

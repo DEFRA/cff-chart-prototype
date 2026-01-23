@@ -3,14 +3,20 @@
 {% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/phase-banner/macro.njk" import govukPhaseBanner %}
 
+{% set assetUrl = false %}
+{% set webAppManifest = false %}
 {% set mainClasses = "app-main-wrapper" %}
 
-{% block head %}
+{% block icons %}
   <link rel="shortcut icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
   <link rel="shortcut icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
   <link rel="icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
   <link rel="icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ getAssetPath('assets/images/govuk-icon-180.png') }}">
+  <link rel="manifest" href="{{ getAssetPath('assets/manifest.json') }}">
+{% endblock %}
+
+{% block head %}
   <link href="{{ getAssetPath('stylesheets/application.scss') }}" rel="stylesheet">
 {% endblock %}
 
@@ -149,16 +155,51 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
     <div class="defra-line-chart govuk-!-margin-bottom-4">
-      <h2 class="govuk-heading-s govuk-!-margin-top-1 govuk-!-margin-bottom-1">Height in metres over the last 5 days</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
+          Height in metres - <span id="chart-time-range">Last 5 days</span>
+        </h2>
+        
+        {% if chartStyle === 'styleB' or chartStyle === 'styleC' %}
+        {# Time filter buttons #}
+        <div id="time-filter-buttons" style="display: flex; gap: 0.5rem;">
+          <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="5d" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
+            5 days
+          </button>
+          <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="1m" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
+            1 month
+          </button>
+          <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="6m" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
+            6 months
+          </button>
+          <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="1y" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
+            1 year
+          </button>
+          <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="5y" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
+            5 years
+          </button>
+        </div>
+        {% endif %}
+      </div>
 
       {# Placeholder for chart - will be populated by JavaScript #}
       <div id="line-chart" class="defra-line-chart__container" style="width: 100%; height: 400px;">
       </div>
 
-      <a href="/station-csv/{{ station.id }}" class="defra-button-secondary govuk-!-margin-bottom-0">
-        <span class="defra-button-secondary__icon"></span>
-        <span class="defra-button-secondary__text">Download data CSV (12KB)</span>
-      </a>
+      <div style="display: flex; gap: 1rem; align-items: center;">
+        <a href="/station-csv/{{ station.id }}" class="defra-button-secondary govuk-!-margin-bottom-0">
+          <span class="defra-button-secondary__icon"></span>
+          <span class="defra-button-secondary__text">Download data CSV (12KB)</span>
+        </a>
+        
+        {% if chartStyle === 'styleB' or chartStyle === 'styleC' %}
+        <input type="file" id="historic-data-upload" accept=".csv" style="display: none;" />
+        <button type="button" id="upload-historic-btn" class="defra-button-secondary govuk-!-margin-bottom-0">
+          <span class="defra-button-secondary__icon--upload"></span>
+          <span class="defra-button-secondary__text">Upload Historic Data CSV</span>
+        </button>
+        {% endif %}
+      </div>
     </div>
   </div>
 </div>
