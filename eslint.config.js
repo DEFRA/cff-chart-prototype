@@ -29,7 +29,8 @@ export default [
         afterAll: 'readonly',
         beforeEach: 'readonly',
         afterEach: 'readonly',
-        vi: 'readonly'
+        vi: 'readonly',
+        localStorage: 'readonly'
       }
     }
   }
