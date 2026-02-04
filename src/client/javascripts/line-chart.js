@@ -3,9 +3,9 @@ import { area as d3Area, line as d3Line, curveMonotoneX } from 'd3-shape'
 import { axisBottom, axisLeft } from 'd3-axis'
 import { scaleLinear, scaleTime } from 'd3-scale'
 import { timeFormat } from 'd3-time-format'
-import { timeHour, timeDay, timeWeek, timeMonth } from 'd3-time'
-import { select, selectAll, pointer } from 'd3-selection'
-import { extent, bisector } from 'd3-array'
+import { timeDay, timeWeek, timeMonth } from 'd3-time'
+import { select, selectAll } from 'd3-selection'
+import { extent } from 'd3-array'
 
 const DISPLAYED_HOUR_ON_X_AXIS = 6
 const Y_AXIS_CLASS = '.y.axis'
@@ -31,7 +31,6 @@ const TOOLTIP_MARGIN_BOTTOM_OFFSET = 10
 const TOOLTIP_VERTICAL_OFFSET = 40
 const LOCATOR_CIRCLE_RADIUS = 5
 const TOOLTIP_TEXT_X_OFFSET = 12
-const TSPAN_DY_OFFSET = '0.5em'
 const TSPAN_DY_OFFSET_LARGE = '1.4em'
 const TIME_NOW_TSPAN_DY = '15'
 const MARGIN_TOP = 20
@@ -60,7 +59,7 @@ function generateCustomTicks(xExtent, intervalDays) {
   const current = new Date(start)
   current.setHours(0, 0, 0, 0)
 
-  while (current <= end) {
+  while (current.getTime() <= end.getTime()) {
     ticks.push(new Date(current))
     current.setDate(current.getDate() + intervalDays)
   }

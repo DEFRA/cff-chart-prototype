@@ -14,7 +14,8 @@ export default [
         document: 'readonly',
         window: 'readonly',
         alert: 'readonly',
-        localStorage: 'readonly'
+        localStorage: 'readonly',
+        indexedDB: 'readonly'
       }
     }
   },
