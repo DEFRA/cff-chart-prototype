@@ -22,10 +22,12 @@ const SIX_YEARS = 6
 const FOUR_YEARS = 4
 const TEN_DAYS = 10
 const THREE_DAYS = 3
+const FIVE_DAYS = 5
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000
-const FIVE_DAYS_MS = 5 * MILLISECONDS_PER_DAY
+const FIVE_DAYS_MS = FIVE_DAYS * MILLISECONDS_PER_DAY
 const EXPECTED_ARRAY_LENGTH_3 = 3
+const REALTIME_OVERRIDE_VALUE = 2.5
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -170,7 +172,7 @@ describe('Historic Data Management', () => {
       expect(result).toHaveLength(EXPECTED_ARRAY_LENGTH_3)
       expect(result[0].dateTime).toBe(SAMPLE_DATETIME_1)
       expect(result[1].dateTime).toBe(SAMPLE_DATETIME_2)
-      expect(result[1].value).toBe(2.5) // Realtime takes precedence
+      expect(result[1].value).toBe(REALTIME_OVERRIDE_VALUE) // Realtime takes precedence
       expect(result[2].dateTime).toBe(SAMPLE_DATETIME_3)
     })
 
