@@ -102,6 +102,61 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
       })
     })
 
+    /**
+     * Process and save uploaded historic data
+     */
+    async function processUploadedData(parsedData) {
+      if (parsedData.length === 0) {
+        alert('No valid data found in the CSV file (or all data is older than 5 years)')
+        return false
+      }
+
+      // Save to IndexedDB (replaces any previous upload)
+      historicData = parsedData
+      const saved = await saveHistoricData(parsedData)
+
+      if (!saved) {
+        alert('Failed to upload historic data. Please try again.')
+        return false
+      }
+
+      // Re-render the chart with the new data
+      renderChart()
+
+      // Enable all filter buttons now that we have historic data
+      updateFilterButtonStates()
+
+      alert(`Successfully uploaded ${parsedData.length} data points from the last 5 years`)
+      return true
+    }
+
+    /**
+     * Handle file upload for historic data
+     */
+    async function handleFileUpload(event) {
+      const file = event.target.files[0]
+      if (!file) {
+        return
+      }
+
+      try {
+        // Read the file
+        const text = await file.text()
+
+        // Parse the CSV
+        const parsedData = parseHistoricCSV(text)
+
+        // Process and save the data
+        await processUploadedData(parsedData)
+      } catch (error) {
+        console.error('Error processing CSV file:', error)
+        alert(`Error processing CSV file: ${error.message}`)
+      } finally {
+        // Reset file input
+        event.target.value = ''
+      }
+    }
+
     // Set up upload button handler
     const uploadBtn = document.getElementById('upload-historic-btn')
     const fileInput = document.getElementById('historic-data-upload')
@@ -111,48 +166,7 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
         fileInput.click()
       })
 
-      fileInput.addEventListener('change', async (event) => {
-        const file = event.target.files[0]
-        if (!file) {
-          return
-        }
-
-        try {
-          // Read the file
-          const text = await file.text()
-
-          // Parse the CSV
-          const parsedData = parseHistoricCSV(text)
-
-          if (parsedData.length === 0) {
-            alert('No valid data found in the CSV file (or all data is older than 5 years)')
-            return
-          }
-
-          // Save to IndexedDB (replaces any previous upload)
-          historicData = parsedData
-          const saved = await saveHistoricData(parsedData)
-
-          if (!saved) {
-            alert('Failed to upload historic data. Please try again.')
-            return
-          }
-
-          // Re-render the chart with the new data
-          renderChart()
-
-          // Enable all filter buttons now that we have historic data
-          updateFilterButtonStates()
-
-          alert(`Successfully uploaded ${parsedData.length} data points from the last 5 years`)
-        } catch (error) {
-          console.error('Error processing CSV file:', error)
-          alert(`Error processing CSV file: ${error.message}`)
-        } finally {
-          // Reset file input
-          event.target.value = ''
-        }
-      })
+      fileInput.addEventListener('change', handleFileUpload)
     }
   }
 }
