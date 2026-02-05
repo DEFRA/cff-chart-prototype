@@ -29,16 +29,21 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
     // Load any stored historic data
     let historicData = []
 
-      // Initialize async
-      ; (async () => {
-        historicData = await loadHistoricData() || []
+    // Initialize async - load historic data
+    loadHistoricData().then(data => {
+      historicData = data || []
 
-        // Initial render with default filter (5 days)
-        renderChart()
+      // Initial render with default filter (5 days)
+      renderChart()
 
-        // Set initial button states based on historic data availability
-        updateFilterButtonStates()
-      })()
+      // Set initial button states based on historic data availability
+      updateFilterButtonStates()
+    }).catch(err => {
+      console.error('Failed to load historic data:', err)
+      // Continue with empty historic data
+      renderChart()
+      updateFilterButtonStates()
+    })
 
     /**
      * Update filter button states based on historic data availability

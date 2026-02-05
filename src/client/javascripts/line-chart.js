@@ -47,6 +47,20 @@ const DECIMAL_PLACES = 2
 const DEFAULT_WIDTH = 800
 const DEFAULT_HEIGHT = 400
 
+// Time range thresholds in days
+const SEVEN_DAYS = 7
+const THIRTY_DAYS = 30
+const NINETY_DAYS = 90
+const ONE_HUNDRED_EIGHTY_DAYS = 180
+const THREE_HUNDRED_SIXTY_FIVE_DAYS = 365
+const SEVEN_HUNDRED_THIRTY_DAYS = 730
+const TEN_NINETY_FIVE_DAYS = 1095
+
+// Tick interval values
+const EVERY_THREE_DAYS = 3
+const EVERY_THREE_MONTHS = 3
+const EVERY_SIX_MONTHS = 6
+
 /**
  * Generate custom tick values at consistent intervals
  */
@@ -74,30 +88,30 @@ function calculateTickInterval(xExtent) {
   const timeDiff = xExtent[1] - xExtent[0]
   const days = timeDiff / (1000 * 60 * 60 * 24)
 
-  if (days <= 7) {
+  if (days <= SEVEN_DAYS) {
     // Up to 7 days: show every day at 6am
     return { interval: timeDay.every(1), formatTime: true, formatDate: true, removeLastNTicks: 1 }
-  } else if (days <= 30) {
+  } else if (days <= THIRTY_DAYS) {
     // 1 month: show every 3 days with custom tick generation
-    return { customTicks: generateCustomTicks(xExtent, 3), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= 90) {
+    return { customTicks: generateCustomTicks(xExtent, EVERY_THREE_DAYS), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+  } else if (days <= NINETY_DAYS) {
     // 3 months: show every week
     return { interval: timeWeek.every(1), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= 180) {
+  } else if (days <= ONE_HUNDRED_EIGHTY_DAYS) {
     // 6 months: show every 2 weeks
     return { interval: timeWeek.every(2), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= 365) {
+  } else if (days <= THREE_HUNDRED_SIXTY_FIVE_DAYS) {
     // 1 year: show monthly
     return { interval: timeMonth.every(1), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= 730) {
+  } else if (days <= SEVEN_HUNDRED_THIRTY_DAYS) {
     // 2 years: show every 2 months
     return { interval: timeMonth.every(2), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= 1095) {
+  } else if (days <= TEN_NINETY_FIVE_DAYS) {
     // 3 years: show every 3 months (quarterly)
-    return { interval: timeMonth.every(3), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+    return { interval: timeMonth.every(EVERY_THREE_MONTHS), formatTime: false, formatDate: true, removeLastNTicks: 2 }
   } else {
     // More than 3 years: show every 6 months
-    return { interval: timeMonth.every(6), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+    return { interval: timeMonth.every(EVERY_SIX_MONTHS), formatTime: false, formatDate: true, removeLastNTicks: 2 }
   }
 }
 
@@ -582,7 +596,7 @@ function initializeSVG(containerId) {
   const tooltip = mainGroup.append('g').attr('class', 'tooltip').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   const tooltipPath = tooltip.append('path').attr('class', 'tooltip-bg')
   const tooltipText = tooltip.append('text').attr('class', 'tooltip-text')
-  const tooltipValue = tooltipText.append('tspan').attr('class', 'tooltip-text__strong').attr('x', TOOLTIP_TEXT_X_OFFSET).attr('y', 30).attr('dy', 0)
+  const tooltipValue = tooltipText.append('tspan').attr('class', 'tooltip-text__strong').attr('x', TOOLTIP_TEXT_X_OFFSET).attr('y', THIRTY_DAYS).attr('dy', 0)
   const tooltipDescription = tooltipText.append('tspan').attr('class', 'tooltip-text').attr('x', TOOLTIP_TEXT_X_OFFSET).attr('dy', TSPAN_DY_OFFSET_LARGE)
 
   return {
@@ -603,12 +617,12 @@ function initializeSVG(containerId) {
 /**
  * Setup event handlers
  */
-function setupEventHandlers(container, svg, mainGroup, getState, tooltipManager) {
+function setupEventHandlers(container, svg, _mainGroup, getState, tooltipManager) {
   let interfaceType = null
   let lastClientX, lastClientY
 
-  const getMousePosition = (e, svgNode) => {
-    const rect = svgNode.getBoundingClientRect()
+  const getMousePosition = (e, svgElement) => {
+    const rect = svgElement.getBoundingClientRect()
     return [e.clientX - rect.left, e.clientY - rect.top]
   }
 
