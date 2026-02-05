@@ -27,7 +27,7 @@ describe('Historic Data Management', () => {
   beforeEach(async () => {
     localStorageMock.clear()
     vi.clearAllMocks()
-    
+
     // Clear IndexedDB before each test
     await clearHistoricData()
   })
