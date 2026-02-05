@@ -7,7 +7,16 @@ const DB_NAME = 'historic-telemetry-db'
 const DB_VERSION = 1
 const STORE_NAME = 'telemetry-data'
 const DATA_KEY = 'historic-data'
-const FIVE_YEARS_MS = 5 * 365 * 24 * 60 * 60 * 1000
+const FIVE_YEARS = 5
+const DAYS_PER_YEAR = 365
+const HOURS_PER_DAY = 24
+const MINUTES_PER_HOUR = 60
+const SECONDS_PER_MINUTE = 60
+const MS_PER_SECOND = 1000
+const FIVE_DAYS = 5
+const THIRTY_DAYS = 30
+const SIX_MONTHS = 6
+const FIVE_YEARS_MS = FIVE_YEARS * DAYS_PER_YEAR * HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
 
 /**
  * Open IndexedDB database
@@ -39,7 +48,7 @@ export function parseHistoricCSV(csvContent) {
   }
 
   // Parse header
-  const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim())
+  const header = lines[0].split(',').map(h => h.replaceAll('"', '').trim())
   const dateTimeIndex = header.indexOf('dateTime')
   const valueIndex = header.indexOf('value')
 
@@ -54,18 +63,24 @@ export function parseHistoricCSV(csvContent) {
   const data = []
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim()
-    if (!line) continue
+    if (!line) {
+      continue
+    }
 
-    const values = line.split(',').map(v => v.replace(/"/g, '').trim())
+    const values = line.split(',').map(v => v.replaceAll('"', '').trim())
     const dateTime = values[dateTimeIndex]
-    const value = parseFloat(values[valueIndex])
+    const value = Number.parseFloat(values[valueIndex])
 
     // Skip invalid rows
-    if (!dateTime || isNaN(value)) continue
+    if (!dateTime || Number.isNaN(value)) {
+      continue
+    }
 
     // Only include data from last 5 years
     const date = new Date(dateTime)
-    if (date < fiveYearsAgo) continue
+    if (date < fiveYearsAgo) {
+      continue
+    }
 
     data.push({
       dateTime,
@@ -187,18 +202,20 @@ export function filterDataByTimeRange(data, range) {
   const now = new Date()
   let cutoffDate
 
+  const MS_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
+
   switch (range) {
     case '5d':
-      cutoffDate = new Date(now.getTime() - (5 * 24 * 60 * 60 * 1000))
+      cutoffDate = new Date(now.getTime() - (FIVE_DAYS * MS_PER_DAY))
       break
     case '1m':
-      cutoffDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000))
+      cutoffDate = new Date(now.getTime() - (THIRTY_DAYS * MS_PER_DAY))
       break
     case '6m':
-      cutoffDate = new Date(now.getTime() - (6 * 30 * 24 * 60 * 60 * 1000))
+      cutoffDate = new Date(now.getTime() - (SIX_MONTHS * THIRTY_DAYS * MS_PER_DAY))
       break
     case '1y':
-      cutoffDate = new Date(now.getTime() - (365 * 24 * 60 * 60 * 1000))
+      cutoffDate = new Date(now.getTime() - (DAYS_PER_YEAR * MS_PER_DAY))
       break
     case '5y':
       cutoffDate = new Date(now.getTime() - FIVE_YEARS_MS)

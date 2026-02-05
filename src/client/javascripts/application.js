@@ -19,8 +19,12 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
     const stationId = window.flood.model.id
     const realtimeTelemetry = window.flood.model.telemetry
 
+    // Constants
+    const DEFAULT_FILTER = '5d'
+    const TIME_FILTER_BTN_SELECTOR = '.time-filter-btn'
+
     // Current filter state (default to 5 days)
-    let currentFilter = '5d'
+    let currentFilter = DEFAULT_FILTER
 
     // Load any stored historic data
     let historicData = []
@@ -41,10 +45,10 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
      */
     function updateFilterButtonStates() {
       const hasHistoricData = historicData && historicData.length > 0
-      document.querySelectorAll('.time-filter-btn').forEach(btn => {
+      document.querySelectorAll(TIME_FILTER_BTN_SELECTOR).forEach(btn => {
         const filter = btn.dataset.filter
         // Disable all filters except 5d if no historic data
-        if (filter !== '5d') {
+        if (filter !== DEFAULT_FILTER) {
           btn.disabled = !hasHistoricData
         }
       })
@@ -76,7 +80,7 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
       }
 
       // Update active button state
-      document.querySelectorAll('.time-filter-btn').forEach(btn => {
+      document.querySelectorAll(TIME_FILTER_BTN_SELECTOR).forEach(btn => {
         if (btn.dataset.filter === currentFilter) {
           btn.classList.remove('govuk-button--secondary')
           btn.classList.add('govuk-button--primary')
@@ -91,7 +95,7 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
     }
 
     // Set up time filter button handlers
-    document.querySelectorAll('.time-filter-btn').forEach(button => {
+    document.querySelectorAll(TIME_FILTER_BTN_SELECTOR).forEach(button => {
       button.addEventListener('click', function () {
         currentFilter = this.dataset.filter
         renderChart()
@@ -109,7 +113,9 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
 
       fileInput.addEventListener('change', async (event) => {
         const file = event.target.files[0]
-        if (!file) return
+        if (!file) {
+          return
+        }
 
         try {
           // Read the file
@@ -127,24 +133,25 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
           historicData = parsedData
           const saved = await saveHistoricData(parsedData)
 
-          if (saved) {
-            // Re-render the chart with the new data
-            renderChart()
-
-            // Enable all filter buttons now that we have historic data
-            updateFilterButtonStates()
-
-            alert(`Successfully uploaded ${parsedData.length} data points from the last 5 years`)
-          } else {
+          if (!saved) {
             alert('Failed to upload historic data. Please try again.')
+            return
           }
+
+          // Re-render the chart with the new data
+          renderChart()
+
+          // Enable all filter buttons now that we have historic data
+          updateFilterButtonStates()
+
+          alert(`Successfully uploaded ${parsedData.length} data points from the last 5 years`)
         } catch (error) {
           console.error('Error processing CSV file:', error)
           alert(`Error processing CSV file: ${error.message}`)
+        } finally {
+          // Reset file input
+          event.target.value = ''
         }
-
-        // Reset file input
-        event.target.value = ''
       })
     }
   }
