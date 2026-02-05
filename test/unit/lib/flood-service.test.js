@@ -12,6 +12,8 @@ const SAMPLE_DATETIME_3 = '2026-01-16T12:30:00Z'
 const SAMPLE_DATETIME_4 = '2026-01-16T12:45:00Z'
 const SAMPLE_DATETIME_5 = '2026-01-16T13:00:00Z'
 const EXPECTED_READING_COUNT = 3
+const STATION_LABEL_TEME = 'Teme at Knightsford Bridge'
+const RIVER_NAME_TEME = 'River Teme'
 
 // Mock global fetch
 globalThis.fetch = vi.fn()
@@ -354,8 +356,8 @@ describe('flood-service - searchStations', () => {
 describe('formatStationData - Basic Operations', () => {
   const mockStation = {
     RLOIid: 8085,
-    label: 'Teme at Knightsford Bridge',
-    riverName: 'River Teme',
+    label: STATION_LABEL_TEME,
+    riverName: RIVER_NAME_TEME,
     stationType: 'S',
     stageScale: {
       typicalRangeHigh: 1.5,
@@ -376,8 +378,8 @@ describe('formatStationData - Basic Operations', () => {
 
     expect(result).toMatchObject({
       id: 8085,
-      name: 'Teme at Knightsford Bridge',
-      river: 'River Teme',
+      name: STATION_LABEL_TEME,
+      river: RIVER_NAME_TEME,
       type: 'S',
       recentValue: {
         value: '0.58'
@@ -391,8 +393,8 @@ describe('formatStationData - Basic Operations', () => {
 describe('formatStationData - Trend Detection', () => {
   const mockStation = {
     RLOIid: 8085,
-    label: 'Teme at Knightsford Bridge',
-    riverName: 'River Teme',
+    label: STATION_LABEL_TEME,
+    riverName: RIVER_NAME_TEME,
     stationType: 'S',
     stageScale: {
       typicalRangeHigh: 1.5,
@@ -432,8 +434,8 @@ describe('formatStationData - Trend Detection', () => {
 describe('formatStationData - State Detection', () => {
   const mockStation = {
     RLOIid: 8085,
-    label: 'Teme at Knightsford Bridge',
-    riverName: 'River Teme',
+    label: STATION_LABEL_TEME,
+    riverName: RIVER_NAME_TEME,
     stationType: 'S',
     stageScale: {
       typicalRangeHigh: 1.5,
@@ -455,8 +457,8 @@ describe('formatStationData - State Detection', () => {
 describe('formatStationData - Edge Cases', () => {
   const mockStation = {
     RLOIid: 8085,
-    label: 'Teme at Knightsford Bridge',
-    riverName: 'River Teme',
+    label: STATION_LABEL_TEME,
+    riverName: RIVER_NAME_TEME,
     stationType: 'S',
     stageScale: {
       typicalRangeHigh: 1.5,
