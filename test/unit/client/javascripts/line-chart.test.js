@@ -7,7 +7,7 @@ vi.mock('../../../../src/client/javascripts/utils.js', () => ({
 }))
 
 /**
- * Tests for helper functions extracted during line-chart-refactored.js refactoring
+ * Tests for helper functions in line-chart.js
  * 
  * This file tests the logic of helper functions that were created to reduce cognitive
  * complexity and improve code organization:
@@ -22,7 +22,7 @@ vi.mock('../../../../src/client/javascripts/utils.js', () => ({
  * - Data point finding logic
  * - River value clamping logic
  */
-describe('line-chart-refactored - Data Processing Helpers', () => {
+describe('line-chart - Data Processing Helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })

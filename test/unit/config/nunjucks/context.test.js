@@ -1,5 +1,8 @@
 import { vi, describe, beforeEach, beforeAll, test, expect } from 'vitest'
 
+// Test constants
+const SERVICE_NAME = 'CFF Chart Prototype'
+
 const mockReadFileSync = vi.fn()
 const mockLoggerError = vi.fn()
 
@@ -54,10 +57,10 @@ describe('Context and cache', () => {
 
       test('Should provide expected context', () => {
         expect(contextResult).toEqual({
-          assetPath: '/public/assets/rebrand',
+          assetPath: '/public',
           breadcrumbs: [],
           getAssetPath: expect.any(Function),
-          serviceName: 'CFF Chart Prototype',
+          serviceName: SERVICE_NAME,
           serviceUrl: '/'
         })
       })
@@ -97,10 +100,10 @@ describe('Context and cache', () => {
           expect(result).toEqual({
             pageTitle: 'Custom Page Title',
             customProperty: 'existing value',
-            assetPath: '/public/assets/rebrand',
+            assetPath: '/public',
             breadcrumbs: [],
             getAssetPath: expect.any(Function),
-            serviceName: 'CFF Chart Prototype',
+            serviceName: SERVICE_NAME,
             serviceUrl: '/'
           })
         })
@@ -168,10 +171,10 @@ describe('Context and cache', () => {
 
       test('Should provide expected context', () => {
         expect(contextResult).toEqual({
-          assetPath: '/public/assets/rebrand',
+          assetPath: '/public',
           breadcrumbs: [],
           getAssetPath: expect.any(Function),
-          serviceName: 'CFF Chart Prototype',
+          serviceName: SERVICE_NAME,
           serviceUrl: '/'
         })
       })

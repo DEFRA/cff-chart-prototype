@@ -10,4 +10,4 @@ coverage
 .envrc
 tsconfig.tsbuildinfo
 .env
-.sonarlint/connectedMode.json
+.sonarlint/
