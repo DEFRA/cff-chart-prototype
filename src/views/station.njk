@@ -313,7 +313,8 @@
       id: '{{ station.id }}',
       stationId: '{{ station.id }}',
       telemetry: {{ telemetry | dump | safe }},
-      chartThreshold: []
+      chartThreshold: [],
+      chartStyle: '{{ chartStyle }}'
     };
   </script>
   <script src="{{ getAssetPath('application.js') }}"></script>

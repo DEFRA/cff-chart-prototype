@@ -26,6 +26,7 @@ const TIME_LABEL_OFFSET_X_DESKTOP = -24
 const TICK_OVERLAP_MARGIN = 5
 const TOOLTIP_TEXT_HEIGHT_OFFSET = 23
 const TOOLTIP_PATH_LENGTH = 140
+const TOOLTIP_PATH_LENGTH_WIDE = 175
 const TOOLTIP_MARGIN_TOP = 10
 const TOOLTIP_MARGIN_BOTTOM_OFFSET = 10
 const TOOLTIP_VERTICAL_OFFSET = 40
@@ -118,13 +119,17 @@ function calculateTickInterval(xExtent) {
 /**
  * Format X axis labels with time and date
  */
-function formatXAxisLabels(d, i, nodes, showTime) {
+function formatXAxisLabels(d, i, nodes, showTime, isYearScale = false) {
   const element = select(nodes[i])
   if (showTime) {
     const formattedTime = timeFormat('%-I%p')(new Date(d.setHours(DISPLAYED_HOUR_ON_X_AXIS, 0, 0, 0))).toLocaleLowerCase()
     const formattedDate = timeFormat('%-e %b')(new Date(d))
     element.append('tspan').text(formattedTime)
     element.append('tspan').attr('x', 0).attr('dy', '15').text(formattedDate)
+  } else if (isYearScale) {
+    // For 5-year scale, show month & year
+    const formattedDate = timeFormat('%b %Y')(new Date(d))
+    element.append('tspan').text(formattedDate)
   } else {
     const formattedDate = timeFormat('%-e %b')(new Date(d))
     element.append('tspan').text(formattedDate)
@@ -187,8 +192,9 @@ function createYScale(lines, dataType, height) {
 /**
  * Render X and Y axes
  */
-function renderAxes(svg, xScale, yScale, width, height, xExtent, _isMobile) {
+function renderAxes(svg, xScale, yScale, width, height, xExtent, _isMobile, timeRange) {
   const tickConfig = calculateTickInterval(xExtent)
+  const isYearScale = timeRange === '5y'
 
   const xAxis = axisBottom()
     .scale(xScale)
@@ -216,7 +222,7 @@ function renderAxes(svg, xScale, yScale, width, height, xExtent, _isMobile) {
     .call(yAxis)
 
   // Format X axis labels
-  svg.select('.x.axis').selectAll('text').each((d, i, nodes) => formatXAxisLabels(d, i, nodes, tickConfig.formatTime))
+  svg.select('.x.axis').selectAll('text').each((d, i, nodes) => formatXAxisLabels(d, i, nodes, tickConfig.formatTime, isYearScale))
 
   // Remove last tick label(s) to avoid overlap with time indicator
   removeLastTickLabel(svg, tickConfig.removeLastNTicks)
@@ -409,7 +415,7 @@ function renderLines(svg, observedPoints, forecastPoints, xScale, yScale, height
 /**
  * Render significant data points
  */
-function renderSignificantPoints(container, observedPoints, forecastPoints, xScale, yScale) {
+function renderSignificantPoints(container, observedPoints, forecastPoints, xScale, yScale, timeRange) {
   container.selectAll('*').remove()
 
   const significantObserved = observedPoints.filter(x => x.isSignificant).map(p => ({ ...p, type: 'observed' }))
@@ -442,8 +448,11 @@ function renderSignificantPoints(container, observedPoints, forecastPoints, xSca
     .attr('y', d => yScale(d.value))
     .each(function (d) {
       const value = `${d.value.toFixed(2)}m`
-      const time = timeFormat('%-I:%M%p')(new Date(d.dateTime)).toLowerCase()
-      const date = timeFormat('%e %b')(new Date(d.dateTime))
+      const dateObj = new Date(d.dateTime)
+      const time = timeFormat('%-I:%M%p')(dateObj).toLowerCase()
+      const includeYear = timeRange === '1y' || timeRange === '5y'
+      const dateFormat = includeYear ? '%e %b %Y' : '%e %b'
+      const date = timeFormat(dateFormat)(dateObj)
       select(this).text(`${value} at ${time}, ${date}`)
     })
 
@@ -454,14 +463,14 @@ function renderSignificantPoints(container, observedPoints, forecastPoints, xSca
  * Create tooltip manager
  */
 function createTooltipManager(tooltipConfig) {
-  const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, getHeight, dataType, latestDateTime } = tooltipConfig
+  const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, getHeight, dataType, latestDateTime, timeRange } = tooltipConfig
 
   function setPosition(x, y, dataPoint, yScaleFunc) {
     const currentHeight = getHeight()
     const locatorX = x // Save original X for locator positioning
     const text = tooltip.select('text')
     const txtHeight = Math.round(text.node().getBBox().height) + TOOLTIP_TEXT_HEIGHT_OFFSET
-    const pathLength = TOOLTIP_PATH_LENGTH
+    const pathLength = (timeRange === '1y' || timeRange === '5y') ? TOOLTIP_PATH_LENGTH_WIDE : TOOLTIP_PATH_LENGTH
     const pathCentre = `M${pathLength},${txtHeight}l0,-${txtHeight}l-${pathLength},0l0,${txtHeight}l${pathLength},0Z`
 
     // Center tooltip horizontally on the locator line
@@ -499,9 +508,12 @@ function createTooltipManager(tooltipConfig) {
     }
 
     const value = dataType === 'river' && (Math.round(dataPoint.value * 100) / 100) <= 0 ? '0' : dataPoint.value.toFixed(2)
+    const dateObj = new Date(dataPoint.dateTime)
+    const includeYear = timeRange === '1y' || timeRange === '5y'
+    const dateFormat = includeYear ? '%e %b %Y' : '%e %b'
 
     tooltipValue.text(`${value}m`)
-    tooltipDescription.text(`${timeFormat('%-I:%M%p')(new Date(dataPoint.dateTime)).toLowerCase()}, ${timeFormat('%e %b')(new Date(dataPoint.dateTime))}`)
+    tooltipDescription.text(`${timeFormat('%-I:%M%p')(dateObj).toLowerCase()}, ${timeFormat(dateFormat)(dateObj)}`)
 
     locator.classed('locator--visible', true)
 
@@ -708,6 +720,7 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
   }
 
   const dataCache = data
+  const timeRange = _options.timeRange || '5d'
   const svgElements = initializeSVG(containerId)
   const { svg, mainGroup, timeLine, timeLabel, locator, significantContainer, tooltip, tooltipPath, tooltipValue, tooltipDescription } = svgElements
 
@@ -750,12 +763,12 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     mainGroup.attr('transform', `translate(${margin.left},${margin.top})`)
 
     // Render chart elements
-    renderAxes(svg, xScale, yScale, width, height, xExtent, isMobile)
+    renderAxes(svg, xScale, yScale, width, height, xExtent, isMobile, timeRange)
     renderGridLines(svg, xScale, yScale, height, width, xExtent)
     updateTimeIndicator(svg, timeLabel, timeLine, xScale, height, isMobile)
     hideOverlappingTicks(timeLabel)
     renderLines(svg, observedPoints, forecastPoints, xScale, yScale, height, dataCache.type)
-    renderSignificantPoints(significantContainer, observedPoints, forecastPoints, xScale, yScale)
+    renderSignificantPoints(significantContainer, observedPoints, forecastPoints, xScale, yScale, timeRange)
 
     // Update locator line height
     svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', height)
@@ -770,7 +783,8 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     locator,
     getHeight: () => height,
     dataType: dataCache.type,
-    latestDateTime: dataCache.latestDateTime
+    latestDateTime: dataCache.latestDateTime,
+    timeRange
   })
 
   // Initial render

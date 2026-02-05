@@ -8,7 +8,8 @@ import {
   loadHistoricData,
   mergeData,
   filterDataByTimeRange,
-  getTimeRangeLabel
+  getTimeRangeLabel,
+  downsampleForStyleB
 } from './historic-data.js'
 
 initAll()
@@ -56,10 +57,16 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
       // Apply time filter
       const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
 
+      // Apply downsampling for chart style B to improve performance
+      const chartStyle = window.flood.model.chartStyle
+      const finalObserved = chartStyle === 'styleB'
+        ? downsampleForStyleB(filteredObserved, currentFilter)
+        : filteredObserved
+
       // Create telemetry object with filtered observed data
       const filteredTelemetry = {
         ...realtimeTelemetry,
-        observed: filteredObserved
+        observed: finalObserved
       }
 
       // Update the time range label
@@ -79,8 +86,8 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
         }
       })
 
-      // Render the chart with filtered telemetry
-      lineChart('line-chart', stationId, filteredTelemetry)
+      // Render the chart with filtered telemetry and time range
+      lineChart('line-chart', stationId, filteredTelemetry, { timeRange: currentFilter })
     }
 
     // Initialize async - load historic data

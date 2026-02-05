@@ -240,3 +240,69 @@ export function getTimeRangeLabel(range) {
   }
   return labels[range] || 'Last 5 days'
 }
+
+/**
+ * Downsample data for chart style B to improve performance and readability
+ * - 5 days, 1 month: no downsampling (15-min intervals)
+ * - 6 months: hourly values only
+ * - 1 year: 4-hour intervals
+ * - 5 years: daily high points
+ */
+export function downsampleForStyleB(data, range) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return []
+  }
+
+  // No downsampling for 5 days and 1 month
+  if (range === '5d' || range === '1m') {
+    return data
+  }
+
+  const downsampled = []
+  const FOUR_HOURS_MS = 4 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
+
+  if (range === '6m') {
+    // Hourly values - keep first value of each hour
+    let lastHour = null
+    data.forEach(item => {
+      const date = new Date(item.dateTime)
+      const hour = new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours()).getTime()
+      if (lastHour !== hour) {
+        downsampled.push(item)
+        lastHour = hour
+      }
+    })
+  } else if (range === '1y') {
+    // 4-hour intervals
+    let lastInterval = null
+    data.forEach(item => {
+      const timestamp = new Date(item.dateTime).getTime()
+      const interval = Math.floor(timestamp / FOUR_HOURS_MS) * FOUR_HOURS_MS
+      if (lastInterval !== interval) {
+        downsampled.push(item)
+        lastInterval = interval
+      }
+    })
+  } else if (range === '5y') {
+    // Weekly high points - group by week and keep max value
+    const weeklyGroups = new Map()
+    data.forEach(item => {
+      const date = new Date(item.dateTime)
+      // Get the start of the week (Sunday)
+      const weekStart = new Date(date)
+      weekStart.setDate(date.getDate() - date.getDay())
+      weekStart.setHours(0, 0, 0, 0)
+      const weekKey = weekStart.getTime()
+      if (!weeklyGroups.has(weekKey) || item.value > weeklyGroups.get(weekKey).value) {
+        weeklyGroups.set(weekKey, item)
+      }
+    })
+    downsampled.push(...weeklyGroups.values())
+    downsampled.sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
+  } else {
+    // Unknown range - return original data
+    return data
+  }
+
+  return downsampled
+}
