@@ -647,8 +647,10 @@ describe('formatTelemetryData', () => {
   })
 
   it('should mark all readings as not errors', () => {
+    const now = new Date()
+    const oneDayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000))
     const readings = [
-      { dateTime: '2026-01-20T12:00:00Z', value: 0.5 }
+      { dateTime: oneDayAgo.toISOString(), value: 0.5 }
     ]
 
     const result = formatTelemetryData(readings)

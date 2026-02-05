@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest'
+import 'fake-indexeddb/auto'
 import {
   parseHistoricCSV,
   saveHistoricData,
@@ -20,12 +21,15 @@ const localStorageMock = (() => {
   }
 })()
 
-global.localStorage = localStorageMock
+globalThis.localStorage = localStorageMock
 
 describe('Historic Data Management', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorageMock.clear()
     vi.clearAllMocks()
+    
+    // Clear IndexedDB before each test
+    await clearHistoricData()
   })
 
   describe('parseHistoricCSV', () => {
@@ -90,42 +94,46 @@ describe('Historic Data Management', () => {
     })
   })
 
-  describe('localStorage operations', () => {
-    test('saveHistoricData should save data to localStorage', () => {
+  describe('IndexedDB operations', () => {
+    test('saveHistoricData should save data to IndexedDB', async () => {
       const data = [
         { dateTime: '2024-01-15T10:00:00', value: 1.234, _: 1.234 }
       ]
 
-      const result = saveHistoricData(data)
+      const result = await saveHistoricData(data)
 
       expect(result).toBe(true)
-      expect(localStorage.getItem('historic-telemetry-data')).toBeTruthy()
     })
 
-    test('loadHistoricData should load data from localStorage', () => {
+    test('loadHistoricData should load data from IndexedDB', async () => {
       const data = [
         { dateTime: '2024-01-15T10:00:00', value: 1.234, _: 1.234 }
       ]
-      localStorage.setItem('historic-telemetry-data', JSON.stringify(data))
+      await saveHistoricData(data)
 
-      const result = loadHistoricData()
+      const result = await loadHistoricData()
 
       expect(result).toEqual(data)
     })
 
-    test('loadHistoricData should return null when no data exists', () => {
-      const result = loadHistoricData()
+    test('loadHistoricData should return null when no data exists', async () => {
+      const result = await loadHistoricData()
 
       expect(result).toBeNull()
     })
 
-    test('clearHistoricData should remove data from localStorage', () => {
-      localStorage.setItem('historic-telemetry-data', 'test')
+    test('clearHistoricData should remove data from IndexedDB', async () => {
+      const data = [
+        { dateTime: '2024-01-15T10:00:00', value: 1.234, _: 1.234 }
+      ]
+      await saveHistoricData(data)
 
-      const result = clearHistoricData()
+      const result = await clearHistoricData()
 
       expect(result).toBe(true)
-      expect(localStorage.getItem('historic-telemetry-data')).toBeNull()
+
+      const loadedData = await loadHistoricData()
+      expect(loadedData).toBeNull()
     })
   })
 
