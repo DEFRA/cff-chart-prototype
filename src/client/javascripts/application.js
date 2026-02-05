@@ -29,26 +29,10 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
     // Load any stored historic data
     let historicData = []
 
-    // Initialize async - load historic data
-    loadHistoricData().then(data => {
-      historicData = data || []
-
-      // Initial render with default filter (5 days)
-      renderChart()
-
-      // Set initial button states based on historic data availability
-      updateFilterButtonStates()
-    }).catch(err => {
-      console.error('Failed to load historic data:', err)
-      // Continue with empty historic data
-      renderChart()
-      updateFilterButtonStates()
-    })
-
     /**
      * Update filter button states based on historic data availability
      */
-    function updateFilterButtonStates() {
+    const updateFilterButtonStates = () => {
       const hasHistoricData = historicData && historicData.length > 0
       document.querySelectorAll(TIME_FILTER_BTN_SELECTOR).forEach(btn => {
         const filter = btn.dataset.filter
@@ -62,7 +46,7 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
     /**
      * Render the chart with current filter and data
      */
-    function renderChart() {
+    const renderChart = () => {
       // Get the observed data array from telemetry
       const realtimeObserved = realtimeTelemetry?.observed || []
 
@@ -99,6 +83,20 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
       lineChart('line-chart', stationId, filteredTelemetry)
     }
 
+    // Initialize async - load historic data
+    try {
+      historicData = await loadHistoricData() || []
+    } catch (err) {
+      console.error('Failed to load historic data:', err)
+      // Continue with empty historic data
+    }
+
+    // Initial render with default filter (5 days)
+    renderChart()
+
+    // Set initial button states based on historic data availability
+    updateFilterButtonStates()
+
     // Set up time filter button handlers
     document.querySelectorAll(TIME_FILTER_BTN_SELECTOR).forEach(button => {
       button.addEventListener('click', function () {
@@ -110,7 +108,7 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
     /**
      * Process and save uploaded historic data
      */
-    async function processUploadedData(parsedData) {
+    const processUploadedData = async (parsedData) => {
       if (parsedData.length === 0) {
         alert('No valid data found in the CSV file (or all data is older than 5 years)')
         return false
@@ -138,7 +136,7 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
     /**
      * Handle file upload for historic data
      */
-    async function handleFileUpload(event) {
+    const handleFileUpload = async (event) => {
       const file = event.target.files[0]
       if (!file) {
         return
