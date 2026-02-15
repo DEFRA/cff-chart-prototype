@@ -8,6 +8,18 @@ export default [
     noStyle: true
   }),
   {
+    files: ['src/client/javascripts/**/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        alert: 'readonly',
+        localStorage: 'readonly',
+        indexedDB: 'readonly'
+      }
+    }
+  },
+  {
     files: ['**/*.test.js', '**/*.spec.js'],
     languageOptions: {
       globals: {
@@ -18,7 +30,8 @@ export default [
         afterAll: 'readonly',
         beforeEach: 'readonly',
         afterEach: 'readonly',
-        vi: 'readonly'
+        vi: 'readonly',
+        localStorage: 'readonly'
       }
     }
   }

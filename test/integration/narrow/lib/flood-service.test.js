@@ -24,19 +24,19 @@ describe('Flood Service Integration Tests', () => {
       expect(result.long).toBeTypeOf('number')
       expect(result.measures).toBeInstanceOf(Array)
       expect(result.measures.length).toBeGreaterThan(0)
-    })
+    }, 20000)
 
     test('Should return null for non-existent station', async () => {
       const result = await getStation(INVALID_STATION_ID)
 
       expect(result).toBeNull()
-    })
+    }, 20000)
 
     test('Should handle invalid station ID gracefully', async () => {
       const result = await getStation('invalid')
 
       expect(result).toBeNull()
-    })
+    }, 20000)
   })
 
   describe('getStationReadings', () => {
@@ -53,13 +53,13 @@ describe('Flood Service Integration Tests', () => {
       expect(firstReading).toHaveProperty('value')
       expect(typeof firstReading.value).toBe('number')
       expect(firstReading.dateTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
-    })
+    }, 20000)
 
     test('Should return limited number of readings', async () => {
       const result = await getStationReadings(VALID_STATION_ID)
 
       expect(result.length).toBeLessThanOrEqual(10000)
-    })
+    }, 20000)
 
     test('Should return readings in sorted order', async () => {
       const result = await getStationReadings(VALID_STATION_ID)
@@ -73,12 +73,12 @@ describe('Flood Service Integration Tests', () => {
       const isDescending = timestamps.every((val, i, arr) => i === 0 || val <= arr[i - 1])
 
       expect(isAscending || isDescending).toBe(true)
-    })
+    }, 20000)
 
     test('Should return empty array for non-existent station', async () => {
       const result = await getStationReadings(INVALID_STATION_ID)
 
       expect(result).toEqual([])
-    })
+    }, 20000)
   })
 })

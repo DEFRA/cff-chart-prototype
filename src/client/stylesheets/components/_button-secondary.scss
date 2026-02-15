@@ -43,6 +43,17 @@
   background-position: center;
 }
 
+.defra-button-secondary__icon--upload {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none"><path d="M8 15V5M3 9l5-5 5 5M2 1h12" stroke="%23000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
 .defra-button-secondary__text {
   font-weight: 400;
 }
