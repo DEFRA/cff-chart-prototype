@@ -1,0 +1,107 @@
+// Flood Impact List Component
+// Displays water levels and their impact descriptions
+// Based on the Check for Flooding service design
+
+@use "govuk-frontend" as govuk;
+
+.defra-flood-impact-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  position: relative;
+  border-bottom: 1px solid govuk.govuk-colour("mid-grey");
+  padding-bottom: 10px;
+
+  &__key {
+    @include govuk.govuk-font($size: 16, $weight: regular, $tabular: true);
+    float: left;
+    clear: left;
+    width: 60px;
+    margin: 0;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    text-align: left;
+
+    @include govuk.govuk-media-query($from: tablet) {
+      @include govuk.govuk-font($size: 19, $weight: regular, $tabular: true);
+      width: 75px;
+    }
+  }
+
+  &__value {
+    @include govuk.govuk-font($size: 16, $weight: regular);
+    margin: 0;
+    padding-left: 85px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-top: 1px solid govuk.govuk-colour("mid-grey");
+    position: relative;
+    overflow: hidden;
+    color: govuk.govuk-colour("dark-grey");
+
+    @include govuk.govuk-media-query($from: tablet) {
+      @include govuk.govuk-font($size: 19, $weight: regular);
+      padding-left: 115px;
+    }
+
+    // First value - no top border
+    &:first-of-type {
+      border-top: none;
+    }
+
+    // Vertical line connecting all items  
+    &::before {
+      position: absolute;
+      content: "";
+      z-index: 1;
+      width: 2px;
+      top: 0;
+      bottom: 0;
+      left: 62px;
+      background-color: govuk.govuk-colour("mid-grey");
+
+      @include govuk.govuk-media-query($from: tablet) {
+        left: 80px;
+      }
+    }
+
+    // First item - start line lower
+    &:first-of-type::before {
+      top: 14px;
+    }
+
+    // Last value - end line higher
+    &:last-of-type::before {
+      bottom: 14px;
+    }
+
+    // Arrow on the last value
+    &:last-of-type::after {
+      position: absolute;
+      content: "";
+      z-index: 2;
+      width: 8px;
+      height: 8px;
+      bottom: 13px;
+      left: 58px;
+      transform: rotate(45deg);
+      border-right: 2px solid govuk.govuk-colour("mid-grey");
+      border-bottom: 2px solid govuk.govuk-colour("mid-grey");
+
+      @include govuk.govuk-media-query($from: tablet) {
+        left: 76px;
+      }
+    }
+  }
+
+  &__container {
+    display: block;
+  }
+
+  // Clear floats after the list
+  &::after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+}

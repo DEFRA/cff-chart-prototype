@@ -163,15 +163,32 @@
   </div>
 </div>
 
-{# Additional Information #}
-<hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-6">
+{# Impacts and thresholds #}
+
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
-    <h2 class="govuk-heading-s govuk-!-margin-bottom-4" data-toggletip data-toggletip-label="More information about historical events" data-toggletip-content="Flooding might not happen again at the same historical levels if, for example, flood defences are now in place.">
-      How levels here could affect nearby areas
-    </h2>
-    
+    <h2 class="govuk-heading-s govuk-!-margin-bottom-4" data-toggletip data-toggletip-label="More information about historical events" data-toggletip-content="Flooding might not happen again at the same historical levels if, for example, flood defences are now in place.">How levels here could affect nearby areas</h2>
+    <div>
+    {% if station.levels and station.levels.length > 0 %}
+    <dl class="defra-flood-impact-list govuk-!-margin-bottom-4" id="impact-list">
+      {% for level in station.levels %}
+        <div class="defra-flood-impact-list__row">
+          <dt class="defra-flood-impact-list__key">{{ level.value }}m</dt>
+          <dd>
+            {{ level.description }}
+            {% if level.date %}<span class="defra-flood-impact-list__meta">{{ level.date }}</span>{% endif %}
+          </dd>
+        </div>
+      {% endfor %}
+    </dl>
+    <p class="govuk-body-s govuk-!-margin-bottom-6">
+      Flooding might not happen again at the same historical levels. This may be because flood management schemes are now in place.
+    </p>
+    {% else %}
+    <p class="govuk-body">No level information available for this station.</p>
+    {% endif %}
+    </div>
     <p class="govuk-body govuk-!-margin-top-3 govuk-!-margin-bottom-0">
       <a href="/how-we-measure-river-sea-groundwater-levels" class="govuk-link">
         How we measure river, sea and groundwater levels

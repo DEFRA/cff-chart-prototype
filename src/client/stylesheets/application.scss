@@ -1,7 +1,32 @@
-@use "govuk-frontend";
+// GOV.UK Frontend
+@import "govuk-frontend/dist/govuk/index";
 
-@use "variables";
-@use "helpers";
-@use "core";
-@use "components";
-@use "partials";
+// Flood Webchat (optional, comment out if not used)
+// @import "@defra/flood-webchat/main";
+
+// Tools (add if you create tools/mixins.scss)
+// @import "tools/mixins";
+
+// Objects (add if you create objects/*.scss)
+// @import "objects/lists";
+// @import "objects/typography";
+// @import "objects/buttons";
+// @import "objects/links";
+
+// Components
+@import "components/_button-secondary";
+@import "components/_charts";
+@import "components/_flood-details";
+@import "components/_flood-impact-list";
+@import "components/_flood-statistics";
+@import "components/_navbar";
+@import "components/_toggletip";
+@import "components/heading/_heading";
+
+// Core, helpers, variables, partials
+@import "core/_header";
+@import "core/_main";
+@import "helpers/_links";
+@import "variables/_colours";
+
+// Add more imports as you add more SCSS files to match the main site

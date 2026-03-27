@@ -32,6 +32,31 @@ export function proxyFetch(url, options = {}) {
 }
 
 /**
+ * Fetch stage scale data for a station
+ */
+export async function getStageScale(stageScaleUrl) {
+  if (!stageScaleUrl) return null
+  
+  try {
+    // Convert http to https if needed
+    const url = stageScaleUrl.replace('http://', 'https://')
+    console.log(`Fetching stageScale from: ${url}`)
+    const response = await proxyFetch(url)
+    
+    if (!response.ok) {
+      console.warn(`StageScale fetch failed: ${response.status} ${response.statusText}`)
+      return null
+    }
+    
+    const data = await response.json()
+    return data.items || null
+  } catch (error) {
+    console.error('Error fetching stageScale:', error.message)
+    return null
+  }
+}
+
+/**
  * Fetch station details by RLOI ID (Check for Flooding ID)
  */
 export async function getStation(stationId) {
@@ -48,8 +73,18 @@ export async function getStation(stationId) {
     const data = await response.json()
     // The API returns an array of stations in items
     if (data.items && data.items.length > 0) {
+      const station = data.items[0]
       console.log(`Station data retrieved successfully for ${stationId}`)
-      return data.items[0]
+      
+      // Fetch stageScale data if available
+      if (station.stageScale && typeof station.stageScale === 'string') {
+        const stageScaleData = await getStageScale(station.stageScale)
+        if (stageScaleData) {
+          station.stageScale = stageScaleData
+        }
+      }
+      
+      return station
     }
     console.log(`No station items found for ${stationId}`)
     return null
@@ -164,6 +199,60 @@ export function formatStationData(station, readings) {
   // Extract RLOI ID (Check for Flooding ID)
   const stationRef = station.RLOIid || station.stationReference || station.notation || 'unknown'
 
+  // Format levels data for display
+  const levels = []
+  if (station.stageScale) {
+    const scale = station.stageScale
+    
+    // Add max on record
+    if (scale.maxOnRecord) {
+      const date = new Date(scale.maxOnRecord.dateTime)
+      levels.push({
+        value: scale.maxOnRecord.value.toFixed(2),
+        description: `Highest level on record (${date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })})`,
+        type: 'historical'
+      })
+    }
+    
+    // Add highest recent
+    if (scale.highestRecent) {
+      const date = new Date(scale.highestRecent.dateTime)
+      levels.push({
+        value: scale.highestRecent.value.toFixed(2),
+        description: `Highest recent level (${date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })})`,
+        type: 'recent'
+      })
+    }
+    
+    // Add typical range high (top of normal range)
+    if (scale.typicalRangeHigh) {
+      levels.push({
+        value: scale.typicalRangeHigh.toFixed(2),
+        description: 'Top of normal range',
+        type: 'threshold'
+      })
+    }
+    
+    // Add typical range low (bottom of normal range)
+    if (scale.typicalRangeLow) {
+      levels.push({
+        value: scale.typicalRangeLow.toFixed(2),
+        description: 'Bottom of normal range',
+        type: 'threshold'
+      })
+    }
+    
+    // Add min on record
+    if (scale.minOnRecord) {
+      const date = new Date(scale.minOnRecord.dateTime)
+      levels.push({
+        value: scale.minOnRecord.value.toFixed(2),
+        description: `Lowest level on record (${date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })})`,
+        type: 'historical'
+      })
+    }
+  }
+
   return {
     id: stationRef,
     name: station.label || station.town || station.stationReference || 'Unknown',
@@ -183,7 +272,8 @@ export function formatStationData(station, readings) {
     isActive: station.status === 'Active' || !station.status,
     status: station.status?.toLowerCase() || 'active',
     lat: station.lat,
-    long: station.long
+    long: station.long,
+    levels: levels
   }
 }
 
