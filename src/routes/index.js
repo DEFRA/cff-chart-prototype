@@ -10,12 +10,10 @@ export const index = [
     method: 'POST',
     path: '/station',
     handler: async function (request, h) {
-      const { dataType, stationType, stationId, chartStyle } = request.payload
+      const { stationId, chartStyle } = request.payload
 
       // Build query params
       const params = new URLSearchParams({
-        dataType: dataType || 'existing',
-        stationType: stationType || 'S',
         chartStyle: chartStyle || 'styleA'
       })
 

@@ -12,6 +12,7 @@ import {
 } from '../../../../src/client/javascripts/historic-data.js'
 
 // Test constants
+const TEST_STATION_ID = '8085'
 const SAMPLE_DATETIME_1 = '2024-01-15T10:00:00'
 const SAMPLE_DATETIME_2 = '2024-01-15T11:00:00'
 const SAMPLE_DATETIME_3 = '2024-01-15T12:00:00'
@@ -49,7 +50,7 @@ describe('Historic Data Management', () => {
     vi.clearAllMocks()
 
     // Clear IndexedDB before each test
-    await clearHistoricData()
+    await clearHistoricData(TEST_STATION_ID)
   })
 
   describe('parseHistoricCSV', () => {
@@ -120,7 +121,7 @@ describe('Historic Data Management', () => {
         { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
       ]
 
-      const result = await saveHistoricData(data)
+      const result = await saveHistoricData(TEST_STATION_ID, data)
 
       expect(result).toBe(true)
     })
@@ -129,15 +130,15 @@ describe('Historic Data Management', () => {
       const data = [
         { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
       ]
-      await saveHistoricData(data)
+      await saveHistoricData(TEST_STATION_ID, data)
 
-      const result = await loadHistoricData()
+      const result = await loadHistoricData(TEST_STATION_ID)
 
       expect(result).toEqual(data)
     })
 
     test('loadHistoricData should return null when no data exists', async () => {
-      const result = await loadHistoricData()
+      const result = await loadHistoricData(TEST_STATION_ID)
 
       expect(result).toBeNull()
     })
@@ -146,14 +147,46 @@ describe('Historic Data Management', () => {
       const data = [
         { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
       ]
-      await saveHistoricData(data)
+      await saveHistoricData(TEST_STATION_ID, data)
 
-      const result = await clearHistoricData()
+      const result = await clearHistoricData(TEST_STATION_ID)
 
       expect(result).toBe(true)
 
-      const loadedData = await loadHistoricData()
+      const loadedData = await loadHistoricData(TEST_STATION_ID)
       expect(loadedData).toBeNull()
+    })
+
+    test('should isolate data per station ID', async () => {
+      const data8085 = [
+        { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
+      ]
+      const data8225 = [
+        { dateTime: SAMPLE_DATETIME_2, value: SAMPLE_VALUE_2, _: SAMPLE_VALUE_2 }
+      ]
+
+      // Save data for two different stations
+      await saveHistoricData('8085', data8085)
+      await saveHistoricData('8225', data8225)
+
+      // Load data for each station
+      const loaded8085 = await loadHistoricData('8085')
+      const loaded8225 = await loadHistoricData('8225')
+
+      // Verify each station has its own data
+      expect(loaded8085).toEqual(data8085)
+      expect(loaded8225).toEqual(data8225)
+      expect(loaded8085).not.toEqual(loaded8225)
+
+      // Clear one station's data
+      await clearHistoricData('8085')
+
+      // Verify only that station's data was cleared
+      const afterClear8085 = await loadHistoricData('8085')
+      const afterClear8225 = await loadHistoricData('8225')
+
+      expect(afterClear8085).toBeNull()
+      expect(afterClear8225).toEqual(data8225)
     })
   })
 

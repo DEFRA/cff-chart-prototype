@@ -6,7 +6,7 @@
 const DB_NAME = 'historic-telemetry-db'
 const DB_VERSION = 1
 const STORE_NAME = 'telemetry-data'
-const DATA_KEY = 'historic-data'
+const DATA_KEY_PREFIX = 'historic-data-'
 const FIVE_YEARS = 5
 const DAYS_PER_YEAR = 365
 const HOURS_PER_DAY = 24
@@ -93,15 +93,18 @@ export function parseHistoricCSV(csvContent) {
 }
 
 /**
- * Save historic data to IndexedDB
+ * Save historic data to IndexedDB for a specific station
+ * @param {string} stationId - The station ID
+ * @param {Array} data - The historic data array
  */
-export async function saveHistoricData(data) {
+export async function saveHistoricData(stationId, data) {
   try {
     const db = await openDatabase()
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
       const store = transaction.objectStore(STORE_NAME)
-      const request = store.put(data, DATA_KEY)
+      const dataKey = DATA_KEY_PREFIX + stationId
+      const request = store.put(data, dataKey)
 
       request.onsuccess = () => resolve(true)
       request.onerror = () => reject(request.error)
@@ -115,15 +118,17 @@ export async function saveHistoricData(data) {
 }
 
 /**
- * Load historic data from IndexedDB
+ * Load historic data from IndexedDB for a specific station
+ * @param {string} stationId - The station ID
  */
-export async function loadHistoricData() {
+export async function loadHistoricData(stationId) {
   try {
     const db = await openDatabase()
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], 'readonly')
       const store = transaction.objectStore(STORE_NAME)
-      const request = store.get(DATA_KEY)
+      const dataKey = DATA_KEY_PREFIX + stationId
+      const request = store.get(dataKey)
 
       request.onsuccess = () => resolve(request.result || null)
       request.onerror = () => reject(request.error)
@@ -137,15 +142,17 @@ export async function loadHistoricData() {
 }
 
 /**
- * Clear historic data from IndexedDB
+ * Clear historic data from IndexedDB for a specific station
+ * @param {string} stationId - The station ID
  */
-export async function clearHistoricData() {
+export async function clearHistoricData(stationId) {
   try {
     const db = await openDatabase()
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
       const store = transaction.objectStore(STORE_NAME)
-      const request = store.delete(DATA_KEY)
+      const dataKey = DATA_KEY_PREFIX + stationId
+      const request = store.delete(dataKey)
 
       request.onsuccess = () => resolve(true)
       request.onerror = () => reject(request.error)

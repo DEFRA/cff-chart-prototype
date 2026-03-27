@@ -6,6 +6,7 @@ import { timeFormat } from 'd3-time-format'
 import { timeDay, timeWeek, timeMonth } from 'd3-time'
 import { select, selectAll } from 'd3-selection'
 import { extent } from 'd3-array'
+import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom'
 
 const DISPLAYED_HOUR_ON_X_AXIS = 6
 const Y_AXIS_CLASS = '.y.axis'
@@ -63,20 +64,16 @@ const EVERY_THREE_MONTHS = 3
 const EVERY_SIX_MONTHS = 6
 
 /**
- * Generate custom tick values at consistent intervals
+ * Generate exactly N evenly-spaced tick values across the time range
  */
-function generateCustomTicks(xExtent, intervalDays) {
+function generateEvenlySpacedTicks(xExtent, count = 8) {
   const ticks = []
-  const start = new Date(xExtent[0])
-  const end = new Date(xExtent[1])
+  const start = xExtent[0].getTime()
+  const end = xExtent[1].getTime()
+  const step = (end - start) / (count - 1)
 
-  // Start from the first date at midnight
-  const current = new Date(start)
-  current.setHours(0, 0, 0, 0)
-
-  while (current.getTime() <= end.getTime()) {
-    ticks.push(new Date(current))
-    current.setDate(current.getDate() + intervalDays)
+  for (let i = 0; i < count; i++) {
+    ticks.push(new Date(start + (step * i)))
   }
 
   return ticks
@@ -89,30 +86,16 @@ function calculateTickInterval(xExtent) {
   const timeDiff = xExtent[1] - xExtent[0]
   const days = timeDiff / (1000 * 60 * 60 * 24)
 
+  // Always generate exactly 8 evenly-spaced ticks
+  const TARGET_TICKS = 8
+  const tickValues = generateEvenlySpacedTicks(xExtent, TARGET_TICKS)
+
   if (days <= SEVEN_DAYS) {
-    // Up to 7 days: show every day at 6am
-    return { interval: timeDay.every(1), formatTime: true, formatDate: true, removeLastNTicks: 1 }
-  } else if (days <= THIRTY_DAYS) {
-    // 1 month: show every 3 days with custom tick generation
-    return { customTicks: generateCustomTicks(xExtent, EVERY_THREE_DAYS), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= NINETY_DAYS) {
-    // 3 months: show every week
-    return { interval: timeWeek.every(1), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= ONE_HUNDRED_EIGHTY_DAYS) {
-    // 6 months: show every 2 weeks
-    return { interval: timeWeek.every(2), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= THREE_HUNDRED_SIXTY_FIVE_DAYS) {
-    // 1 year: show monthly
-    return { interval: timeMonth.every(1), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= SEVEN_HUNDRED_THIRTY_DAYS) {
-    // 2 years: show every 2 months
-    return { interval: timeMonth.every(2), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= TEN_NINETY_FIVE_DAYS) {
-    // 3 years: show every 3 months (quarterly)
-    return { interval: timeMonth.every(EVERY_THREE_MONTHS), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+    // Up to 7 days: show time
+    return { tickValues, formatTime: true, formatDate: true, removeLastNTicks: 1 }
   } else {
-    // More than 3 years: show every 6 months
-    return { interval: timeMonth.every(EVERY_SIX_MONTHS), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+    // All other ranges: just show date
+    return { tickValues, formatTime: false, formatDate: true, removeLastNTicks: 2 }
   }
 }
 
@@ -192,20 +175,18 @@ function createYScale(lines, dataType, height) {
 /**
  * Render X and Y axes
  */
-function renderAxes(svg, xScale, yScale, width, height, xExtent, _isMobile, timeRange) {
-  const tickConfig = calculateTickInterval(xExtent)
+function renderAxes(svg, config) {
+  const { xScale, yScale, width, height, timeRange } = config
+  // Use visible domain from scale for tick calculation (important for zoom)
+  const visibleExtent = xScale.domain()
+  const tickConfig = calculateTickInterval(visibleExtent)
   const isYearScale = timeRange === '5y'
 
   const xAxis = axisBottom()
     .scale(xScale)
     .tickSizeOuter(0)
     .tickFormat('')
-
-  if (tickConfig.customTicks) {
-    xAxis.tickValues(tickConfig.customTicks)
-  } else {
-    xAxis.ticks(tickConfig.interval)
-  }
+    .tickValues(tickConfig.tickValues)
 
   const yAxis = axisLeft()
     .scale(yScale)
@@ -253,17 +234,14 @@ function removeLastTickLabel(svg, count = 1) {
  * Render grid lines
  */
 function renderGridLines(svg, xScale, yScale, height, width, xExtent) {
-  const tickConfig = calculateTickInterval(xExtent)
+  // Use visible domain from scale for grid calculation (important for zoom)
+  const visibleExtent = xScale.domain()
+  const tickConfig = calculateTickInterval(visibleExtent)
 
   const xGrid = axisBottom(xScale)
     .tickSize(-height, 0, 0)
     .tickFormat('')
-
-  if (tickConfig.customTicks) {
-    xGrid.tickValues(tickConfig.customTicks)
-  } else {
-    xGrid.ticks(tickConfig.interval)
-  }
+    .tickValues(tickConfig.tickValues)
 
   svg.select('.x.grid')
     .attr('transform', `translate(0,${height})`)
@@ -325,6 +303,40 @@ function hideOverlappingTicks(timeLabel) {
 }
 
 /**
+ * Downsample data points based on target count
+ * For performance with large datasets
+ */
+function downsampleData(data, targetPoints) {
+  if (!data || data.length <= targetPoints) {
+    return data
+  }
+
+  const step = Math.ceil(data.length / targetPoints)
+  const result = []
+
+  for (let i = 0; i < data.length; i += step) {
+    result.push(data[i])
+  }
+
+  // Always include the last point
+  if (result[result.length - 1] !== data[data.length - 1]) {
+    result.push(data[data.length - 1])
+  }
+
+  return result
+}
+
+/**
+ * Calculate appropriate data density based on zoom level
+ */
+function getTargetPointsForZoom(zoomLevel, basePoints = 500) {
+  // At zoom level 1 (no zoom): show fewer points
+  // At higher zoom: show more points
+  const multiplier = Math.min(zoomLevel, 10) // Cap at 10x
+  return Math.floor(basePoints * multiplier)
+}
+
+/**
  * Simplify data based on type
  */
 function simplifyByType(data, dataType) {
@@ -370,7 +382,7 @@ function processForecastData(forecast, dataType, observed) {
 /**
  * Process and filter data for rendering
  */
-function processData(dataCache) {
+function processData(dataCache, zoomLevel = 1) {
   let observedPoints = []
   let forecastPoints = []
 
@@ -381,6 +393,11 @@ function processData(dataCache) {
   if (dataCache.forecast?.length) {
     forecastPoints = processForecastData(dataCache.forecast, dataCache.type, dataCache.observed)
   }
+
+  // Apply downsampling for performance with large datasets
+  const targetPoints = getTargetPointsForZoom(zoomLevel)
+  observedPoints = downsampleData(observedPoints, targetPoints)
+  forecastPoints = downsampleData(forecastPoints, Math.floor(targetPoints * 0.3))
 
   const lines = observedPoints.concat(forecastPoints)
   return { lines, observedPoints, forecastPoints }
@@ -581,12 +598,17 @@ function initializeSVG(containerId) {
 
   const mainGroup = svg.append('g').attr('class', 'chart-main')
 
+  // Add clipPath to prevent lines from overlapping axes
+  const defs = svg.append('defs')
+  const clipPath = defs.append('clipPath').attr('id', 'chart-clip')
+  clipPath.append('rect').attr('class', 'clip-rect')
+
   mainGroup.append('g').attr('class', 'y grid').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   mainGroup.append('g').attr('class', 'x grid').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   mainGroup.append('g').attr('class', 'x axis').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   mainGroup.append('g').attr('class', 'y axis').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN).style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
 
-  const inner = mainGroup.append('g').attr('class', 'inner').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  const inner = mainGroup.append('g').attr('class', 'inner').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN).attr('clip-path', 'url(#chart-clip)')
   inner.append('g').attr('class', 'observed observed-focus')
   inner.append('g').attr('class', 'forecast')
   inner.select('.observed').append('path').attr('class', 'observed-area')
@@ -721,15 +743,17 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
 
   const dataCache = data
   const timeRange = _options.timeRange || '5d'
+  const enableZoom = _options.enableZoom || false
   const svgElements = initializeSVG(containerId)
   const { svg, mainGroup, timeLine, timeLabel, locator, significantContainer, tooltip, tooltipPath, tooltipValue, tooltipDescription } = svgElements
 
-  let isMobile = globalThis.matchMedia(MOBILE_BREAKPOINT).matches
+  const mobileMediaQuery = globalThis.matchMedia(MOBILE_BREAKPOINT)
+  let isMobile = mobileMediaQuery.matches
   let width, height, margin, xScale, yScale, xExtent, lines, observedPoints, forecastPoints
 
-  const renderChart = () => {
-    // Process data
-    const processedData = processData(dataCache)
+  const renderChart = (zoomLevel = 1) => {
+    // Process data with appropriate detail level for zoom
+    const processedData = processData(dataCache, zoomLevel)
     lines = processedData.lines
     observedPoints = processedData.observedPoints
     forecastPoints = processedData.forecastPoints
@@ -762,8 +786,15 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     // Apply margin transform
     mainGroup.attr('transform', `translate(${margin.left},${margin.top})`)
 
+    // Update clipPath dimensions to match chart area
+    svg.select('.clip-rect')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', width)
+      .attr('height', height)
+
     // Render chart elements
-    renderAxes(svg, xScale, yScale, width, height, xExtent, isMobile, timeRange)
+    renderAxes(svg, { xScale, yScale, width, height, timeRange })
     renderGridLines(svg, xScale, yScale, height, width, xExtent)
     updateTimeIndicator(svg, timeLabel, timeLine, xScale, height, isMobile)
     hideOverlappingTicks(timeLabel)
@@ -772,6 +803,15 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
 
     // Update locator line height
     svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', height)
+
+    // Update zoom rect dimensions and extents if it exists
+    if (zoomRect && zoomBehavior) {
+      zoomRect.attr('width', width).attr('height', height)
+      // Update zoom extents to match new chart dimensions
+      zoomBehavior
+        .translateExtent([[0, 0], [width, height]])
+        .extent([[0, 0], [width, height]])
+    }
   }
 
   // Create tooltip manager
@@ -790,12 +830,143 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
   // Initial render
   renderChart()
 
+  // Setup zoom behavior for Chart Style C
+  let zoomBehavior = null
+  let zoomRect = null
+  if (enableZoom) {
+    const handleZoom = (event, originalXScale) => {
+      tooltipManager.hide()
+
+      // Get the transform
+      const transform = event.transform
+
+      // Only zoom/pan on X-axis (time dimension)
+      const newXScale = transform.rescaleX(originalXScale)
+
+      // Get visible time range
+      const visibleDomain = newXScale.domain()
+
+      // Filter data to visible range for Y-axis calculation
+      const visibleData = lines.filter(d => {
+        const date = new Date(d.dateTime)
+        return date >= visibleDomain[0] && date <= visibleDomain[1]
+      })
+
+      // Auto-scale Y-axis to visible data range
+      let yDomain = [0, 1]
+      if (visibleData.length > 0) {
+        const yExtent = extent(visibleData, d => d.value)
+        const yPadding = (yExtent[1] - yExtent[0]) * 0.1 || 0.5
+        yDomain = [
+          Math.max(0, yExtent[0] - yPadding),
+          yExtent[1] + yPadding
+        ]
+      }
+
+      // Create new Y scale for visible data
+      const newYScale = scaleLinear()
+        .domain(yDomain)
+        .range([height, 0])
+        .nice(Y_AXIS_NICE_TICKS)
+
+      // Update current scales
+      xScale = newXScale
+      yScale = newYScale
+
+      // Re-render with appropriate level of detail
+      const zoomLevel = transform.k
+      const processedData = processData(dataCache, zoomLevel)
+      observedPoints = processedData.observedPoints
+      forecastPoints = processedData.forecastPoints
+      lines = processedData.lines
+
+      // Re-render axes and chart elements
+      renderAxes(svg, { xScale, yScale, width, height, timeRange })
+      renderGridLines(svg, xScale, yScale, height, width, xExtent)
+      renderLines(svg, observedPoints, forecastPoints, xScale, yScale, height, dataCache.type)
+      renderSignificantPoints(significantContainer, observedPoints, forecastPoints, xScale, yScale, timeRange)
+      updateTimeIndicator(svg, timeLabel, timeLine, xScale, height, isMobile)
+      hideOverlappingTicks(timeLabel)
+
+      // Update chart info display
+      const displayedPoints = observedPoints.length + forecastPoints.length
+      if (container.updateChartInfo) {
+        container.updateChartInfo(displayedPoints, visibleDomain)
+      }
+    }
+
+    // Store original X scale after first render (don't store Y scale - it will auto-adjust)
+    const originalXScale = xScale.copy()
+
+    // Create zoom behavior
+    zoomBehavior = d3Zoom()
+      .scaleExtent([1, 100])  // Min 1x (5 years), Max 100x zoom for granular detail
+      .translateExtent([[0, 0], [width, height]])  // Constrain panning to chart bounds
+      .extent([[0, 0], [width, height]])  // Define the viewport extent
+      .filter((event) => {
+        // Prevent default wheel behavior to stop page scrolling
+        if (event.type === 'wheel') {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+        return true
+      })
+      .on('zoom', (event) => handleZoom(event, originalXScale))
+
+    // Apply zoom behavior to main group instead of overlay rect
+    // This allows tooltips to work while still enabling zoom
+    mainGroup.call(zoomBehavior)
+
+    // Create invisible rect just for capturing wheel events for zoom
+    zoomRect = mainGroup.insert('rect', ':first-child')
+      .attr('class', 'zoom-capture')
+      .attr('width', width)
+      .attr('height', height)
+      .style('fill', 'none')
+      .style('pointer-events', 'none') // Don't block tooltip events
+
+    // Add direct wheel event listener to SVG to ensure preventDefault is called
+    svg.node().addEventListener('wheel', (event) => {
+      event.preventDefault()
+    }, { passive: false })
+
+    // Expose zoom controls
+    container.resetZoom = () => {
+      mainGroup.transition()
+        .duration(750)
+        .call(zoomBehavior.transform, zoomIdentity)
+    }
+
+    container.zoomIn = () => {
+      mainGroup.transition()
+        .duration(300)
+        .call(zoomBehavior.scaleBy, 1.5)
+    }
+
+    container.zoomOut = () => {
+      mainGroup.transition()
+        .duration(300)
+        .call(zoomBehavior.scaleBy, 0.67)
+    }
+  }
+
+  // Expose zoom controls and chart info update
+  if (enableZoom) {
+    container.updateChartInfo = (displayedPoints, visibleDateRange) => {
+      const dataPointsLabel = globalThis.document.getElementById('chart-data-points')
+
+      if (dataPointsLabel) {
+        dataPointsLabel.textContent = ` (${displayedPoints.toLocaleString()} displayed)`
+      }
+    }
+  }
+
   // Setup event handlers with state getter
   const getState = () => ({ margin, lines, xScale, yScale })
-  setupEventHandlers(container, svg, mainGroup, getState, tooltipManager)
 
-  // Responsive handlers
-  const mobileMediaQuery = globalThis.matchMedia(MOBILE_BREAKPOINT)
+  // Setup mouse/touch handlers for tooltips
+  // Works with zoom - handlers check current scale state
+  setupEventHandlers(container, svg, mainGroup, getState, tooltipManager)
   mobileMediaQuery[mobileMediaQuery.addEventListener ? 'addEventListener' : 'addListener']('change', (e) => {
     isMobile = e.matches
     tooltipManager.hide()

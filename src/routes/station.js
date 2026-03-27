@@ -4,7 +4,7 @@ export const station = {
   method: 'GET',
   path: '/station',
   handler: async function (request, h) {
-    const { dataType, stationType, stationId = '8085', chartStyle = 'styleA' } = request.query
+    const { stationId = '8085', chartStyle = 'styleA' } = request.query
 
     try {
       request.logger.info(`Fetching station data for ID: ${stationId}, style: ${chartStyle}`)
@@ -30,8 +30,6 @@ export const station = {
       return h.view('station.njk', {
         station,
         telemetry,
-        dataType: dataType || 'existing',
-        stationType: stationType || station.type,
         chartStyle
       })
     } catch (error) {
