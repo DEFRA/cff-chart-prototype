@@ -721,24 +721,24 @@ function setupEventHandlers(container, svg, _mainGroup, getState, tooltipManager
  * Initialize and setup zoom functionality
  */
 function initializeZoom(config) {
-  const { svg, mainGroup, stateRef, dataCache, timeRange, significantContainer, 
-          timeLine, timeLabel, isMobileRef, tooltipManager, container, zoomRef } = config
-  
+  const { svg, mainGroup, stateRef, dataCache, timeRange, significantContainer,
+    timeLine, timeLabel, isMobileRef, tooltipManager, container, zoomRef } = config
+
   const baseXScale = stateRef.xScale.copy()
-  
+
   const handleZoomEvent = (event) => {
     const result = createZoomHandler({
-      svg, 
-      baseXScale, 
-      width: stateRef.width, 
-      height: stateRef.height, 
-      timeRange, 
+      svg,
+      baseXScale,
+      width: stateRef.width,
+      height: stateRef.height,
+      timeRange,
       dataCache,
-      significantContainer, 
-      timeLine, 
-      timeLabel, 
-      isMobile: isMobileRef.current, 
-      tooltipManager, 
+      significantContainer,
+      timeLine,
+      timeLabel,
+      isMobile: isMobileRef.current,
+      tooltipManager,
       container,
       processData,
       renderAxes,
@@ -748,7 +748,7 @@ function initializeZoom(config) {
       updateTimeIndicator,
       hideOverlappingTicks
     })(event, stateRef.lines, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale)
-    
+
     // Update state
     stateRef.xScale = result.xScale
     stateRef.yScale = result.yScale
@@ -758,14 +758,14 @@ function initializeZoom(config) {
   }
 
   const zoomSetup = setupZoomBehavior({
-    svg, 
-    mainGroup, 
-    width: stateRef.width, 
-    height: stateRef.height, 
+    svg,
+    mainGroup,
+    width: stateRef.width,
+    height: stateRef.height,
     baseXScale,
     handleZoomEvent
   })
-  
+
   zoomRef.behavior = zoomSetup.zoomBehavior
   zoomRef.rect = zoomSetup.zoomRect
 
@@ -779,16 +779,16 @@ function initializeZoom(config) {
 function setupResponsiveHandlers(config) {
   const { container, svg, mainGroup, mobileMediaQuery, isMobileRef, tooltipManager, renderChart, stateRef } = config
 
-  const getState = () => ({ 
-    margin: stateRef.margin, 
-    lines: stateRef.lines, 
-    xScale: stateRef.xScale, 
-    yScale: stateRef.yScale 
+  const getState = () => ({
+    margin: stateRef.margin,
+    lines: stateRef.lines,
+    xScale: stateRef.xScale,
+    yScale: stateRef.yScale
   })
 
   // Setup mouse/touch handlers for tooltips
   setupEventHandlers(container, svg, mainGroup, getState, tooltipManager)
-  
+
   mobileMediaQuery[mobileMediaQuery.addEventListener ? 'addEventListener' : 'addListener']('change', (e) => {
     isMobileRef.current = e.matches
     tooltipManager.hide()
@@ -828,11 +828,11 @@ function createChartRenderer(config) {
 
     // Calculate margins
     const numChars = stateRef.yScale.domain()[1].toFixed(1).length - DECIMAL_PLACES
-    stateRef.margin = { 
-      top: MARGIN_TOP, 
-      bottom: MARGIN_BOTTOM, 
-      left: MARGIN_LEFT, 
-      right: (isMobileRef.current ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (numChars * MARGIN_CHAR_MULTIPLIER) 
+    stateRef.margin = {
+      top: MARGIN_TOP,
+      bottom: MARGIN_BOTTOM,
+      left: MARGIN_LEFT,
+      right: (isMobileRef.current ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (numChars * MARGIN_CHAR_MULTIPLIER)
     }
 
     // Calculate dimensions
@@ -900,7 +900,7 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
 
   const mobileMediaQuery = globalThis.matchMedia(MOBILE_BREAKPOINT)
   const isMobileRef = { current: mobileMediaQuery.matches }
-  
+
   // State object for mutable chart state
   const stateRef = {
     width: null,
@@ -913,7 +913,7 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     observedPoints: null,
     forecastPoints: null
   }
-  
+
   // Zoom reference object
   const zoomRef = { behavior: null, rect: null }
 
@@ -949,15 +949,15 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
   // Setup zoom behavior if enabled
   if (enableZoom) {
     initializeZoom({
-      svg, mainGroup, stateRef, dataCache, timeRange, 
-      significantContainer, timeLine, timeLabel, isMobileRef, 
+      svg, mainGroup, stateRef, dataCache, timeRange,
+      significantContainer, timeLine, timeLabel, isMobileRef,
       tooltipManager, container, zoomRef
     })
   }
 
   // Setup responsive behavior and event handlers
   setupResponsiveHandlers({
-    container, svg, mainGroup, mobileMediaQuery, 
+    container, svg, mainGroup, mobileMediaQuery,
     isMobileRef, tooltipManager, renderChart, stateRef
   })
 

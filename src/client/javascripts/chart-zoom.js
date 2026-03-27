@@ -15,10 +15,10 @@ const ZOOM_OUT_FACTOR = 0.67
  * Create zoom event handler
  */
 export function createZoomHandler(config) {
-  const { svg, baseXScale, width, height, timeRange, dataCache, 
-          significantContainer, timeLine, timeLabel, isMobile, tooltipManager, container,
-          processData, renderAxes, renderGridLines, renderLines, renderSignificantPoints,
-          updateTimeIndicator, hideOverlappingTicks } = config
+  const { svg, baseXScale, width, height, timeRange, dataCache,
+    significantContainer, timeLine, timeLabel, isMobile, tooltipManager, container,
+    processData, renderAxes, renderGridLines, renderLines, renderSignificantPoints,
+    updateTimeIndicator, hideOverlappingTicks } = config
 
   return (event, lines, _observedPoints, _forecastPoints, _xScale, _yScale) => {
     tooltipManager.hide()
