@@ -53,11 +53,11 @@ function updateFilterButtonStates(hasHistoricData) {
 function updateTimeRangeLabel(filter, dataPoints, hasHistoric) {
   const timeRangeLabel = document.getElementById('chart-time-range')
   const dataPointsLabel = document.getElementById('chart-data-points')
-  
+
   if (!timeRangeLabel) {
     return
   }
-  
+
   if (filter) {
     timeRangeLabel.textContent = getTimeRangeLabel(filter)
   } else {
@@ -111,7 +111,7 @@ function initializeChartInfo(chart) {
   if (!chart?.updateChartInfo) {
     return
   }
-  
+
   setTimeout(() => {
     const chartContainer = document.getElementById(LINE_CHART_ID)
     if (chartContainer?.updateChartInfo) {
@@ -279,7 +279,7 @@ function setupUploadHandler(stationId, historicDataRef, renderChart) {
     fileInput.click()
   })
 
-  fileInput.addEventListener('change', (event) => 
+  fileInput.addEventListener('change', (event) =>
     handleFileUpload(event, stationId, historicDataRef, renderChart)
   )
 }
@@ -301,7 +301,7 @@ async function initializeChartApp() {
 
   // Load any stored historic data
   const historicDataRef = { data: [] }
-  
+
   try {
     historicDataRef.data = await loadHistoricData(stationId) || []
   } catch (err) {
