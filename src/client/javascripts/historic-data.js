@@ -6,7 +6,7 @@
 const DB_NAME = 'historic-telemetry-db'
 const DB_VERSION = 1
 const STORE_NAME = 'telemetry-data'
-const DATA_KEY = 'historic-data'
+const DATA_KEY_PREFIX = 'historic-data-'
 const FIVE_YEARS = 5
 const DAYS_PER_YEAR = 365
 const HOURS_PER_DAY = 24
@@ -63,45 +63,39 @@ export function parseHistoricCSV(csvContent) {
   const data = []
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim()
-    if (!line) {
-      continue
+    if (line) {
+      const values = line.split(',').map(v => v.replaceAll('"', '').trim())
+      const dateTime = values[dateTimeIndex]
+      const value = Number.parseFloat(values[valueIndex])
+
+      // Only include valid rows from last 5 years
+      const date = new Date(dateTime)
+      if (dateTime && !Number.isNaN(value) && date >= fiveYearsAgo) {
+        data.push({
+          dateTime,
+          value,
+          _: value // Some charts may expect this format
+        })
+      }
     }
-
-    const values = line.split(',').map(v => v.replaceAll('"', '').trim())
-    const dateTime = values[dateTimeIndex]
-    const value = Number.parseFloat(values[valueIndex])
-
-    // Skip invalid rows
-    if (!dateTime || Number.isNaN(value)) {
-      continue
-    }
-
-    // Only include data from last 5 years
-    const date = new Date(dateTime)
-    if (date < fiveYearsAgo) {
-      continue
-    }
-
-    data.push({
-      dateTime,
-      value,
-      _: value // Some charts may expect this format
-    })
   }
 
   return data
 }
 
 /**
- * Save historic data to IndexedDB
+ * Save historic data to IndexedDB for a specific station
+ * @param {string} stationId - The station ID
+ * @param {Array} data - The historic data array
  */
-export async function saveHistoricData(data) {
+export async function saveHistoricData(stationId, data) {
   try {
     const db = await openDatabase()
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
       const store = transaction.objectStore(STORE_NAME)
-      const request = store.put(data, DATA_KEY)
+      const dataKey = DATA_KEY_PREFIX + stationId
+      const request = store.put(data, dataKey)
 
       request.onsuccess = () => resolve(true)
       request.onerror = () => reject(request.error)
@@ -115,15 +109,17 @@ export async function saveHistoricData(data) {
 }
 
 /**
- * Load historic data from IndexedDB
+ * Load historic data from IndexedDB for a specific station
+ * @param {string} stationId - The station ID
  */
-export async function loadHistoricData() {
+export async function loadHistoricData(stationId) {
   try {
     const db = await openDatabase()
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], 'readonly')
       const store = transaction.objectStore(STORE_NAME)
-      const request = store.get(DATA_KEY)
+      const dataKey = DATA_KEY_PREFIX + stationId
+      const request = store.get(dataKey)
 
       request.onsuccess = () => resolve(request.result || null)
       request.onerror = () => reject(request.error)
@@ -137,15 +133,17 @@ export async function loadHistoricData() {
 }
 
 /**
- * Clear historic data from IndexedDB
+ * Clear historic data from IndexedDB for a specific station
+ * @param {string} stationId - The station ID
  */
-export async function clearHistoricData() {
+export async function clearHistoricData(stationId) {
   try {
     const db = await openDatabase()
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
       const store = transaction.objectStore(STORE_NAME)
-      const request = store.delete(DATA_KEY)
+      const dataKey = DATA_KEY_PREFIX + stationId
+      const request = store.delete(dataKey)
 
       request.onsuccess = () => resolve(true)
       request.onerror = () => reject(request.error)
@@ -239,4 +237,70 @@ export function getTimeRangeLabel(range) {
     '5y': 'Last 5 years'
   }
   return labels[range] || 'Last 5 days'
+}
+
+/**
+ * Downsample data for chart style B to improve performance and readability
+ * - 5 days, 1 month: no downsampling (15-min intervals)
+ * - 6 months: hourly values only
+ * - 1 year: 4-hour intervals
+ * - 5 years: daily high points
+ */
+export function downsampleForStyleB(data, range) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return []
+  }
+
+  // No downsampling for 5 days and 1 month
+  if (range === '5d' || range === '1m') {
+    return data
+  }
+
+  const downsampled = []
+  const FOUR_HOURS_MS = 4 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
+
+  if (range === '6m') {
+    // Hourly values - keep first value of each hour
+    let lastHour = null
+    data.forEach(item => {
+      const date = new Date(item.dateTime)
+      const hour = new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours()).getTime()
+      if (lastHour !== hour) {
+        downsampled.push(item)
+        lastHour = hour
+      }
+    })
+  } else if (range === '1y') {
+    // 4-hour intervals
+    let lastInterval = null
+    data.forEach(item => {
+      const timestamp = new Date(item.dateTime).getTime()
+      const interval = Math.floor(timestamp / FOUR_HOURS_MS) * FOUR_HOURS_MS
+      if (lastInterval !== interval) {
+        downsampled.push(item)
+        lastInterval = interval
+      }
+    })
+  } else if (range === '5y') {
+    // Weekly high points - group by week and keep max value
+    const weeklyGroups = new Map()
+    data.forEach(item => {
+      const date = new Date(item.dateTime)
+      // Get the start of the week (Sunday)
+      const weekStart = new Date(date)
+      weekStart.setDate(date.getDate() - date.getDay())
+      weekStart.setHours(0, 0, 0, 0)
+      const weekKey = weekStart.getTime()
+      if (!weeklyGroups.has(weekKey) || item.value > weeklyGroups.get(weekKey).value) {
+        weeklyGroups.set(weekKey, item)
+      }
+    })
+    downsampled.push(...weeklyGroups.values())
+    downsampled.sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
+  } else {
+    // Unknown range - return original data
+    return data
+  }
+
+  return downsampled
 }

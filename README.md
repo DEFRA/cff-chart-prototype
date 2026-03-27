@@ -128,6 +128,14 @@ To set up a local environment with the necessary services:
 docker compose up --build -d
 ```
 
+## Documentation
+
+Additional technical documentation is available in the `docs/` folder:
+
+- [Historic Data Feature](docs/HISTORIC_DATA_FEATURE.md) - Implementation details for historic data storage and retrieval
+- [Chart Style C Implementation](docs/CHART_STYLE_C_IMPLEMENTATION.md) - Interactive pan & zoom chart implementation
+- [CDP Proxy Setup](docs/CDP_PROXY_SETUP.md) - Corporate proxy configuration guide
+
 ## Dependabot
 
 To enable Dependabot for automatic dependency updates, rename the example configuration file:

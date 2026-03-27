@@ -3,9 +3,9 @@ import { area as d3Area, line as d3Line, curveMonotoneX } from 'd3-shape'
 import { axisBottom, axisLeft } from 'd3-axis'
 import { scaleLinear, scaleTime } from 'd3-scale'
 import { timeFormat } from 'd3-time-format'
-import { timeDay, timeWeek, timeMonth } from 'd3-time'
 import { select, selectAll } from 'd3-selection'
 import { extent } from 'd3-array'
+import { createZoomHandler, setupZoomBehavior, setupZoomControls, setupChartInfoUpdate } from './chart-zoom.js'
 
 const DISPLAYED_HOUR_ON_X_AXIS = 6
 const Y_AXIS_CLASS = '.y.axis'
@@ -26,6 +26,7 @@ const TIME_LABEL_OFFSET_X_DESKTOP = -24
 const TICK_OVERLAP_MARGIN = 5
 const TOOLTIP_TEXT_HEIGHT_OFFSET = 23
 const TOOLTIP_PATH_LENGTH = 140
+const TOOLTIP_PATH_LENGTH_WIDE = 175
 const TOOLTIP_MARGIN_TOP = 10
 const TOOLTIP_MARGIN_BOTTOM_OFFSET = 10
 const TOOLTIP_VERTICAL_OFFSET = 40
@@ -50,32 +51,21 @@ const DEFAULT_HEIGHT = 400
 // Time range thresholds in days
 const SEVEN_DAYS = 7
 const THIRTY_DAYS = 30
-const NINETY_DAYS = 90
-const ONE_HUNDRED_EIGHTY_DAYS = 180
-const THREE_HUNDRED_SIXTY_FIVE_DAYS = 365
-const SEVEN_HUNDRED_THIRTY_DAYS = 730
-const TEN_NINETY_FIVE_DAYS = 1095
 
-// Tick interval values
-const EVERY_THREE_DAYS = 3
-const EVERY_THREE_MONTHS = 3
-const EVERY_SIX_MONTHS = 6
+// Downsampling ratios
+const FORECAST_POINTS_RATIO = 0.3
 
 /**
- * Generate custom tick values at consistent intervals
+ * Generate exactly N evenly-spaced tick values across the time range
  */
-function generateCustomTicks(xExtent, intervalDays) {
+function generateEvenlySpacedTicks(xExtent, count = 8) {
   const ticks = []
-  const start = new Date(xExtent[0])
-  const end = new Date(xExtent[1])
+  const start = xExtent[0].getTime()
+  const end = xExtent[1].getTime()
+  const step = (end - start) / (count - 1)
 
-  // Start from the first date at midnight
-  const current = new Date(start)
-  current.setHours(0, 0, 0, 0)
-
-  while (current.getTime() <= end.getTime()) {
-    ticks.push(new Date(current))
-    current.setDate(current.getDate() + intervalDays)
+  for (let i = 0; i < count; i++) {
+    ticks.push(new Date(start + (step * i)))
   }
 
   return ticks
@@ -88,43 +78,33 @@ function calculateTickInterval(xExtent) {
   const timeDiff = xExtent[1] - xExtent[0]
   const days = timeDiff / (1000 * 60 * 60 * 24)
 
+  // Always generate exactly 8 evenly-spaced ticks
+  const TARGET_TICKS = 8
+  const tickValues = generateEvenlySpacedTicks(xExtent, TARGET_TICKS)
+
   if (days <= SEVEN_DAYS) {
-    // Up to 7 days: show every day at 6am
-    return { interval: timeDay.every(1), formatTime: true, formatDate: true, removeLastNTicks: 1 }
-  } else if (days <= THIRTY_DAYS) {
-    // 1 month: show every 3 days with custom tick generation
-    return { customTicks: generateCustomTicks(xExtent, EVERY_THREE_DAYS), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= NINETY_DAYS) {
-    // 3 months: show every week
-    return { interval: timeWeek.every(1), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= ONE_HUNDRED_EIGHTY_DAYS) {
-    // 6 months: show every 2 weeks
-    return { interval: timeWeek.every(2), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= THREE_HUNDRED_SIXTY_FIVE_DAYS) {
-    // 1 year: show monthly
-    return { interval: timeMonth.every(1), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= SEVEN_HUNDRED_THIRTY_DAYS) {
-    // 2 years: show every 2 months
-    return { interval: timeMonth.every(2), formatTime: false, formatDate: true, removeLastNTicks: 2 }
-  } else if (days <= TEN_NINETY_FIVE_DAYS) {
-    // 3 years: show every 3 months (quarterly)
-    return { interval: timeMonth.every(EVERY_THREE_MONTHS), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+    // Up to 7 days: show time
+    return { tickValues, formatTime: true, formatDate: true, removeLastNTicks: 1 }
   } else {
-    // More than 3 years: show every 6 months
-    return { interval: timeMonth.every(EVERY_SIX_MONTHS), formatTime: false, formatDate: true, removeLastNTicks: 2 }
+    // All other ranges: just show date
+    return { tickValues, formatTime: false, formatDate: true, removeLastNTicks: 2 }
   }
 }
 
 /**
  * Format X axis labels with time and date
  */
-function formatXAxisLabels(d, i, nodes, showTime) {
+function formatXAxisLabels(d, i, nodes, showTime, isYearScale = false) {
   const element = select(nodes[i])
   if (showTime) {
     const formattedTime = timeFormat('%-I%p')(new Date(d.setHours(DISPLAYED_HOUR_ON_X_AXIS, 0, 0, 0))).toLocaleLowerCase()
     const formattedDate = timeFormat('%-e %b')(new Date(d))
     element.append('tspan').text(formattedTime)
     element.append('tspan').attr('x', 0).attr('dy', '15').text(formattedDate)
+  } else if (isYearScale) {
+    // For 5-year scale, show month & year
+    const formattedDate = timeFormat('%b %Y')(new Date(d))
+    element.append('tspan').text(formattedDate)
   } else {
     const formattedDate = timeFormat('%-e %b')(new Date(d))
     element.append('tspan').text(formattedDate)
@@ -187,19 +167,18 @@ function createYScale(lines, dataType, height) {
 /**
  * Render X and Y axes
  */
-function renderAxes(svg, xScale, yScale, width, height, xExtent, _isMobile) {
-  const tickConfig = calculateTickInterval(xExtent)
+function renderAxes(svg, config) {
+  const { xScale, yScale, width, height, timeRange } = config
+  // Use visible domain from scale for tick calculation (important for zoom)
+  const visibleExtent = xScale.domain()
+  const tickConfig = calculateTickInterval(visibleExtent)
+  const isYearScale = timeRange === '5y'
 
   const xAxis = axisBottom()
     .scale(xScale)
     .tickSizeOuter(0)
     .tickFormat('')
-
-  if (tickConfig.customTicks) {
-    xAxis.tickValues(tickConfig.customTicks)
-  } else {
-    xAxis.ticks(tickConfig.interval)
-  }
+    .tickValues(tickConfig.tickValues)
 
   const yAxis = axisLeft()
     .scale(yScale)
@@ -216,7 +195,7 @@ function renderAxes(svg, xScale, yScale, width, height, xExtent, _isMobile) {
     .call(yAxis)
 
   // Format X axis labels
-  svg.select('.x.axis').selectAll('text').each((d, i, nodes) => formatXAxisLabels(d, i, nodes, tickConfig.formatTime))
+  svg.select('.x.axis').selectAll('text').each((d, i, nodes) => formatXAxisLabels(d, i, nodes, tickConfig.formatTime, isYearScale))
 
   // Remove last tick label(s) to avoid overlap with time indicator
   removeLastTickLabel(svg, tickConfig.removeLastNTicks)
@@ -247,17 +226,14 @@ function removeLastTickLabel(svg, count = 1) {
  * Render grid lines
  */
 function renderGridLines(svg, xScale, yScale, height, width, xExtent) {
-  const tickConfig = calculateTickInterval(xExtent)
+  // Use visible domain from scale for grid calculation (important for zoom)
+  const visibleExtent = xScale.domain()
+  const tickConfig = calculateTickInterval(visibleExtent)
 
   const xGrid = axisBottom(xScale)
     .tickSize(-height, 0, 0)
     .tickFormat('')
-
-  if (tickConfig.customTicks) {
-    xGrid.tickValues(tickConfig.customTicks)
-  } else {
-    xGrid.ticks(tickConfig.interval)
-  }
+    .tickValues(tickConfig.tickValues)
 
   svg.select('.x.grid')
     .attr('transform', `translate(0,${height})`)
@@ -319,6 +295,40 @@ function hideOverlappingTicks(timeLabel) {
 }
 
 /**
+ * Downsample data points based on target count
+ * For performance with large datasets
+ */
+function downsampleData(data, targetPoints) {
+  if (!data || data.length <= targetPoints) {
+    return data
+  }
+
+  const step = Math.ceil(data.length / targetPoints)
+  const result = []
+
+  for (let i = 0; i < data.length; i += step) {
+    result.push(data[i])
+  }
+
+  // Always include the last point
+  if (result.at(-1) !== data.at(-1)) {
+    result.push(data.at(-1))
+  }
+
+  return result
+}
+
+/**
+ * Calculate appropriate data density based on zoom level
+ */
+function getTargetPointsForZoom(zoomLevel, basePoints = 500) {
+  // At zoom level 1 (no zoom): show fewer points
+  // At higher zoom: show more points
+  const multiplier = Math.min(zoomLevel, 10) // Cap at 10x
+  return Math.floor(basePoints * multiplier)
+}
+
+/**
  * Simplify data based on type
  */
 function simplifyByType(data, dataType) {
@@ -364,7 +374,7 @@ function processForecastData(forecast, dataType, observed) {
 /**
  * Process and filter data for rendering
  */
-function processData(dataCache) {
+function processData(dataCache, zoomLevel = 1) {
   let observedPoints = []
   let forecastPoints = []
 
@@ -375,6 +385,11 @@ function processData(dataCache) {
   if (dataCache.forecast?.length) {
     forecastPoints = processForecastData(dataCache.forecast, dataCache.type, dataCache.observed)
   }
+
+  // Apply downsampling for performance with large datasets
+  const targetPoints = getTargetPointsForZoom(zoomLevel)
+  observedPoints = downsampleData(observedPoints, targetPoints)
+  forecastPoints = downsampleData(forecastPoints, Math.floor(targetPoints * FORECAST_POINTS_RATIO))
 
   const lines = observedPoints.concat(forecastPoints)
   return { lines, observedPoints, forecastPoints }
@@ -409,7 +424,7 @@ function renderLines(svg, observedPoints, forecastPoints, xScale, yScale, height
 /**
  * Render significant data points
  */
-function renderSignificantPoints(container, observedPoints, forecastPoints, xScale, yScale) {
+function renderSignificantPoints(container, observedPoints, forecastPoints, xScale, yScale, timeRange) {
   container.selectAll('*').remove()
 
   const significantObserved = observedPoints.filter(x => x.isSignificant).map(p => ({ ...p, type: 'observed' }))
@@ -442,8 +457,11 @@ function renderSignificantPoints(container, observedPoints, forecastPoints, xSca
     .attr('y', d => yScale(d.value))
     .each(function (d) {
       const value = `${d.value.toFixed(2)}m`
-      const time = timeFormat('%-I:%M%p')(new Date(d.dateTime)).toLowerCase()
-      const date = timeFormat('%e %b')(new Date(d.dateTime))
+      const dateObj = new Date(d.dateTime)
+      const time = timeFormat('%-I:%M%p')(dateObj).toLowerCase()
+      const includeYear = timeRange === '1y' || timeRange === '5y'
+      const dateFormat = includeYear ? '%e %b %Y' : '%e %b'
+      const date = timeFormat(dateFormat)(dateObj)
       select(this).text(`${value} at ${time}, ${date}`)
     })
 
@@ -454,14 +472,14 @@ function renderSignificantPoints(container, observedPoints, forecastPoints, xSca
  * Create tooltip manager
  */
 function createTooltipManager(tooltipConfig) {
-  const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, getHeight, dataType, latestDateTime } = tooltipConfig
+  const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, getHeight, dataType, latestDateTime, timeRange } = tooltipConfig
 
   function setPosition(x, y, dataPoint, yScaleFunc) {
     const currentHeight = getHeight()
     const locatorX = x // Save original X for locator positioning
     const text = tooltip.select('text')
     const txtHeight = Math.round(text.node().getBBox().height) + TOOLTIP_TEXT_HEIGHT_OFFSET
-    const pathLength = TOOLTIP_PATH_LENGTH
+    const pathLength = (timeRange === '1y' || timeRange === '5y') ? TOOLTIP_PATH_LENGTH_WIDE : TOOLTIP_PATH_LENGTH
     const pathCentre = `M${pathLength},${txtHeight}l0,-${txtHeight}l-${pathLength},0l0,${txtHeight}l${pathLength},0Z`
 
     // Center tooltip horizontally on the locator line
@@ -499,9 +517,12 @@ function createTooltipManager(tooltipConfig) {
     }
 
     const value = dataType === 'river' && (Math.round(dataPoint.value * 100) / 100) <= 0 ? '0' : dataPoint.value.toFixed(2)
+    const dateObj = new Date(dataPoint.dateTime)
+    const includeYear = timeRange === '1y' || timeRange === '5y'
+    const dateFormat = includeYear ? '%e %b %Y' : '%e %b'
 
     tooltipValue.text(`${value}m`)
-    tooltipDescription.text(`${timeFormat('%-I:%M%p')(new Date(dataPoint.dateTime)).toLowerCase()}, ${timeFormat('%e %b')(new Date(dataPoint.dateTime))}`)
+    tooltipDescription.text(`${timeFormat('%-I:%M%p')(dateObj).toLowerCase()}, ${timeFormat(dateFormat)(dateObj)}`)
 
     locator.classed('locator--visible', true)
 
@@ -569,12 +590,17 @@ function initializeSVG(containerId) {
 
   const mainGroup = svg.append('g').attr('class', 'chart-main')
 
+  // Add clipPath to prevent lines from overlapping axes
+  const defs = svg.append('defs')
+  const clipPath = defs.append('clipPath').attr('id', 'chart-clip')
+  clipPath.append('rect').attr('class', 'clip-rect')
+
   mainGroup.append('g').attr('class', 'y grid').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   mainGroup.append('g').attr('class', 'x grid').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   mainGroup.append('g').attr('class', 'x axis').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
   mainGroup.append('g').attr('class', 'y axis').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN).style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
 
-  const inner = mainGroup.append('g').attr('class', 'inner').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+  const inner = mainGroup.append('g').attr('class', 'inner').attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN).attr('clip-path', 'url(#chart-clip)')
   inner.append('g').attr('class', 'observed observed-focus')
   inner.append('g').attr('class', 'forecast')
   inner.select('.observed').append('path').attr('class', 'observed-area')
@@ -692,6 +718,165 @@ function setupEventHandlers(container, svg, _mainGroup, getState, tooltipManager
 }
 
 /**
+ * Initialize and setup zoom functionality
+ */
+function initializeZoom(config) {
+  const { svg, mainGroup, stateRef, dataCache, timeRange, significantContainer,
+    timeLine, timeLabel, isMobileRef, tooltipManager, container, zoomRef } = config
+
+  const baseXScale = stateRef.xScale.copy()
+
+  const handleZoomEvent = (event) => {
+    const result = createZoomHandler({
+      svg,
+      baseXScale,
+      width: stateRef.width,
+      height: stateRef.height,
+      timeRange,
+      dataCache,
+      significantContainer,
+      timeLine,
+      timeLabel,
+      isMobile: isMobileRef.current,
+      tooltipManager,
+      container,
+      processData,
+      renderAxes,
+      renderGridLines,
+      renderLines,
+      renderSignificantPoints,
+      updateTimeIndicator,
+      hideOverlappingTicks
+    })(event, stateRef.lines, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale)
+
+    // Update state
+    stateRef.xScale = result.xScale
+    stateRef.yScale = result.yScale
+    stateRef.lines = result.lines
+    stateRef.observedPoints = result.observedPoints
+    stateRef.forecastPoints = result.forecastPoints
+  }
+
+  const zoomSetup = setupZoomBehavior({
+    svg,
+    mainGroup,
+    width: stateRef.width,
+    height: stateRef.height,
+    baseXScale,
+    handleZoomEvent
+  })
+
+  zoomRef.behavior = zoomSetup.zoomBehavior
+  zoomRef.rect = zoomSetup.zoomRect
+
+  setupZoomControls(container, mainGroup, zoomRef.behavior)
+  setupChartInfoUpdate(container)
+}
+
+/**
+ * Setup responsive behavior and event handlers
+ */
+function setupResponsiveHandlers(config) {
+  const { container, svg, mainGroup, mobileMediaQuery, isMobileRef, tooltipManager, renderChart, stateRef } = config
+
+  const getState = () => ({
+    margin: stateRef.margin,
+    lines: stateRef.lines,
+    xScale: stateRef.xScale,
+    yScale: stateRef.yScale
+  })
+
+  // Setup mouse/touch handlers for tooltips
+  setupEventHandlers(container, svg, mainGroup, getState, tooltipManager)
+
+  mobileMediaQuery[mobileMediaQuery.addEventListener ? 'addEventListener' : 'addListener']('change', (e) => {
+    isMobileRef.current = e.matches
+    tooltipManager.hide()
+    renderChart()
+  })
+
+  globalThis.addEventListener('resize', () => {
+    tooltipManager.hide()
+    renderChart()
+  })
+}
+
+/**
+ * Create chart rendering function
+ */
+function createChartRenderer(config) {
+  const { container, svg, mainGroup, svgElements, dataCache, timeRange, isMobileRef, stateRef, zoomRef } = config
+
+  return (zoomLevel = 1) => {
+    // Process data with appropriate detail level for zoom
+    const processedData = processData(dataCache, zoomLevel)
+    stateRef.lines = processedData.lines
+    stateRef.observedPoints = processedData.observedPoints
+    stateRef.forecastPoints = processedData.forecastPoints
+
+    if (!stateRef.lines || stateRef.lines.length === 0) {
+      console.warn('No data to render')
+      return
+    }
+
+    // Create scales
+    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH)
+    stateRef.xScale = xScaleNew
+    stateRef.xExtent = xExtentNew
+
+    stateRef.yScale = createYScale(stateRef.lines, dataCache.type, stateRef.height || DEFAULT_HEIGHT)
+
+    // Calculate margins
+    const numChars = stateRef.yScale.domain()[1].toFixed(1).length - DECIMAL_PLACES
+    stateRef.margin = {
+      top: MARGIN_TOP,
+      bottom: MARGIN_BOTTOM,
+      left: MARGIN_LEFT,
+      right: (isMobileRef.current ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (numChars * MARGIN_CHAR_MULTIPLIER)
+    }
+
+    // Calculate dimensions
+    const containerBoundingRect = container.getBoundingClientRect()
+    stateRef.width = Math.floor(containerBoundingRect.width) - stateRef.margin.left - stateRef.margin.right
+    stateRef.height = Math.floor(containerBoundingRect.height) - stateRef.margin.top - stateRef.margin.bottom
+
+    // Update scales with new dimensions
+    stateRef.xScale.range([0, stateRef.width])
+    stateRef.yScale.range([stateRef.height, 0])
+
+    // Apply margin transform
+    mainGroup.attr('transform', `translate(${stateRef.margin.left},${stateRef.margin.top})`)
+
+    // Update clipPath dimensions to match chart area
+    svg.select('.clip-rect')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', stateRef.width)
+      .attr('height', stateRef.height)
+
+    // Render chart elements
+    renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange })
+    renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent)
+    updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current)
+    hideOverlappingTicks(svgElements.timeLabel)
+    renderLines(svg, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, stateRef.height, dataCache.type)
+    renderSignificantPoints(svgElements.significantContainer, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, timeRange)
+
+    // Update locator line height
+    svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', stateRef.height)
+
+    // Update zoom rect dimensions and extents if it exists
+    if (zoomRef.rect && zoomRef.behavior) {
+      zoomRef.rect.attr('width', stateRef.width).attr('height', stateRef.height)
+      // Update zoom extents to match new chart dimensions
+      zoomRef.behavior
+        .translateExtent([[0, 0], [stateRef.width, stateRef.height]])
+        .extent([[0, 0], [stateRef.width, stateRef.height]])
+    }
+  }
+}
+
+/**
  * Main LineChart function
  */
 export function lineChart(containerId, _stationId, data, _options = {}) {
@@ -708,58 +893,42 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
   }
 
   const dataCache = data
+  const timeRange = _options.timeRange || '5d'
+  const enableZoom = _options.enableZoom || false
   const svgElements = initializeSVG(containerId)
   const { svg, mainGroup, timeLine, timeLabel, locator, significantContainer, tooltip, tooltipPath, tooltipValue, tooltipDescription } = svgElements
 
-  let isMobile = globalThis.matchMedia(MOBILE_BREAKPOINT).matches
-  let width, height, margin, xScale, yScale, xExtent, lines, observedPoints, forecastPoints
+  const mobileMediaQuery = globalThis.matchMedia(MOBILE_BREAKPOINT)
+  const isMobileRef = { current: mobileMediaQuery.matches }
 
-  const renderChart = () => {
-    // Process data
-    const processedData = processData(dataCache)
-    lines = processedData.lines
-    observedPoints = processedData.observedPoints
-    forecastPoints = processedData.forecastPoints
-
-    if (!lines || lines.length === 0) {
-      console.warn('No data to render')
-      return
-    }
-
-    // Create scales
-    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, width || DEFAULT_WIDTH)
-    xScale = xScaleNew
-    xExtent = xExtentNew
-
-    yScale = createYScale(lines, dataCache.type, height || DEFAULT_HEIGHT)
-
-    // Calculate margins
-    const numChars = yScale.domain()[1].toFixed(1).length - DECIMAL_PLACES
-    margin = { top: MARGIN_TOP, bottom: MARGIN_BOTTOM, left: MARGIN_LEFT, right: (isMobile ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (numChars * MARGIN_CHAR_MULTIPLIER) }
-
-    // Calculate dimensions
-    const containerBoundingRect = container.getBoundingClientRect()
-    width = Math.floor(containerBoundingRect.width) - margin.left - margin.right
-    height = Math.floor(containerBoundingRect.height) - margin.top - margin.bottom
-
-    // Update scales with new dimensions
-    xScale.range([0, width])
-    yScale.range([height, 0])
-
-    // Apply margin transform
-    mainGroup.attr('transform', `translate(${margin.left},${margin.top})`)
-
-    // Render chart elements
-    renderAxes(svg, xScale, yScale, width, height, xExtent, isMobile)
-    renderGridLines(svg, xScale, yScale, height, width, xExtent)
-    updateTimeIndicator(svg, timeLabel, timeLine, xScale, height, isMobile)
-    hideOverlappingTicks(timeLabel)
-    renderLines(svg, observedPoints, forecastPoints, xScale, yScale, height, dataCache.type)
-    renderSignificantPoints(significantContainer, observedPoints, forecastPoints, xScale, yScale)
-
-    // Update locator line height
-    svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', height)
+  // State object for mutable chart state
+  const stateRef = {
+    width: null,
+    height: null,
+    margin: null,
+    xScale: null,
+    yScale: null,
+    xExtent: null,
+    lines: null,
+    observedPoints: null,
+    forecastPoints: null
   }
+
+  // Zoom reference object
+  const zoomRef = { behavior: null, rect: null }
+
+  // Create render function
+  const renderChart = createChartRenderer({
+    container,
+    svg,
+    mainGroup,
+    svgElements,
+    dataCache,
+    timeRange,
+    isMobileRef,
+    stateRef,
+    zoomRef
+  })
 
   // Create tooltip manager
   const tooltipManager = createTooltipManager({
@@ -768,29 +937,28 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     tooltipValue,
     tooltipDescription,
     locator,
-    getHeight: () => height,
+    getHeight: () => stateRef.height,
     dataType: dataCache.type,
-    latestDateTime: dataCache.latestDateTime
+    latestDateTime: dataCache.latestDateTime,
+    timeRange
   })
 
   // Initial render
   renderChart()
 
-  // Setup event handlers with state getter
-  const getState = () => ({ margin, lines, xScale, yScale })
-  setupEventHandlers(container, svg, mainGroup, getState, tooltipManager)
+  // Setup zoom behavior if enabled
+  if (enableZoom) {
+    initializeZoom({
+      svg, mainGroup, stateRef, dataCache, timeRange,
+      significantContainer, timeLine, timeLabel, isMobileRef,
+      tooltipManager, container, zoomRef
+    })
+  }
 
-  // Responsive handlers
-  const mobileMediaQuery = globalThis.matchMedia(MOBILE_BREAKPOINT)
-  mobileMediaQuery[mobileMediaQuery.addEventListener ? 'addEventListener' : 'addListener']('change', (e) => {
-    isMobile = e.matches
-    tooltipManager.hide()
-    renderChart()
-  })
-
-  globalThis.addEventListener('resize', () => {
-    tooltipManager.hide()
-    renderChart()
+  // Setup responsive behavior and event handlers
+  setupResponsiveHandlers({
+    container, svg, mainGroup, mobileMediaQuery,
+    isMobileRef, tooltipManager, renderChart, stateRef
   })
 
   this.chart = container

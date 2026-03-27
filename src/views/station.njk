@@ -157,10 +157,10 @@
     <div class="defra-line-chart govuk-!-margin-bottom-4">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
-          Height in metres - <span id="chart-time-range">Last 5 days</span>
+          Height in metres - <span id="chart-time-range">Last 5 days</span><span id="chart-data-points"></span>
         </h2>
         
-        {% if chartStyle === 'styleB' or chartStyle === 'styleC' %}
+        {% if chartStyle === 'styleB' %}
         {# Time filter buttons #}
         <div id="time-filter-buttons" style="display: flex; gap: 0.5rem;">
           <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="5d" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
@@ -178,6 +178,24 @@
           <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="5y" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
             5 years
           </button>
+        </div>
+        {% endif %}
+        
+        {% if chartStyle === 'styleC' %}
+        {# Zoom control buttons #}
+        <div id="zoom-control-buttons" style="display: flex; gap: 0.5rem; align-items: center;">
+          <button type="button" id="zoom-out-btn" class="govuk-button govuk-button--secondary" data-module="govuk-button" style="margin: 0; padding: 5px 15px; font-size: 14px;" title="Zoom out">
+            −
+          </button>
+          <button type="button" id="zoom-in-btn" class="govuk-button govuk-button--secondary" data-module="govuk-button" style="margin: 0; padding: 5px 15px; font-size: 14px;" title="Zoom in">
+            +
+          </button>
+          <button type="button" id="zoom-reset-btn" class="govuk-button govuk-button--secondary" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
+            Reset View
+          </button>
+          <span id="zoom-instructions" style="font-size: 14px; color: #505a5f; margin-left: 10px;">
+            Drag to pan • Scroll to zoom
+          </span>
         </div>
         {% endif %}
       </div>
@@ -264,14 +282,6 @@
             <dd class="govuk-summary-list__value">{{ station.id }}</dd>
           </div>
           <div class="govuk-summary-list__row">
-            <dt class="govuk-summary-list__key">Data type</dt>
-            <dd class="govuk-summary-list__value">{{ dataType }}</dd>
-          </div>
-          <div class="govuk-summary-list__row">
-            <dt class="govuk-summary-list__key">Station type</dt>
-            <dd class="govuk-summary-list__value">{{ stationType }}</dd>
-          </div>
-          <div class="govuk-summary-list__row">
             <dt class="govuk-summary-list__key">Telemetry points</dt>
             <dd class="govuk-summary-list__value">{{ telemetry.observed | length }} observations</dd>
           </div>
@@ -313,7 +323,8 @@
       id: '{{ station.id }}',
       stationId: '{{ station.id }}',
       telemetry: {{ telemetry | dump | safe }},
-      chartThreshold: []
+      chartThreshold: [],
+      chartStyle: '{{ chartStyle }}'
     };
   </script>
   <script src="{{ getAssetPath('application.js') }}"></script>

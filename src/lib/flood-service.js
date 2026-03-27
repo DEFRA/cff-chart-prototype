@@ -91,20 +91,27 @@ export async function getStationReadings(stationId, since = null) {
       return []
     }
 
-    // Find the level measure
-    const levelMeasure = station.measures.find(m =>
-      m.parameterName === 'Water Level' || m.parameter === 'level'
+    // Find the level measure - prefer measures with valid units (m, mAOD, mASD)
+    // Exclude measures with placeholder units like "---"
+    const levelMeasures = station.measures.filter(m =>
+      (m.parameterName === 'Water Level' || m.parameter === 'level') &&
+      (!m.unitName || m.unitName !== '---') // Accept missing unitName or valid values
     )
 
-    if (!levelMeasure) {
+    if (levelMeasures.length === 0) {
       return []
     }
+
+    // Prefer measures with unit 'm' (meters), otherwise take the first valid one
+    const levelMeasure = levelMeasures.find(m => m.unitName === 'm') || levelMeasures[0]
 
     // Extract measure ID from the @id URL
     const measureId = levelMeasure['@id'].split('/').pop()
 
-    // Get all available readings - filtering happens in formatTelemetryData
-    const url = `${API_BASE_URL}/data/readings?measure=${measureId}&_sorted&_limit=10000`
+    // Optimize data transfer by fetching only what we need
+    // At 15-min intervals: ~96 readings/day × 5 days = ~480 readings
+    // Request 500 for a small buffer, sorted by time
+    const url = `${API_BASE_URL}/data/readings?measure=${measureId}&_sorted&_limit=500`
     console.log('Fetching readings from:', url)
     const response = await proxyFetch(url)
 

@@ -7,10 +7,12 @@ import {
   clearHistoricData,
   mergeData,
   filterDataByTimeRange,
-  getTimeRangeLabel
+  getTimeRangeLabel,
+  downsampleForStyleB
 } from '../../../../src/client/javascripts/historic-data.js'
 
 // Test constants
+const TEST_STATION_ID = '8085'
 const SAMPLE_DATETIME_1 = '2024-01-15T10:00:00'
 const SAMPLE_DATETIME_2 = '2024-01-15T11:00:00'
 const SAMPLE_DATETIME_3 = '2024-01-15T12:00:00'
@@ -48,7 +50,7 @@ describe('Historic Data Management', () => {
     vi.clearAllMocks()
 
     // Clear IndexedDB before each test
-    await clearHistoricData()
+    await clearHistoricData(TEST_STATION_ID)
   })
 
   describe('parseHistoricCSV', () => {
@@ -119,7 +121,7 @@ describe('Historic Data Management', () => {
         { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
       ]
 
-      const result = await saveHistoricData(data)
+      const result = await saveHistoricData(TEST_STATION_ID, data)
 
       expect(result).toBe(true)
     })
@@ -128,15 +130,15 @@ describe('Historic Data Management', () => {
       const data = [
         { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
       ]
-      await saveHistoricData(data)
+      await saveHistoricData(TEST_STATION_ID, data)
 
-      const result = await loadHistoricData()
+      const result = await loadHistoricData(TEST_STATION_ID)
 
       expect(result).toEqual(data)
     })
 
     test('loadHistoricData should return null when no data exists', async () => {
-      const result = await loadHistoricData()
+      const result = await loadHistoricData(TEST_STATION_ID)
 
       expect(result).toBeNull()
     })
@@ -145,14 +147,46 @@ describe('Historic Data Management', () => {
       const data = [
         { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
       ]
-      await saveHistoricData(data)
+      await saveHistoricData(TEST_STATION_ID, data)
 
-      const result = await clearHistoricData()
+      const result = await clearHistoricData(TEST_STATION_ID)
 
       expect(result).toBe(true)
 
-      const loadedData = await loadHistoricData()
+      const loadedData = await loadHistoricData(TEST_STATION_ID)
       expect(loadedData).toBeNull()
+    })
+
+    test('should isolate data per station ID', async () => {
+      const data8085 = [
+        { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
+      ]
+      const data8225 = [
+        { dateTime: SAMPLE_DATETIME_2, value: SAMPLE_VALUE_2, _: SAMPLE_VALUE_2 }
+      ]
+
+      // Save data for two different stations
+      await saveHistoricData('8085', data8085)
+      await saveHistoricData('8225', data8225)
+
+      // Load data for each station
+      const loaded8085 = await loadHistoricData('8085')
+      const loaded8225 = await loadHistoricData('8225')
+
+      // Verify each station has its own data
+      expect(loaded8085).toEqual(data8085)
+      expect(loaded8225).toEqual(data8225)
+      expect(loaded8085).not.toEqual(loaded8225)
+
+      // Clear one station's data
+      await clearHistoricData('8085')
+
+      // Verify only that station's data was cleared
+      const afterClear8085 = await loadHistoricData('8085')
+      const afterClear8225 = await loadHistoricData('8225')
+
+      expect(afterClear8085).toBeNull()
+      expect(afterClear8225).toEqual(data8225)
     })
   })
 
@@ -273,6 +307,106 @@ describe('Historic Data Management', () => {
 
     test('should return default label for unknown range', () => {
       expect(getTimeRangeLabel('unknown')).toBe('Last 5 days')
+    })
+  })
+
+  describe('downsampleForStyleB', () => {
+    const createDataPoint = (dateTime, value) => ({ dateTime, value })
+
+    test('should return all data for 5d range (no downsampling)', () => {
+      const data = [
+        createDataPoint('2024-01-15T10:00:00', 1.5),
+        createDataPoint('2024-01-15T10:15:00', 1.6),
+        createDataPoint('2024-01-15T10:30:00', 1.7),
+        createDataPoint('2024-01-15T10:45:00', 1.8)
+      ]
+      const result = downsampleForStyleB(data, '5d')
+      expect(result).toEqual(data)
+    })
+
+    test('should return all data for 1m range (no downsampling)', () => {
+      const data = [
+        createDataPoint('2024-01-15T10:00:00', 1.5),
+        createDataPoint('2024-01-15T10:15:00', 1.6),
+        createDataPoint('2024-01-15T10:30:00', 1.7),
+        createDataPoint('2024-01-15T10:45:00', 1.8)
+      ]
+      const result = downsampleForStyleB(data, '1m')
+      expect(result).toEqual(data)
+    })
+
+    test('should downsample to hourly for 6m range', () => {
+      const data = [
+        createDataPoint('2024-01-15T10:00:00', 1.0),
+        createDataPoint('2024-01-15T10:15:00', 1.1),
+        createDataPoint('2024-01-15T10:30:00', 1.2),
+        createDataPoint('2024-01-15T10:45:00', 1.3),
+        createDataPoint('2024-01-15T11:00:00', 2.0),
+        createDataPoint('2024-01-15T11:15:00', 2.1),
+        createDataPoint('2024-01-15T12:00:00', 3.0)
+      ]
+      const result = downsampleForStyleB(data, '6m')
+      expect(result).toHaveLength(3)
+      expect(result[0].dateTime).toBe('2024-01-15T10:00:00')
+      expect(result[1].dateTime).toBe('2024-01-15T11:00:00')
+      expect(result[2].dateTime).toBe('2024-01-15T12:00:00')
+    })
+
+    test('should downsample to 4-hour intervals for 1y range', () => {
+      const data = [
+        createDataPoint('2024-01-15T00:00:00', 1.0),
+        createDataPoint('2024-01-15T01:00:00', 1.1),
+        createDataPoint('2024-01-15T04:00:00', 2.0),
+        createDataPoint('2024-01-15T05:00:00', 2.1),
+        createDataPoint('2024-01-15T08:00:00', 3.0),
+        createDataPoint('2024-01-15T12:00:00', 4.0)
+      ]
+      const result = downsampleForStyleB(data, '1y')
+      expect(result).toHaveLength(4)
+      expect(result[0].dateTime).toBe('2024-01-15T00:00:00')
+      expect(result[1].dateTime).toBe('2024-01-15T04:00:00')
+      expect(result[2].dateTime).toBe('2024-01-15T08:00:00')
+      expect(result[3].dateTime).toBe('2024-01-15T12:00:00')
+    })
+
+    test('should downsample to weekly max for 5y range', () => {
+      const data = [
+        createDataPoint('2024-01-14T10:00:00', 1.5), // Sunday week 1
+        createDataPoint('2024-01-15T14:00:00', 2.5), // Monday week 1 - max
+        createDataPoint('2024-01-16T18:00:00', 2.0), // Tuesday week 1
+        createDataPoint('2024-01-21T10:00:00', 3.0), // Sunday week 2
+        createDataPoint('2024-01-22T14:00:00', 3.5), // Monday week 2 - max
+        createDataPoint('2024-01-28T10:00:00', 1.0)  // Sunday week 3
+      ]
+      const result = downsampleForStyleB(data, '5y')
+      // Should have 3 weeks, one max value per week
+      expect(result).toHaveLength(3)
+      // Week starting Jan 14: max is 2.5
+      expect(result[0].value).toBe(2.5)
+      // Week starting Jan 21: max is 3.5
+      expect(result[1].value).toBe(3.5)
+      // Week starting Jan 28: max is 1.0
+      expect(result[2].value).toBe(1.0)
+    })
+
+    test('should handle empty array', () => {
+      const result = downsampleForStyleB([], '6m')
+      expect(result).toEqual([])
+    })
+
+    test('should handle single data point', () => {
+      const data = [createDataPoint('2024-01-15T10:00:00', 1.5)]
+      const result = downsampleForStyleB(data, '6m')
+      expect(result).toEqual(data)
+    })
+
+    test('should handle unknown range by returning original data', () => {
+      const data = [
+        createDataPoint('2024-01-15T10:00:00', 1.5),
+        createDataPoint('2024-01-15T10:15:00', 1.6)
+      ]
+      const result = downsampleForStyleB(data, 'unknown')
+      expect(result).toEqual(data)
     })
   })
 })
