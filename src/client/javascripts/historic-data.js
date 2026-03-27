@@ -63,30 +63,21 @@ export function parseHistoricCSV(csvContent) {
   const data = []
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim()
-    if (!line) {
-      continue
+    if (line) {
+      const values = line.split(',').map(v => v.replaceAll('"', '').trim())
+      const dateTime = values[dateTimeIndex]
+      const value = Number.parseFloat(values[valueIndex])
+
+      // Only include valid rows from last 5 years
+      const date = new Date(dateTime)
+      if (dateTime && !Number.isNaN(value) && date >= fiveYearsAgo) {
+        data.push({
+          dateTime,
+          value,
+          _: value // Some charts may expect this format
+        })
+      }
     }
-
-    const values = line.split(',').map(v => v.replaceAll('"', '').trim())
-    const dateTime = values[dateTimeIndex]
-    const value = Number.parseFloat(values[valueIndex])
-
-    // Skip invalid rows
-    if (!dateTime || Number.isNaN(value)) {
-      continue
-    }
-
-    // Only include data from last 5 years
-    const date = new Date(dateTime)
-    if (date < fiveYearsAgo) {
-      continue
-    }
-
-    data.push({
-      dateTime,
-      value,
-      _: value // Some charts may expect this format
-    })
   }
 
   return data

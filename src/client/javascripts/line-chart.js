@@ -5,7 +5,7 @@ import { scaleLinear, scaleTime } from 'd3-scale'
 import { timeFormat } from 'd3-time-format'
 import { select, selectAll } from 'd3-selection'
 import { extent } from 'd3-array'
-import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom'
+import { createZoomHandler, setupZoomBehavior, setupZoomControls, setupChartInfoUpdate } from './chart-zoom.js'
 
 const DISPLAYED_HOUR_ON_X_AXIS = 6
 const Y_AXIS_CLASS = '.y.axis'
@@ -51,6 +51,9 @@ const DEFAULT_HEIGHT = 400
 // Time range thresholds in days
 const SEVEN_DAYS = 7
 const THIRTY_DAYS = 30
+
+// Downsampling ratios
+const FORECAST_POINTS_RATIO = 0.3
 
 /**
  * Generate exactly N evenly-spaced tick values across the time range
@@ -308,8 +311,8 @@ function downsampleData(data, targetPoints) {
   }
 
   // Always include the last point
-  if (result[result.length - 1] !== data[data.length - 1]) {
-    result.push(data[data.length - 1])
+  if (result.at(-1) !== data.at(-1)) {
+    result.push(data.at(-1))
   }
 
   return result
@@ -386,7 +389,7 @@ function processData(dataCache, zoomLevel = 1) {
   // Apply downsampling for performance with large datasets
   const targetPoints = getTargetPointsForZoom(zoomLevel)
   observedPoints = downsampleData(observedPoints, targetPoints)
-  forecastPoints = downsampleData(forecastPoints, Math.floor(targetPoints * 0.3))
+  forecastPoints = downsampleData(forecastPoints, Math.floor(targetPoints * FORECAST_POINTS_RATIO))
 
   const lines = observedPoints.concat(forecastPoints)
   return { lines, observedPoints, forecastPoints }
@@ -715,6 +718,165 @@ function setupEventHandlers(container, svg, _mainGroup, getState, tooltipManager
 }
 
 /**
+ * Initialize and setup zoom functionality
+ */
+function initializeZoom(config) {
+  const { svg, mainGroup, stateRef, dataCache, timeRange, significantContainer, 
+          timeLine, timeLabel, isMobileRef, tooltipManager, container, zoomRef } = config
+  
+  const baseXScale = stateRef.xScale.copy()
+  
+  const handleZoomEvent = (event) => {
+    const result = createZoomHandler({
+      svg, 
+      baseXScale, 
+      width: stateRef.width, 
+      height: stateRef.height, 
+      timeRange, 
+      dataCache,
+      significantContainer, 
+      timeLine, 
+      timeLabel, 
+      isMobile: isMobileRef.current, 
+      tooltipManager, 
+      container,
+      processData,
+      renderAxes,
+      renderGridLines,
+      renderLines,
+      renderSignificantPoints,
+      updateTimeIndicator,
+      hideOverlappingTicks
+    })(event, stateRef.lines, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale)
+    
+    // Update state
+    stateRef.xScale = result.xScale
+    stateRef.yScale = result.yScale
+    stateRef.lines = result.lines
+    stateRef.observedPoints = result.observedPoints
+    stateRef.forecastPoints = result.forecastPoints
+  }
+
+  const zoomSetup = setupZoomBehavior({
+    svg, 
+    mainGroup, 
+    width: stateRef.width, 
+    height: stateRef.height, 
+    baseXScale,
+    handleZoomEvent
+  })
+  
+  zoomRef.behavior = zoomSetup.zoomBehavior
+  zoomRef.rect = zoomSetup.zoomRect
+
+  setupZoomControls(container, mainGroup, zoomRef.behavior)
+  setupChartInfoUpdate(container)
+}
+
+/**
+ * Setup responsive behavior and event handlers
+ */
+function setupResponsiveHandlers(config) {
+  const { container, svg, mainGroup, mobileMediaQuery, isMobileRef, tooltipManager, renderChart, stateRef } = config
+
+  const getState = () => ({ 
+    margin: stateRef.margin, 
+    lines: stateRef.lines, 
+    xScale: stateRef.xScale, 
+    yScale: stateRef.yScale 
+  })
+
+  // Setup mouse/touch handlers for tooltips
+  setupEventHandlers(container, svg, mainGroup, getState, tooltipManager)
+  
+  mobileMediaQuery[mobileMediaQuery.addEventListener ? 'addEventListener' : 'addListener']('change', (e) => {
+    isMobileRef.current = e.matches
+    tooltipManager.hide()
+    renderChart()
+  })
+
+  globalThis.addEventListener('resize', () => {
+    tooltipManager.hide()
+    renderChart()
+  })
+}
+
+/**
+ * Create chart rendering function
+ */
+function createChartRenderer(config) {
+  const { container, svg, mainGroup, svgElements, dataCache, timeRange, isMobileRef, stateRef, zoomRef } = config
+
+  return (zoomLevel = 1) => {
+    // Process data with appropriate detail level for zoom
+    const processedData = processData(dataCache, zoomLevel)
+    stateRef.lines = processedData.lines
+    stateRef.observedPoints = processedData.observedPoints
+    stateRef.forecastPoints = processedData.forecastPoints
+
+    if (!stateRef.lines || stateRef.lines.length === 0) {
+      console.warn('No data to render')
+      return
+    }
+
+    // Create scales
+    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH)
+    stateRef.xScale = xScaleNew
+    stateRef.xExtent = xExtentNew
+
+    stateRef.yScale = createYScale(stateRef.lines, dataCache.type, stateRef.height || DEFAULT_HEIGHT)
+
+    // Calculate margins
+    const numChars = stateRef.yScale.domain()[1].toFixed(1).length - DECIMAL_PLACES
+    stateRef.margin = { 
+      top: MARGIN_TOP, 
+      bottom: MARGIN_BOTTOM, 
+      left: MARGIN_LEFT, 
+      right: (isMobileRef.current ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (numChars * MARGIN_CHAR_MULTIPLIER) 
+    }
+
+    // Calculate dimensions
+    const containerBoundingRect = container.getBoundingClientRect()
+    stateRef.width = Math.floor(containerBoundingRect.width) - stateRef.margin.left - stateRef.margin.right
+    stateRef.height = Math.floor(containerBoundingRect.height) - stateRef.margin.top - stateRef.margin.bottom
+
+    // Update scales with new dimensions
+    stateRef.xScale.range([0, stateRef.width])
+    stateRef.yScale.range([stateRef.height, 0])
+
+    // Apply margin transform
+    mainGroup.attr('transform', `translate(${stateRef.margin.left},${stateRef.margin.top})`)
+
+    // Update clipPath dimensions to match chart area
+    svg.select('.clip-rect')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', stateRef.width)
+      .attr('height', stateRef.height)
+
+    // Render chart elements
+    renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange })
+    renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent)
+    updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current)
+    hideOverlappingTicks(svgElements.timeLabel)
+    renderLines(svg, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, stateRef.height, dataCache.type)
+    renderSignificantPoints(svgElements.significantContainer, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, timeRange)
+
+    // Update locator line height
+    svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', stateRef.height)
+
+    // Update zoom rect dimensions and extents if it exists
+    if (zoomRef.rect && zoomRef.behavior) {
+      zoomRef.rect.attr('width', stateRef.width).attr('height', stateRef.height)
+      // Update zoom extents to match new chart dimensions
+      zoomRef.behavior
+        .translateExtent([[0, 0], [stateRef.width, stateRef.height]])
+        .extent([[0, 0], [stateRef.width, stateRef.height]])
+    }
+  }
+}
+
+/**
  * Main LineChart function
  */
 export function lineChart(containerId, _stationId, data, _options = {}) {
@@ -737,71 +899,36 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
   const { svg, mainGroup, timeLine, timeLabel, locator, significantContainer, tooltip, tooltipPath, tooltipValue, tooltipDescription } = svgElements
 
   const mobileMediaQuery = globalThis.matchMedia(MOBILE_BREAKPOINT)
-  let isMobile = mobileMediaQuery.matches
-  let width, height, margin, xScale, yScale, xExtent, lines, observedPoints, forecastPoints
-
-  const renderChart = (zoomLevel = 1) => {
-    // Process data with appropriate detail level for zoom
-    const processedData = processData(dataCache, zoomLevel)
-    lines = processedData.lines
-    observedPoints = processedData.observedPoints
-    forecastPoints = processedData.forecastPoints
-
-    if (!lines || lines.length === 0) {
-      console.warn('No data to render')
-      return
-    }
-
-    // Create scales
-    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, width || DEFAULT_WIDTH)
-    xScale = xScaleNew
-    xExtent = xExtentNew
-
-    yScale = createYScale(lines, dataCache.type, height || DEFAULT_HEIGHT)
-
-    // Calculate margins
-    const numChars = yScale.domain()[1].toFixed(1).length - DECIMAL_PLACES
-    margin = { top: MARGIN_TOP, bottom: MARGIN_BOTTOM, left: MARGIN_LEFT, right: (isMobile ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (numChars * MARGIN_CHAR_MULTIPLIER) }
-
-    // Calculate dimensions
-    const containerBoundingRect = container.getBoundingClientRect()
-    width = Math.floor(containerBoundingRect.width) - margin.left - margin.right
-    height = Math.floor(containerBoundingRect.height) - margin.top - margin.bottom
-
-    // Update scales with new dimensions
-    xScale.range([0, width])
-    yScale.range([height, 0])
-
-    // Apply margin transform
-    mainGroup.attr('transform', `translate(${margin.left},${margin.top})`)
-
-    // Update clipPath dimensions to match chart area
-    svg.select('.clip-rect')
-      .attr('x', 0)
-      .attr('y', 0)
-      .attr('width', width)
-      .attr('height', height)
-
-    // Render chart elements
-    renderAxes(svg, { xScale, yScale, width, height, timeRange })
-    renderGridLines(svg, xScale, yScale, height, width, xExtent)
-    updateTimeIndicator(svg, timeLabel, timeLine, xScale, height, isMobile)
-    hideOverlappingTicks(timeLabel)
-    renderLines(svg, observedPoints, forecastPoints, xScale, yScale, height, dataCache.type)
-    renderSignificantPoints(significantContainer, observedPoints, forecastPoints, xScale, yScale, timeRange)
-
-    // Update locator line height
-    svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', height)
-
-    // Update zoom rect dimensions and extents if it exists
-    if (zoomRect && zoomBehavior) {
-      zoomRect.attr('width', width).attr('height', height)
-      // Update zoom extents to match new chart dimensions
-      zoomBehavior
-        .translateExtent([[0, 0], [width, height]])
-        .extent([[0, 0], [width, height]])
-    }
+  const isMobileRef = { current: mobileMediaQuery.matches }
+  
+  // State object for mutable chart state
+  const stateRef = {
+    width: null,
+    height: null,
+    margin: null,
+    xScale: null,
+    yScale: null,
+    xExtent: null,
+    lines: null,
+    observedPoints: null,
+    forecastPoints: null
   }
+  
+  // Zoom reference object
+  const zoomRef = { behavior: null, rect: null }
+
+  // Create render function
+  const renderChart = createChartRenderer({
+    container,
+    svg,
+    mainGroup,
+    svgElements,
+    dataCache,
+    timeRange,
+    isMobileRef,
+    stateRef,
+    zoomRef
+  })
 
   // Create tooltip manager
   const tooltipManager = createTooltipManager({
@@ -810,7 +937,7 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     tooltipValue,
     tooltipDescription,
     locator,
-    getHeight: () => height,
+    getHeight: () => stateRef.height,
     dataType: dataCache.type,
     latestDateTime: dataCache.latestDateTime,
     timeRange
@@ -819,152 +946,19 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
   // Initial render
   renderChart()
 
-  // Setup zoom behavior for Chart Style C
-  let zoomBehavior = null
-  let zoomRect = null
+  // Setup zoom behavior if enabled
   if (enableZoom) {
-    const handleZoom = (event, originalXScale) => {
-      tooltipManager.hide()
-
-      // Get the transform
-      const transform = event.transform
-
-      // Only zoom/pan on X-axis (time dimension)
-      const newXScale = transform.rescaleX(originalXScale)
-
-      // Get visible time range
-      const visibleDomain = newXScale.domain()
-
-      // Filter data to visible range for Y-axis calculation
-      const visibleData = lines.filter(d => {
-        const date = new Date(d.dateTime)
-        return date >= visibleDomain[0] && date <= visibleDomain[1]
-      })
-
-      // Auto-scale Y-axis to visible data range
-      let yDomain = [0, 1]
-      if (visibleData.length > 0) {
-        const yExtent = extent(visibleData, d => d.value)
-        const yPadding = (yExtent[1] - yExtent[0]) * 0.1 || 0.5
-        yDomain = [
-          Math.max(0, yExtent[0] - yPadding),
-          yExtent[1] + yPadding
-        ]
-      }
-
-      // Create new Y scale for visible data
-      const newYScale = scaleLinear()
-        .domain(yDomain)
-        .range([height, 0])
-        .nice(Y_AXIS_NICE_TICKS)
-
-      // Update current scales
-      xScale = newXScale
-      yScale = newYScale
-
-      // Re-render with appropriate level of detail
-      const zoomLevel = transform.k
-      const processedData = processData(dataCache, zoomLevel)
-      observedPoints = processedData.observedPoints
-      forecastPoints = processedData.forecastPoints
-      lines = processedData.lines
-
-      // Re-render axes and chart elements
-      renderAxes(svg, { xScale, yScale, width, height, timeRange })
-      renderGridLines(svg, xScale, yScale, height, width, xExtent)
-      renderLines(svg, observedPoints, forecastPoints, xScale, yScale, height, dataCache.type)
-      renderSignificantPoints(significantContainer, observedPoints, forecastPoints, xScale, yScale, timeRange)
-      updateTimeIndicator(svg, timeLabel, timeLine, xScale, height, isMobile)
-      hideOverlappingTicks(timeLabel)
-
-      // Update chart info display
-      const displayedPoints = observedPoints.length + forecastPoints.length
-      if (container.updateChartInfo) {
-        container.updateChartInfo(displayedPoints, visibleDomain)
-      }
-    }
-
-    // Store original X scale after first render (don't store Y scale - it will auto-adjust)
-    const originalXScale = xScale.copy()
-
-    // Create zoom behavior
-    zoomBehavior = d3Zoom()
-      .scaleExtent([1, 100])  // Min 1x (5 years), Max 100x zoom for granular detail
-      .translateExtent([[0, 0], [width, height]])  // Constrain panning to chart bounds
-      .extent([[0, 0], [width, height]])  // Define the viewport extent
-      .filter((event) => {
-        // Prevent default wheel behavior to stop page scrolling
-        if (event.type === 'wheel') {
-          event.preventDefault()
-          event.stopPropagation()
-        }
-        return true
-      })
-      .on('zoom', (event) => handleZoom(event, originalXScale))
-
-    // Apply zoom behavior to main group instead of overlay rect
-    // This allows tooltips to work while still enabling zoom
-    mainGroup.call(zoomBehavior)
-
-    // Create invisible rect just for capturing wheel events for zoom
-    zoomRect = mainGroup.insert('rect', ':first-child')
-      .attr('class', 'zoom-capture')
-      .attr('width', width)
-      .attr('height', height)
-      .style('fill', 'none')
-      .style('pointer-events', 'none') // Don't block tooltip events
-
-    // Add direct wheel event listener to SVG to ensure preventDefault is called
-    svg.node().addEventListener('wheel', (event) => {
-      event.preventDefault()
-    }, { passive: false })
-
-    // Expose zoom controls
-    container.resetZoom = () => {
-      mainGroup.transition()
-        .duration(750)
-        .call(zoomBehavior.transform, zoomIdentity)
-    }
-
-    container.zoomIn = () => {
-      mainGroup.transition()
-        .duration(300)
-        .call(zoomBehavior.scaleBy, 1.5)
-    }
-
-    container.zoomOut = () => {
-      mainGroup.transition()
-        .duration(300)
-        .call(zoomBehavior.scaleBy, 0.67)
-    }
+    initializeZoom({
+      svg, mainGroup, stateRef, dataCache, timeRange, 
+      significantContainer, timeLine, timeLabel, isMobileRef, 
+      tooltipManager, container, zoomRef
+    })
   }
 
-  // Expose zoom controls and chart info update
-  if (enableZoom) {
-    container.updateChartInfo = (displayedPoints, visibleDateRange) => {
-      const dataPointsLabel = globalThis.document.getElementById('chart-data-points')
-
-      if (dataPointsLabel) {
-        dataPointsLabel.textContent = ` (${displayedPoints.toLocaleString()} displayed)`
-      }
-    }
-  }
-
-  // Setup event handlers with state getter
-  const getState = () => ({ margin, lines, xScale, yScale })
-
-  // Setup mouse/touch handlers for tooltips
-  // Works with zoom - handlers check current scale state
-  setupEventHandlers(container, svg, mainGroup, getState, tooltipManager)
-  mobileMediaQuery[mobileMediaQuery.addEventListener ? 'addEventListener' : 'addListener']('change', (e) => {
-    isMobile = e.matches
-    tooltipManager.hide()
-    renderChart()
-  })
-
-  globalThis.addEventListener('resize', () => {
-    tooltipManager.hide()
-    renderChart()
+  // Setup responsive behavior and event handlers
+  setupResponsiveHandlers({
+    container, svg, mainGroup, mobileMediaQuery, 
+    isMobileRef, tooltipManager, renderChart, stateRef
   })
 
   this.chart = container
