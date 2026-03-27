@@ -3,7 +3,6 @@ import { area as d3Area, line as d3Line, curveMonotoneX } from 'd3-shape'
 import { axisBottom, axisLeft } from 'd3-axis'
 import { scaleLinear, scaleTime } from 'd3-scale'
 import { timeFormat } from 'd3-time-format'
-import { timeDay, timeWeek, timeMonth } from 'd3-time'
 import { select, selectAll } from 'd3-selection'
 import { extent } from 'd3-array'
 import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom'
@@ -52,16 +51,6 @@ const DEFAULT_HEIGHT = 400
 // Time range thresholds in days
 const SEVEN_DAYS = 7
 const THIRTY_DAYS = 30
-const NINETY_DAYS = 90
-const ONE_HUNDRED_EIGHTY_DAYS = 180
-const THREE_HUNDRED_SIXTY_FIVE_DAYS = 365
-const SEVEN_HUNDRED_THIRTY_DAYS = 730
-const TEN_NINETY_FIVE_DAYS = 1095
-
-// Tick interval values
-const EVERY_THREE_DAYS = 3
-const EVERY_THREE_MONTHS = 3
-const EVERY_SIX_MONTHS = 6
 
 /**
  * Generate exactly N evenly-spaced tick values across the time range
