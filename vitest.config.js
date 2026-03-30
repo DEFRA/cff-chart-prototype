@@ -7,6 +7,9 @@ export default defineConfig({
     clearMocks: true,
     testTimeout: 10000,
     hookTimeout: 10000,
+    env: {
+      REQUIRE_AUTH: 'true'
+    },
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage',

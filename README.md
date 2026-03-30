@@ -33,6 +33,26 @@ const response = await fetch(url, { dispatcher: agent });
 
 Ensure that `PROXY_URL` is set in your environment variables.
 
+## Authentication
+
+This prototype includes optional password-based authentication. Authentication is disabled by default for local development but can be enabled for external/production environments.
+
+**Environment Variables:**
+
+- `REQUIRE_AUTH` - Set to `true` to enable password authentication (default: `false`)
+- `PROTOTYPE_PASSWORD` - The password required to access the site (default: `prototype`)
+
+**Example:**
+
+```bash
+# Enable authentication
+REQUIRE_AUTH=true
+PROTOTYPE_PASSWORD=your-secure-password
+npm start
+```
+
+For detailed documentation on authentication features, see [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
+
 ## Local Development
 
 ### Setup
@@ -132,6 +152,7 @@ docker compose up --build -d
 
 Additional technical documentation is available in the `docs/` folder:
 
+- [Authentication](docs/AUTHENTICATION.md) - Optional password protection for external environments
 - [Historic Data Feature](docs/HISTORIC_DATA_FEATURE.md) - Implementation details for historic data storage and retrieval
 - [Chart Style C Implementation](docs/CHART_STYLE_C_IMPLEMENTATION.md) - Interactive pan & zoom chart implementation
 - [CDP Proxy Setup](docs/CDP_PROXY_SETUP.md) - Corporate proxy configuration guide
