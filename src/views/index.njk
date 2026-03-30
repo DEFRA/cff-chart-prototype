@@ -5,7 +5,18 @@
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/phase-banner/macro.njk" import govukPhaseBanner %}
 
+{% set assetUrl = false %}
+{% set webAppManifest = false %}
 {% set mainClasses = "app-main-wrapper" %}
+
+{% block icons %}
+  <link rel="shortcut icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
+  <link rel="shortcut icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
+  <link rel="icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ getAssetPath('assets/images/govuk-icon-180.png') }}">
+  <link rel="manifest" href="{{ getAssetPath('assets/manifest.json') }}">
+{% endblock %}
 
 {% block head %}
   <link href="{{ getAssetPath('stylesheets/application.scss') }}" rel="stylesheet">
@@ -53,55 +64,6 @@
         },
         id: "stationId",
         name: "stationId"
-      }) }}
-
-      {{ govukRadios({
-        name: "dataType",
-        fieldset: {
-          legend: {
-            text: "Data type",
-            classes: "govuk-fieldset__legend--m"
-          }
-        },
-        items: [
-          {
-            value: "existing",
-            text: "Existing",
-            checked: true
-          },
-          {
-            value: "historic",
-            text: "Historic"
-          }
-        ]
-      }) }}
-
-      {{ govukRadios({
-        name: "stationType",
-        fieldset: {
-          legend: {
-            text: "Station type",
-            classes: "govuk-fieldset__legend--m"
-          }
-        },
-        items: [
-          {
-            value: "S",
-            text: "S - Station"
-          },
-          {
-            value: "M",
-            text: "M - Multi-Station"
-          },
-          {
-            value: "G",
-            text: "G - Groundwater"
-          },
-          {
-            value: "C",
-            text: "C - Coastal"
-          }
-        ]
       }) }}
 
       {{ govukRadios({

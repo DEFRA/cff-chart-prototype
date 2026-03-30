@@ -5,6 +5,7 @@ import Scooter from '@hapi/scooter'
 import { headers } from './plugins/headers.js'
 import { router } from './plugins/router.js'
 import { session } from './plugins/session.js'
+import { auth } from './plugins/auth.js'
 import { config } from './config/config.js'
 import { pulse } from './common/helpers/pulse.js'
 import { catchAll } from './common/helpers/errors.js'
@@ -14,7 +15,7 @@ import { requestTracing } from './common/helpers/request-tracing.js'
 import { requestLogger } from './common/helpers/logging/request-logger.js'
 import { secureContext } from './common/helpers/secure-context/secure-context.js'
 
-export async function createServer () {
+export async function createServer() {
   setupProxy()
   const server = hapi.server({
     host: config.get('host'),
@@ -49,7 +50,7 @@ export async function createServer () {
 
   server.validator(Joi)
 
-  await server.register([
+  const plugins = [
     Scooter,
     requestLogger,
     requestTracing,
@@ -57,9 +58,17 @@ export async function createServer () {
     pulse,
     nunjucksConfig,
     headers,
-    router,
     session
-  ])
+  ]
+
+  // Only add auth plugin if authentication is required
+  if (config.get('requireAuth')) {
+    plugins.push(auth)
+  }
+
+  plugins.push(router)
+
+  await server.register(plugins)
 
   server.ext('onPreResponse', catchAll)
 

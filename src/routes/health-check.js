@@ -6,6 +6,9 @@ import { proxyFetch } from '../lib/flood-service.js'
 export const healthCheck = {
   method: 'GET',
   path: '/health/connectivity',
+  options: {
+    auth: false
+  },
   handler: async function (request, h) {
     const results = {
       service: 'ok',
@@ -17,17 +20,17 @@ export const healthCheck = {
     try {
       const testUrl = 'https://environment.data.gov.uk/flood-monitoring/id/stations?RLOIid=8085'
       request.logger.info(`Testing connectivity to: ${testUrl}`)
-      
+
       // No timeout - let it fail naturally to see the real error
       const response = await proxyFetch(testUrl)
-      
+
       results.externalApis.environmentAgency = {
         url: testUrl,
         status: response.status,
         statusText: response.statusText,
         reachable: response.ok
       }
-      
+
       if (response.ok) {
         const data = await response.json()
         results.externalApis.environmentAgency.itemsCount = data.items?.length || 0
