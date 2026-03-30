@@ -157,6 +157,18 @@ export const config = convict({
       env: 'COOKIE_PASSWORD'
     }
   },
+  prototypePassword: {
+    doc: 'Password required to access the prototype',
+    format: String,
+    default: 'prototype',
+    env: 'PROTOTYPE_PASSWORD'
+  },
+  requireAuth: {
+    doc: 'Whether to require authentication to access the prototype',
+    format: Boolean,
+    default: false,
+    env: 'REQUIRE_AUTH'
+  },
   auth: {
     mode: {
       doc: 'The authentication mode to use',
