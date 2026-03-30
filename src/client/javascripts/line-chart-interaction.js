@@ -23,6 +23,8 @@ export function createTooltipManager(tooltipConfig) {
       y = TOOLTIP_MARGIN_TOP
     } else if (y > tooltipMarginBottom) {
       y = tooltipMarginBottom
+    } else {
+      // Keep existing calculated y when already inside tooltip bounds.
     }
 
     tooltip.attr('transform', `translate(${x.toFixed(0)},${y.toFixed(0)})`)

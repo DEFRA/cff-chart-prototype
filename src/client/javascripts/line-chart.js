@@ -150,22 +150,24 @@ function createChartRenderer(config) {
   }
 }
 
-export function lineChart(containerId, _stationId, data, _options = {}) {
-  const container = document.getElementById(containerId)
-
-  if (!container) {
-    console.error('LineChart: Container not found:', containerId)
-    return
+function createStateRef() {
+  return {
+    width: null,
+    height: null,
+    margin: null,
+    xScale: null,
+    yScale: null,
+    xExtent: null,
+    lines: null,
+    observedPoints: null,
+    forecastPoints: null
   }
+}
 
-  if (!data) {
-    console.error('LineChart: No data provided')
-    return
-  }
-
+function setupChartContext(containerId, data, options) {
   const dataCache = data
-  const timeRange = _options.timeRange || '5d'
-  const enableZoom = _options.enableZoom || false
+  const timeRange = options.timeRange || '5d'
+  const enableZoom = options.enableZoom || false
   const svgElements = initializeSVG(containerId)
   const {
     svg,
@@ -182,72 +184,106 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
 
   const mobileMediaQuery = globalThis.matchMedia(MOBILE_BREAKPOINT)
   const isMobileRef = { current: mobileMediaQuery.matches }
-
-  const stateRef = {
-    width: null,
-    height: null,
-    margin: null,
-    xScale: null,
-    yScale: null,
-    xExtent: null,
-    lines: null,
-    observedPoints: null,
-    forecastPoints: null
-  }
-
+  const stateRef = createStateRef()
   const zoomRef = { behavior: null, rect: null }
 
-  const renderChart = createChartRenderer({
-    container,
-    svg,
-    mainGroup,
-    svgElements,
+  return {
     dataCache,
     timeRange,
-    isMobileRef,
-    stateRef,
-    zoomRef
-  })
-
-  const tooltipManager = createTooltipManager({
+    enableZoom,
+    svgElements,
+    svg,
+    mainGroup,
+    timeLine,
+    timeLabel,
+    locator,
+    significantContainer,
     tooltip,
     tooltipPath,
     tooltipValue,
     tooltipDescription,
-    locator,
-    getHeight: () => stateRef.height,
-    dataType: dataCache.type,
-    latestDateTime: dataCache.latestDateTime,
-    timeRange
+    mobileMediaQuery,
+    isMobileRef,
+    stateRef,
+    zoomRef
+  }
+}
+
+function setupTooltipManager(context) {
+  return createTooltipManager({
+    tooltip: context.tooltip,
+    tooltipPath: context.tooltipPath,
+    tooltipValue: context.tooltipValue,
+    tooltipDescription: context.tooltipDescription,
+    locator: context.locator,
+    getHeight: () => context.stateRef.height,
+    dataType: context.dataCache.type,
+    latestDateTime: context.dataCache.latestDateTime,
+    timeRange: context.timeRange
   })
+}
+
+function initializeZoomIfEnabled(context, container, tooltipManager) {
+  if (!context.enableZoom) {
+    return
+  }
+
+  initializeZoom({
+    svg: context.svg,
+    mainGroup: context.mainGroup,
+    stateRef: context.stateRef,
+    dataCache: context.dataCache,
+    timeRange: context.timeRange,
+    significantContainer: context.significantContainer,
+    timeLine: context.timeLine,
+    timeLabel: context.timeLabel,
+    isMobileRef: context.isMobileRef,
+    tooltipManager,
+    container,
+    zoomRef: context.zoomRef
+  })
+}
+
+export function lineChart(containerId, _stationId, data, _options = {}) {
+  const container = document.getElementById(containerId)
+
+  if (!container) {
+    console.error('LineChart: Container not found:', containerId)
+    return
+  }
+
+  if (!data) {
+    console.error('LineChart: No data provided')
+    return
+  }
+
+  const context = setupChartContext(containerId, data, _options)
+  const renderChart = createChartRenderer({
+    container,
+    svg: context.svg,
+    mainGroup: context.mainGroup,
+    svgElements: context.svgElements,
+    dataCache: context.dataCache,
+    timeRange: context.timeRange,
+    isMobileRef: context.isMobileRef,
+    stateRef: context.stateRef,
+    zoomRef: context.zoomRef
+  })
+
+  const tooltipManager = setupTooltipManager(context)
 
   renderChart()
 
-  if (enableZoom) {
-    initializeZoom({
-      svg,
-      mainGroup,
-      stateRef,
-      dataCache,
-      timeRange,
-      significantContainer,
-      timeLine,
-      timeLabel,
-      isMobileRef,
-      tooltipManager,
-      container,
-      zoomRef
-    })
-  }
+  initializeZoomIfEnabled(context, container, tooltipManager)
 
   setupResponsiveHandlers({
     container,
-    svg,
-    mobileMediaQuery,
-    isMobileRef,
+    svg: context.svg,
+    mobileMediaQuery: context.mobileMediaQuery,
+    isMobileRef: context.isMobileRef,
     tooltipManager,
     renderChart,
-    stateRef
+    stateRef: context.stateRef
   })
 
   this.chart = container
