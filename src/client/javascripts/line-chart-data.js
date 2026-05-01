@@ -25,8 +25,25 @@ function downsampleData(data, targetPoints) {
 }
 
 function getTargetPointsForZoom(zoomLevel, basePoints = 500) {
-  const multiplier = Math.min(zoomLevel, 10)
-  return Math.floor(basePoints * multiplier)
+  // Be more conservative with point density, especially at high zoom levels
+  // to prevent overlapping labels on mobile screens
+  
+  if (zoomLevel <= 1) {
+    return basePoints
+  }
+  
+  if (zoomLevel <= 3) {
+    // Moderate zoom: reduce multiplier to prevent too much detail
+    return Math.floor(basePoints * 1.5)
+  }
+  
+  if (zoomLevel <= 10) {
+    // Higher zoom: cap multiplier at 3x for readability
+    return Math.floor(basePoints * 3)
+  }
+  
+  // Very high zoom (>10x): cap at 4x to keep labels readable
+  return Math.floor(basePoints * 4)
 }
 
 function simplifyByType(data, dataType) {

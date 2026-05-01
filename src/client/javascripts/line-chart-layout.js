@@ -25,9 +25,24 @@ function generateEvenlySpacedTicks(xExtent, count = 8) {
   const ticks = []
   const start = xExtent[0].getTime()
   const end = xExtent[1].getTime()
-  const step = (end - start) / (count - 1)
+  const durationMs = end - start
+  const durationDays = durationMs / (1000 * 60 * 60 * 24)
+  
+  // Aggressively reduce ticks for better mobile readability
+  let tickCount = count
+  if (durationDays < 1) {
+    tickCount = 3 // Very zoomed in: minimal ticks
+  } else if (durationDays < 7) {
+    tickCount = 4 // Week view: 4 ticks is optimal for mobile
+  } else if (durationDays < 30) {
+    tickCount = 4 // Month view: still just 4 to avoid crowding
+  } else {
+    tickCount = 4 // Longer ranges: maintain 4 for consistency
+  }
+  
+  const step = (end - start) / (tickCount - 1)
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < tickCount; i++) {
     ticks.push(new Date(start + (step * i)))
   }
 
@@ -63,6 +78,60 @@ function formatXAxisLabels(d, i, nodes, showTime, isYearScale = false) {
   }
 
   element.append('tspan').text(timeFormat('%-e %b')(new Date(d)))
+}
+
+function generateUniqueYTicks(yScale, desiredCount) {
+  const [min, max] = yScale.domain()
+  const range = max - min
+  
+  // For very small ranges, always generate manual ticks to avoid D3's duplicate behavior
+  if (range < 1) {
+    const ticks = []
+    for (let i = 0; i < desiredCount; i++) {
+      ticks.push(min + ((max - min) * i) / (desiredCount - 1))
+    }
+    return ticks
+  }
+  
+  // For larger ranges, try D3's ticks but deduplicate
+  let ticks = yScale.ticks(desiredCount)
+  
+  const uniqueTicks = []
+  const seen = new Set()
+  
+  for (const tick of ticks) {
+    // Round to 5 decimal places to catch floating-point duplicates
+    const rounded = Math.round(tick * 100000) / 100000
+    const roundedStr = rounded.toFixed(5)
+    
+    if (!seen.has(roundedStr)) {
+      seen.add(roundedStr)
+      uniqueTicks.push(tick)
+    }
+  }
+  
+  // If deduplication removed too many, fall back to manual generation
+  if (uniqueTicks.length < 2) {
+    const manualTicks = []
+    for (let i = 0; i < desiredCount; i++) {
+      manualTicks.push(min + ((max - min) * i) / (desiredCount - 1))
+    }
+    return manualTicks
+  }
+  
+  return uniqueTicks
+}
+
+export function getYAxisLabelFormatter(yRange) {
+  if (yRange < 0.1) {
+    return (value) => Number.parseFloat(value).toFixed(3)
+  }
+
+  if (yRange < 1) {
+    return (value) => Number.parseFloat(value).toFixed(2)
+  }
+
+  return (value) => Number.parseFloat(value).toFixed(1)
 }
 
 function removeLastTickLabel(svg, count = 1) {
@@ -128,10 +197,28 @@ export function renderAxes(svg, config) {
     .tickFormat('')
     .tickValues(tickConfig.tickValues)
 
+  // Generate smart Y-axis ticks that respect the scale's domain
+  const yDomain = yScale.domain()
+  const yRange = yDomain[1] - yDomain[0]
+  
+  // Calculate appropriate tick count based on domain range
+  let yTickCount = Y_AXIS_NICE_TICKS
+  if (yRange < 1) {
+    yTickCount = 4 // Small range: fewer ticks to avoid duplicates
+  } else if (yRange < 10) {
+    yTickCount = 5 // Medium range
+  } else {
+    yTickCount = 6 // Larger range: more ticks
+  }
+  
+  // Generate unique ticks without duplicates
+  const yTickValues = generateUniqueYTicks(yScale, yTickCount)
+  const yAxisTickFormat = getYAxisLabelFormatter(yRange)
+  
   const yAxis = axisLeft()
     .scale(yScale)
-    .ticks(Y_AXIS_NICE_TICKS)
-    .tickFormat(d => Number.parseFloat(d).toFixed(1))
+    .tickValues(yTickValues)
+    .tickFormat(yAxisTickFormat)
     .tickSizeOuter(0)
 
   svg.select('.x.axis')
@@ -170,10 +257,25 @@ export function renderGridLines(svg, xScale, yScale, height, width, xExtent) {
     }
   })
 
+  // Use same smart tick calculation as renderAxes for consistency
+  const yDomain = yScale.domain()
+  const yRange = yDomain[1] - yDomain[0]
+  
+  let yTickCount = Y_AXIS_NICE_TICKS
+  if (yRange < 1) {
+    yTickCount = 4
+  } else if (yRange < 10) {
+    yTickCount = 5
+  } else {
+    yTickCount = 6
+  }
+  
+  const yTickValues = generateUniqueYTicks(yScale, yTickCount)
+
   svg.select('.y.grid')
     .attr('transform', 'translate(0, 0)')
     .call(axisLeft(yScale)
-      .ticks(Y_AXIS_NICE_TICKS)
+      .tickValues(yTickValues)
       .tickSize(-width, 0, 0)
       .tickFormat('')
     )

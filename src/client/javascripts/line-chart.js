@@ -7,12 +7,11 @@ import {
   DESKTOP_MARGIN_RIGHT_BASE,
   MARGIN_CHAR_MULTIPLIER,
   MOBILE_BREAKPOINT,
-  DECIMAL_PLACES,
   DEFAULT_WIDTH,
   DEFAULT_HEIGHT
 } from './line-chart-constants.js'
 import { processData } from './line-chart-data.js'
-import { createXScale, createYScale, renderAxes, renderGridLines, updateTimeIndicator, hideOverlappingTicks } from './line-chart-layout.js'
+import { createXScale, createYScale, renderAxes, renderGridLines, updateTimeIndicator, hideOverlappingTicks, getYAxisLabelFormatter } from './line-chart-layout.js'
 import { renderLines, renderSignificantPoints, initializeSVG } from './line-chart-render.js'
 import { createTooltipManager, setupResponsiveHandlers } from './line-chart-interaction.js'
 
@@ -32,12 +31,16 @@ function initializeZoom(config) {
     zoomRef
   } = config
 
-  const baseXScale = stateRef.xScale.copy()
+  zoomRef.baseXScaleRef = zoomRef.baseXScaleRef || { current: stateRef.xScale.copy() }
+  zoomRef.baseXScaleRef.current = stateRef.xScale.copy()
+  zoomRef.baseYScaleRef = zoomRef.baseYScaleRef || { current: stateRef.yScale.copy() }
+  zoomRef.baseYScaleRef.current = stateRef.yScale.copy()
 
   const handleZoomEvent = (event) => {
     const result = createZoomHandler({
       svg,
-      baseXScale,
+      baseXScale: zoomRef.baseXScaleRef.current,
+      baseYScale: zoomRef.baseYScaleRef.current,
       width: stateRef.width,
       height: stateRef.height,
       timeRange,
@@ -55,7 +58,7 @@ function initializeZoom(config) {
       renderSignificantPoints,
       updateTimeIndicator,
       hideOverlappingTicks
-    })(event, stateRef.lines, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale)
+    })(event, stateRef.lines)
 
     stateRef.xScale = result.xScale
     stateRef.yScale = result.yScale
@@ -69,7 +72,6 @@ function initializeZoom(config) {
     mainGroup,
     width: stateRef.width,
     height: stateRef.height,
-    baseXScale,
     handleZoomEvent
   })
 
@@ -109,12 +111,17 @@ function createChartRenderer(config) {
     stateRef.xExtent = xExtentNew
     stateRef.yScale = createYScale(stateRef.lines, dataCache.type, stateRef.height || DEFAULT_HEIGHT)
 
-    const numChars = stateRef.yScale.domain()[1].toFixed(1).length - DECIMAL_PLACES
+    const yDomain = stateRef.yScale.domain()
+    const yRange = yDomain[1] - yDomain[0]
+    const yAxisFormatter = getYAxisLabelFormatter(yRange)
+    const yLabelSamples = stateRef.yScale.ticks(6).map(tick => yAxisFormatter(tick))
+    const longestYAxisLabelLength = yLabelSamples.reduce((max, label) => Math.max(max, label.length), 3)
+
     stateRef.margin = {
       top: MARGIN_TOP,
       bottom: MARGIN_BOTTOM,
       left: MARGIN_LEFT,
-      right: (isMobileRef.current ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (numChars * MARGIN_CHAR_MULTIPLIER)
+      right: (isMobileRef.current ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (longestYAxisLabelLength * MARGIN_CHAR_MULTIPLIER)
     }
 
     const containerRect = container.getBoundingClientRect()
@@ -146,6 +153,14 @@ function createChartRenderer(config) {
       zoomRef.behavior
         .translateExtent([[0, 0], [stateRef.width, stateRef.height]])
         .extent([[0, 0], [stateRef.width, stateRef.height]])
+    }
+
+    if (zoomRef.baseXScaleRef) {
+      zoomRef.baseXScaleRef.current = stateRef.xScale.copy()
+    }
+
+    if (zoomRef.baseYScaleRef) {
+      zoomRef.baseYScaleRef.current = stateRef.yScale.copy()
     }
   }
 }
@@ -286,5 +301,5 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     stateRef: context.stateRef
   })
 
-  this.chart = container
+  return container
 }
