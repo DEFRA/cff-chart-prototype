@@ -94,7 +94,7 @@ function generateUniqueYTicks(yScale, desiredCount) {
   }
   
   // For larger ranges, try D3's ticks but deduplicate
-  let ticks = yScale.ticks(desiredCount)
+  const ticks = yScale.ticks(desiredCount)
   
   const uniqueTicks = []
   const seen = new Set()
