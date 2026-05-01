@@ -6,21 +6,22 @@ import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom'
 const Y_AXIS_NICE_TICKS = 5
 const Y_AXIS_PADDING_RATIO = 0.1
 const Y_AXIS_FALLBACK_PADDING = 0.5
-const ZOOM_RESET_DURATION = 750
 const ZOOM_TRANSITION_DURATION = 300
 const ZOOM_IN_FACTOR = 1.5
-const ZOOM_OUT_FACTOR = 0.67
+const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR
+const ZOOM_MIN_SCALE = 1
+const ZOOM_MAX_SCALE = 100
 
 /**
  * Create zoom event handler
  */
 export function createZoomHandler(config) {
-  const { svg, baseXScale, width, height, timeRange, dataCache,
+  const { svg, baseXScale, baseYScale, width, height, timeRange, dataCache,
     significantContainer, timeLine, timeLabel, isMobile, tooltipManager, container,
     processData, renderAxes, renderGridLines, renderLines, renderSignificantPoints,
     updateTimeIndicator, hideOverlappingTicks } = config
 
-  return (event, lines, _observedPoints, _forecastPoints, _xScale, _yScale) => {
+  return (event, lines) => {
     tooltipManager.hide()
 
     // Get the transform
@@ -38,22 +39,26 @@ export function createZoomHandler(config) {
       return date >= visibleDomain[0] && date <= visibleDomain[1]
     })
 
-    // Auto-scale Y-axis to visible data range
-    let yDomain = [0, 1]
-    if (visibleData.length > 0) {
-      const yExtent = extent(visibleData, d => d.value)
-      const yPadding = (yExtent[1] - yExtent[0]) * Y_AXIS_PADDING_RATIO || Y_AXIS_FALLBACK_PADDING
-      yDomain = [
-        Math.max(0, yExtent[0] - yPadding),
-        yExtent[1] + yPadding
-      ]
-    }
+    // Restore the original Y scale at base zoom; only auto-scale when zoomed in.
+    let newYScale
+    if (transform.k <= 1.001) {
+      newYScale = baseYScale.copy().range([height, 0])
+    } else {
+      let yDomain = [0, 1]
+      if (visibleData.length > 0) {
+        const yExtent = extent(visibleData, d => d.value)
+        const yPadding = (yExtent[1] - yExtent[0]) * Y_AXIS_PADDING_RATIO || Y_AXIS_FALLBACK_PADDING
+        yDomain = [
+          Math.max(0, yExtent[0] - yPadding),
+          yExtent[1] + yPadding
+        ]
+      }
 
-    // Create new Y scale for visible data
-    const newYScale = scaleLinear()
-      .domain(yDomain)
-      .range([height, 0])
-      .nice(Y_AXIS_NICE_TICKS)
+      newYScale = scaleLinear()
+        .domain(yDomain)
+        .range([height, 0])
+        .nice(Y_AXIS_NICE_TICKS)
+    }
 
     // Re-render with appropriate level of detail
     const zoomLevel = transform.k
@@ -88,7 +93,7 @@ export function setupZoomBehavior(config) {
   const { svg, mainGroup, width, height, handleZoomEvent } = config
 
   const zoomBehavior = d3Zoom()
-    .scaleExtent([1, 100])  // Min 1x (5 years), Max 100x zoom for granular detail
+    .scaleExtent([ZOOM_MIN_SCALE, ZOOM_MAX_SCALE])  // Min 1x (full view), Max 100x zoom for granular detail
     .translateExtent([[0, 0], [width, height]])  // Constrain panning to chart bounds
     .extent([[0, 0], [width, height]])  // Define the viewport extent
     .filter((event) => {
@@ -99,7 +104,9 @@ export function setupZoomBehavior(config) {
       }
       return true
     })
-    .on('zoom', handleZoomEvent)
+    .on('zoom', (event) => {
+      handleZoomEvent(event)
+    })
 
   // Apply zoom behavior to main group
   mainGroup.call(zoomBehavior)
@@ -125,9 +132,13 @@ export function setupZoomBehavior(config) {
  */
 export function setupZoomControls(container, mainGroup, zoomBehavior) {
   container.resetZoom = () => {
-    mainGroup.transition()
-      .duration(ZOOM_RESET_DURATION)
-      .call(zoomBehavior.transform, zoomIdentity)
+    mainGroup.interrupt()
+    mainGroup.call(zoomBehavior.transform, zoomIdentity)
+
+    // Touch/wheel sequences can leave a residual transform; apply again next frame.
+    globalThis.requestAnimationFrame(() => {
+      mainGroup.call(zoomBehavior.transform, zoomIdentity)
+    })
   }
 
   container.zoomIn = () => {
