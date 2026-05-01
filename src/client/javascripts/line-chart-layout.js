@@ -27,7 +27,7 @@ function generateEvenlySpacedTicks(xExtent, count = 8) {
   const end = xExtent[1].getTime()
   const durationMs = end - start
   const durationDays = durationMs / (1000 * 60 * 60 * 24)
-  
+
   // Aggressively reduce ticks for better mobile readability
   let tickCount = count
   if (durationDays < 1) {
@@ -39,7 +39,7 @@ function generateEvenlySpacedTicks(xExtent, count = 8) {
   } else {
     tickCount = 4 // Longer ranges: maintain 4 for consistency
   }
-  
+
   const step = (end - start) / (tickCount - 1)
 
   for (let i = 0; i < tickCount; i++) {
@@ -83,7 +83,7 @@ function formatXAxisLabels(d, i, nodes, showTime, isYearScale = false) {
 function generateUniqueYTicks(yScale, desiredCount) {
   const [min, max] = yScale.domain()
   const range = max - min
-  
+
   // For very small ranges, always generate manual ticks to avoid D3's duplicate behavior
   if (range < 1) {
     const ticks = []
@@ -92,24 +92,24 @@ function generateUniqueYTicks(yScale, desiredCount) {
     }
     return ticks
   }
-  
+
   // For larger ranges, try D3's ticks but deduplicate
   const ticks = yScale.ticks(desiredCount)
-  
+
   const uniqueTicks = []
   const seen = new Set()
-  
+
   for (const tick of ticks) {
     // Round to 5 decimal places to catch floating-point duplicates
     const rounded = Math.round(tick * 100000) / 100000
     const roundedStr = rounded.toFixed(5)
-    
+
     if (!seen.has(roundedStr)) {
       seen.add(roundedStr)
       uniqueTicks.push(tick)
     }
   }
-  
+
   // If deduplication removed too many, fall back to manual generation
   if (uniqueTicks.length < 2) {
     const manualTicks = []
@@ -118,7 +118,7 @@ function generateUniqueYTicks(yScale, desiredCount) {
     }
     return manualTicks
   }
-  
+
   return uniqueTicks
 }
 
@@ -200,7 +200,7 @@ export function renderAxes(svg, config) {
   // Generate smart Y-axis ticks that respect the scale's domain
   const yDomain = yScale.domain()
   const yRange = yDomain[1] - yDomain[0]
-  
+
   // Calculate appropriate tick count based on domain range
   let yTickCount = Y_AXIS_NICE_TICKS
   if (yRange < 1) {
@@ -210,11 +210,11 @@ export function renderAxes(svg, config) {
   } else {
     yTickCount = 6 // Larger range: more ticks
   }
-  
+
   // Generate unique ticks without duplicates
   const yTickValues = generateUniqueYTicks(yScale, yTickCount)
   const yAxisTickFormat = getYAxisLabelFormatter(yRange)
-  
+
   const yAxis = axisLeft()
     .scale(yScale)
     .tickValues(yTickValues)
@@ -260,7 +260,7 @@ export function renderGridLines(svg, xScale, yScale, height, width, xExtent) {
   // Use same smart tick calculation as renderAxes for consistency
   const yDomain = yScale.domain()
   const yRange = yDomain[1] - yDomain[0]
-  
+
   let yTickCount = Y_AXIS_NICE_TICKS
   if (yRange < 1) {
     yTickCount = 4
@@ -269,7 +269,7 @@ export function renderGridLines(svg, xScale, yScale, height, width, xExtent) {
   } else {
     yTickCount = 6
   }
-  
+
   const yTickValues = generateUniqueYTicks(yScale, yTickCount)
 
   svg.select('.y.grid')

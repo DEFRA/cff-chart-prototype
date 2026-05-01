@@ -1,5 +1,6 @@
 import { describe, beforeAll, afterAll, test, expect, vi } from 'vitest'
 import { createServer } from '../../../../src/server.js'
+import { config } from '../../../../src/config/config.js'
 
 // Mock the flood-service to avoid external API calls
 vi.mock('../../../../src/lib/flood-service.js', () => ({
@@ -70,20 +71,42 @@ vi.mock('../../../../src/lib/flood-service.js', () => ({
 
 describe('Station route', () => {
   let server
+  let authCookie
 
   beforeAll(async () => {
     server = await createServer()
     await server.initialize()
+
+    // Login to get authenticated session
+    const loginResponse = await server.inject({
+      method: 'POST',
+      url: '/login',
+      payload: { password: config.get('prototypePassword') }
+    })
+    authCookie = loginResponse.headers['set-cookie'][0].split(';')[0]
   })
 
   afterAll(async () => {
     await server.stop({ timeout: 0 })
   })
 
+  test('Should redirect unauthenticated users to login', async () => {
+    const { statusCode, headers } = await server.inject({
+      method: 'GET',
+      url: '/station'
+    })
+
+    expect(statusCode).toBe(302)
+    expect(headers.location).toBe('/login')
+  })
+
   test('Should load station page with default station ID 8085', async () => {
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/station'
+      url: '/station',
+      headers: {
+        cookie: authCookie
+      }
     })
 
     expect(statusCode).toBe(200)
@@ -95,7 +118,10 @@ describe('Station route', () => {
   test('Should load station page with specified station ID', async () => {
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/station?stationId=8085'
+      url: '/station?stationId=8085',
+      headers: {
+        cookie: authCookie
+      }
     })
 
     expect(statusCode).toBe(200)
@@ -106,7 +132,10 @@ describe('Station route', () => {
   test('Should return 404 for non-existent station', async () => {
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/station?stationId=999999'
+      url: '/station?stationId=999999',
+      headers: {
+        cookie: authCookie
+      }
     })
 
     expect(statusCode).toBe(404)
@@ -117,7 +146,10 @@ describe('Station route', () => {
   test('Should return 404 for invalid station ID', async () => {
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/station?stationId=invalid'
+      url: '/station?stationId=invalid',
+      headers: {
+        cookie: authCookie
+      }
     })
 
     expect(statusCode).toBe(404)
@@ -127,7 +159,10 @@ describe('Station route', () => {
   test('Should accept dataType query parameter', async () => {
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/station?stationId=8085&dataType=forecast'
+      url: '/station?stationId=8085&dataType=forecast',
+      headers: {
+        cookie: authCookie
+      }
     })
 
     expect(statusCode).toBe(200)
@@ -137,7 +172,10 @@ describe('Station route', () => {
   test('Should accept stationType query parameter', async () => {
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/station?stationId=8085&stationType=river'
+      url: '/station?stationId=8085&stationType=river',
+      headers: {
+        cookie: authCookie
+      }
     })
 
     expect(statusCode).toBe(200)
@@ -147,7 +185,10 @@ describe('Station route', () => {
   test('Should include telemetry data in response', async () => {
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/station?stationId=8085'
+      url: '/station?stationId=8085',
+      headers: {
+        cookie: authCookie
+      }
     })
 
     expect(statusCode).toBe(200)
@@ -159,7 +200,10 @@ describe('Station route', () => {
   test('Should include chart container in response', async () => {
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/station?stationId=8085'
+      url: '/station?stationId=8085',
+      headers: {
+        cookie: authCookie
+      }
     })
 
     expect(statusCode).toBe(200)

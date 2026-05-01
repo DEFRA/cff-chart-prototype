@@ -1,0 +1,81 @@
+{% extends "govuk/template.njk" %}
+
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% set assetUrl = false %}
+{% set webAppManifest = false %}
+{% set mainClasses = "app-main-wrapper" %}
+
+{% block icons %}
+  <link rel="shortcut icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
+  <link rel="shortcut icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
+  <link rel="icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ getAssetPath('assets/images/govuk-icon-180.png') }}">
+  <link rel="manifest" href="{{ getAssetPath('assets/manifest.json') }}">
+{% endblock %}
+
+{% block head %}
+  <link href="{{ getAssetPath('stylesheets/application.scss') }}" rel="stylesheet">
+{% endblock %}
+
+{% block header %}
+  {{ govukHeader({
+    homepageUrl: "https://www.gov.uk/",
+    classes: "app-header",
+    containerClasses: "govuk-width-container",
+    serviceName: serviceName,
+    serviceUrl: "#",
+    useTudorCrown: true
+  }) }}
+{% endblock %}
+
+{% block pageTitle %}
+  Sign in - {{ serviceName }} - GOV.UK
+{% endblock %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      
+      {% if error %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: [
+            {
+              text: "The password you entered is incorrect",
+              href: "#password"
+            }
+          ]
+        }) }}
+      {% endif %}
+
+      <h1 class="govuk-heading-xl">Sign in</h1>
+      
+      <p class="govuk-body">Enter the password to access this prototype.</p>
+
+      <form method="POST" action="/login" novalidate>
+        {{ govukInput({
+          label: {
+            text: "Password",
+            classes: "govuk-label--m"
+          },
+          id: "password",
+          name: "password",
+          type: "password",
+          autocomplete: "current-password",
+          errorMessage: {
+            text: "The password you entered is incorrect"
+          } if error
+        }) }}
+
+        {{ govukButton({
+          text: "Continue"
+        }) }}
+      </form>
+
+    </div>
+  </div>
+{% endblock %}
