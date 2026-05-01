@@ -88,19 +88,33 @@ function updateActiveButtonState(currentFilter) {
  * Setup zoom control buttons for Chart Style C
  */
 function setupZoomControls() {
-  const chartContainer = document.getElementById(LINE_CHART_ID)
   const zoomInBtn = document.getElementById('zoom-in-btn')
   const zoomOutBtn = document.getElementById('zoom-out-btn')
   const zoomResetBtn = document.getElementById('zoom-reset-btn')
 
-  if (zoomInBtn && chartContainer?.zoomIn) {
-    zoomInBtn.onclick = () => chartContainer.zoomIn()
+  if (zoomInBtn) {
+    zoomInBtn.onclick = () => {
+      const chartContainer = document.getElementById(LINE_CHART_ID)
+      if (typeof chartContainer?.zoomIn === 'function') {
+        chartContainer.zoomIn()
+      }
+    }
   }
-  if (zoomOutBtn && chartContainer?.zoomOut) {
-    zoomOutBtn.onclick = () => chartContainer.zoomOut()
+  if (zoomOutBtn) {
+    zoomOutBtn.onclick = () => {
+      const chartContainer = document.getElementById(LINE_CHART_ID)
+      if (typeof chartContainer?.zoomOut === 'function') {
+        chartContainer.zoomOut()
+      }
+    }
   }
-  if (zoomResetBtn && chartContainer?.resetZoom) {
-    zoomResetBtn.onclick = () => chartContainer.resetZoom()
+  if (zoomResetBtn) {
+    zoomResetBtn.onclick = () => {
+      const chartContainer = document.getElementById(LINE_CHART_ID)
+      if (typeof chartContainer?.resetZoom === 'function') {
+        chartContainer.resetZoom()
+      }
+    }
   }
 }
 
