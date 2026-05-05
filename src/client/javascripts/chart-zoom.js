@@ -9,6 +9,7 @@ const Y_AXIS_FALLBACK_PADDING = 0.5
 const ZOOM_TRANSITION_DURATION = 300
 const ZOOM_IN_FACTOR = 1.5
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR
+const PAN_STEP_RATIO = 0.2
 const ZOOM_MIN_SCALE = 1
 const ZOOM_MAX_SCALE = 100
 
@@ -81,6 +82,10 @@ export function createZoomHandler(config) {
       container.updateChartInfo(displayedPoints)
     }
 
+    if (container.updateZoomControls) {
+      container.updateZoomControls(transform.k)
+    }
+
     // Return updated state
     return { xScale: newXScale, yScale: newYScale, lines: newLines, observedPoints: newObservedPoints, forecastPoints: newForecastPoints }
   }
@@ -139,6 +144,10 @@ export function setupZoomControls(container, mainGroup, zoomBehavior) {
     globalThis.requestAnimationFrame(() => {
       mainGroup.call(zoomBehavior.transform, zoomIdentity)
     })
+
+    if (container.updateZoomControls) {
+      container.updateZoomControls(1)
+    }
   }
 
   container.zoomIn = () => {
@@ -151,6 +160,24 @@ export function setupZoomControls(container, mainGroup, zoomBehavior) {
     mainGroup.transition()
       .duration(ZOOM_TRANSITION_DURATION)
       .call(zoomBehavior.scaleBy, ZOOM_OUT_FACTOR)
+  }
+
+  container.panLeft = () => {
+    const chartWidth = container.getBoundingClientRect().width
+    const panStep = Math.max(1, chartWidth * PAN_STEP_RATIO)
+
+    mainGroup.transition()
+      .duration(ZOOM_TRANSITION_DURATION)
+      .call(zoomBehavior.translateBy, panStep, 0)
+  }
+
+  container.panRight = () => {
+    const chartWidth = container.getBoundingClientRect().width
+    const panStep = Math.max(1, chartWidth * PAN_STEP_RATIO)
+
+    mainGroup.transition()
+      .duration(ZOOM_TRANSITION_DURATION)
+      .call(zoomBehavior.translateBy, -panStep, 0)
   }
 }
 

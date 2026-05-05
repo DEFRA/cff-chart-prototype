@@ -147,6 +147,22 @@ function removeLastTickLabel(svg, count = 1) {
   }
 }
 
+function alignEdgeTickLabels(svg) {
+  const xAxisTicks = svg.select('.x.axis').selectAll('.tick')
+  const tickCount = xAxisTicks.size()
+
+  if (tickCount === 0) {
+    return
+  }
+
+  const firstTickText = select(xAxisTicks.nodes()[0]).select('text')
+  if (!firstTickText.empty()) {
+    firstTickText
+      .style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
+      .attr('dx', '2')
+  }
+}
+
 function calculateYScaleDomain(lines, dataType) {
   const yExtent = extent(lines, (d) => d.value)
   const yExtentDataMin = yExtent[0]
@@ -232,6 +248,7 @@ export function renderAxes(svg, config) {
   svg.select('.x.axis').selectAll('text').each((d, i, nodes) => formatXAxisLabels(d, i, nodes, tickConfig.formatTime, isYearScale))
 
   removeLastTickLabel(svg, tickConfig.removeLastNTicks)
+  alignEdgeTickLabels(svg)
 
   svg.select(Y_AXIS_CLASS).style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
   svg.selectAll(`${Y_AXIS_CLASS} .tick line`).attr('x1', TICK_OFFSET_X1).attr('x2', DISPLAYED_HOUR_ON_X_AXIS)
