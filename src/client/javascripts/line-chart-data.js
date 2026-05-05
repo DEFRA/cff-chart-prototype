@@ -5,6 +5,14 @@ import {
   TOLERANCE_DEFAULT
 } from './line-chart-constants.js'
 
+const DEFAULT_BASE_POINTS = 500
+const BASE_ZOOM_LEVEL = 1
+const MODERATE_ZOOM_THRESHOLD = 3
+const HIGH_ZOOM_THRESHOLD = 10
+const MODERATE_ZOOM_MULTIPLIER = 1.5
+const HIGH_ZOOM_MULTIPLIER = 3
+const MAX_ZOOM_MULTIPLIER = 4
+
 function downsampleData(data, targetPoints) {
   if (!data || data.length <= targetPoints) {
     return data
@@ -24,26 +32,26 @@ function downsampleData(data, targetPoints) {
   return result
 }
 
-function getTargetPointsForZoom(zoomLevel, basePoints = 500) {
+function getTargetPointsForZoom(zoomLevel, basePoints = DEFAULT_BASE_POINTS) {
   // Be more conservative with point density, especially at high zoom levels
   // to prevent overlapping labels on mobile screens
   
-  if (zoomLevel <= 1) {
+  if (zoomLevel <= BASE_ZOOM_LEVEL) {
     return basePoints
   }
   
-  if (zoomLevel <= 3) {
+  if (zoomLevel <= MODERATE_ZOOM_THRESHOLD) {
     // Moderate zoom: reduce multiplier to prevent too much detail
-    return Math.floor(basePoints * 1.5)
+    return Math.floor(basePoints * MODERATE_ZOOM_MULTIPLIER)
   }
   
-  if (zoomLevel <= 10) {
+  if (zoomLevel <= HIGH_ZOOM_THRESHOLD) {
     // Higher zoom: cap multiplier at 3x for readability
-    return Math.floor(basePoints * 3)
+    return Math.floor(basePoints * HIGH_ZOOM_MULTIPLIER)
   }
   
   // Very high zoom (>10x): cap at 4x to keep labels readable
-  return Math.floor(basePoints * 4)
+  return Math.floor(basePoints * MAX_ZOOM_MULTIPLIER)
 }
 
 function simplifyByType(data, dataType) {
@@ -79,7 +87,7 @@ function processForecastData(forecast, dataType, observed) {
   return processed.map(l => ({ ...l, type: 'forecast' }))
 }
 
-export function processData(dataCache, zoomLevel = 1) {
+export function processData(dataCache, zoomLevel = BASE_ZOOM_LEVEL) {
   let observedPoints = []
   let forecastPoints = []
 

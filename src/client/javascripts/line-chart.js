@@ -15,6 +15,9 @@ import { createXScale, createYScale, renderAxes, renderGridLines, updateTimeIndi
 import { renderLines, renderSignificantPoints, initializeSVG } from './line-chart-render.js'
 import { createTooltipManager, setupResponsiveHandlers } from './line-chart-interaction.js'
 
+const Y_AXIS_SAMPLE_TICK_COUNT = 6
+const MIN_Y_AXIS_LABEL_LENGTH = 3
+
 function initializeZoom(config) {
   const {
     svg,
@@ -114,8 +117,8 @@ function createChartRenderer(config) {
     const yDomain = stateRef.yScale.domain()
     const yRange = yDomain[1] - yDomain[0]
     const yAxisFormatter = getYAxisLabelFormatter(yRange)
-    const yLabelSamples = stateRef.yScale.ticks(6).map(tick => yAxisFormatter(tick))
-    const longestYAxisLabelLength = yLabelSamples.reduce((max, label) => Math.max(max, label.length), 3)
+    const yLabelSamples = stateRef.yScale.ticks(Y_AXIS_SAMPLE_TICK_COUNT).map(tick => yAxisFormatter(tick))
+    const longestYAxisLabelLength = yLabelSamples.reduce((max, label) => Math.max(max, label.length), MIN_Y_AXIS_LABEL_LENGTH)
 
     stateRef.margin = {
       top: MARGIN_TOP,
@@ -264,12 +267,12 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
 
   if (!container) {
     console.error('LineChart: Container not found:', containerId)
-    return
+    return null
   }
 
   if (!data) {
     console.error('LineChart: No data provided')
-    return
+    return null
   }
 
   const context = setupChartContext(containerId, data, _options)

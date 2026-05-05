@@ -170,7 +170,7 @@ function initializeChartInfo(chart) {
 /**
  * Render chart for Style C (zoom/pan)
  */
-function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, historicData, currentFilter) {
+function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter) {
   const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
 
   const fullTelemetry = {
@@ -231,7 +231,7 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
 
     // Handle Chart Style C (zoom/pan) differently
     if (chartStyle === CHART_STYLE_C) {
-      renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, historicDataRef.data, currentFilter.value)
+      renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter.value)
       return
     }
 

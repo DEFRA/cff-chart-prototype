@@ -12,6 +12,7 @@ const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR
 const PAN_STEP_RATIO = 0.2
 const ZOOM_MIN_SCALE = 1
 const ZOOM_MAX_SCALE = 100
+const BASE_ZOOM_TOLERANCE = 0.001
 
 /**
  * Create zoom event handler
@@ -42,7 +43,7 @@ export function createZoomHandler(config) {
 
     // Restore the original Y scale at base zoom; only auto-scale when zoomed in.
     let newYScale
-    if (transform.k <= 1.001) {
+    if (transform.k <= ZOOM_MIN_SCALE + BASE_ZOOM_TOLERANCE) {
       newYScale = baseYScale.copy().range([height, 0])
     } else {
       let yDomain = [0, 1]
