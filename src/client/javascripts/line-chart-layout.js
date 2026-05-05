@@ -114,20 +114,20 @@ function generateUniqueYTicks(yScale, desiredCount) {
   
   // For very small ranges, always generate manual ticks to avoid D3's duplicate behavior
   if (range < 1) {
-    const ticks = []
+    const manualRangeTicks = []
     for (let i = 0; i < desiredCount; i++) {
-      ticks.push(min + ((max - min) * i) / (desiredCount - 1))
+      manualRangeTicks.push(min + ((max - min) * i) / (desiredCount - 1))
     }
-    return ticks
+    return manualRangeTicks
   }
   
   // For larger ranges, try D3's ticks but deduplicate
-  const ticks = yScale.ticks(desiredCount)
+  const generatedTicks = yScale.ticks(desiredCount)
   
   const uniqueTicks = []
   const seen = new Set()
   
-  for (const tick of ticks) {
+  for (const tick of generatedTicks) {
     // Round to 5 decimal places to catch floating-point duplicates
     const rounded = Math.round(tick * FLOAT_DEDUPE_PRECISION) / FLOAT_DEDUPE_PRECISION
     const roundedStr = rounded.toFixed(FLOAT_DEDUPE_DECIMALS)
