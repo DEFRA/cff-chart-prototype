@@ -17,31 +17,30 @@ initAll()
 // Constants
 const LINE_CHART_ID = 'line-chart'
 const DEFAULT_FILTER = '5d'
-const TIME_FILTER_BTN_SELECTOR = '.time-filter-btn'
+const TIME_FILTER_LINK_SELECTOR = '.time-filter-link'
 const ARIA_DISABLED = 'aria-disabled'
+const ARIA_CURRENT = 'aria-current'
 const CHART_STYLE_C = 'styleC'
 const CHART_STYLE_B = 'styleB'
 const INITIAL_DISPLAYED_POINTS = 500
 const CHART_INFO_UPDATE_DELAY = 100
 
 /**
- * Update filter button states based on historic data availability
+ * Update filter link states based on historic data availability
  */
 function updateFilterButtonStates(hasHistoricData) {
-  document.querySelectorAll(TIME_FILTER_BTN_SELECTOR).forEach(btn => {
-    const filter = btn.dataset.filter
+  document.querySelectorAll(TIME_FILTER_LINK_SELECTOR).forEach(link => {
+    const filter = link.dataset.filter
     // Mark all filters except 5d as disabled if no historic data
     if (filter !== DEFAULT_FILTER) {
       if (hasHistoricData) {
-        btn.removeAttribute(ARIA_DISABLED)
-        btn.classList.remove('govuk-button--disabled')
-        btn.style.pointerEvents = ''
+        link.removeAttribute(ARIA_DISABLED)
+        link.classList.remove('time-filter-link--disabled')
+        link.removeAttribute('tabindex')
       } else {
-        // Use aria-disabled and class instead of disabled attribute
-        // so click events still fire for the prompt
-        btn.setAttribute(ARIA_DISABLED, 'true')
-        btn.classList.add('govuk-button--disabled')
-        btn.style.pointerEvents = 'auto' // Ensure clicks work
+        link.setAttribute(ARIA_DISABLED, 'true')
+        link.classList.add('time-filter-link--disabled')
+        link.setAttribute('tabindex', '-1')
       }
     }
   })
@@ -70,16 +69,16 @@ function updateTimeRangeLabel(filter, dataPoints, hasHistoric) {
 }
 
 /**
- * Update active button state
+ * Update active link state
  */
 function updateActiveButtonState(currentFilter) {
-  document.querySelectorAll(TIME_FILTER_BTN_SELECTOR).forEach(btn => {
-    if (btn.dataset.filter === currentFilter) {
-      btn.classList.remove('govuk-button--secondary')
-      btn.classList.add('govuk-button--primary')
+  document.querySelectorAll(TIME_FILTER_LINK_SELECTOR).forEach(link => {
+    if (link.dataset.filter === currentFilter) {
+      link.classList.add('time-filter-link--active')
+      link.setAttribute(ARIA_CURRENT, 'page')
     } else {
-      btn.classList.remove('govuk-button--primary')
-      btn.classList.add('govuk-button--secondary')
+      link.classList.remove('time-filter-link--active')
+      link.removeAttribute(ARIA_CURRENT)
     }
   })
 }
@@ -88,19 +87,67 @@ function updateActiveButtonState(currentFilter) {
  * Setup zoom control buttons for Chart Style C
  */
 function setupZoomControls() {
-  const chartContainer = document.getElementById(LINE_CHART_ID)
+  const panLeftBtn = document.getElementById('pan-left-btn')
+  const panRightBtn = document.getElementById('pan-right-btn')
   const zoomInBtn = document.getElementById('zoom-in-btn')
   const zoomOutBtn = document.getElementById('zoom-out-btn')
   const zoomResetBtn = document.getElementById('zoom-reset-btn')
+  const chartContainer = document.getElementById(LINE_CHART_ID)
 
-  if (zoomInBtn && chartContainer?.zoomIn) {
-    zoomInBtn.onclick = () => chartContainer.zoomIn()
+  const updateZoomButtonStates = (scale = 1) => {
+    if (!zoomInBtn || !zoomOutBtn || !zoomResetBtn || !panLeftBtn || !panRightBtn) {
+      return
+    }
+
+    panLeftBtn.disabled = scale <= 1
+    panRightBtn.disabled = scale <= 1
+    zoomInBtn.disabled = scale >= 100
+    zoomOutBtn.disabled = scale <= 1
+    zoomResetBtn.disabled = scale <= 1
   }
-  if (zoomOutBtn && chartContainer?.zoomOut) {
-    zoomOutBtn.onclick = () => chartContainer.zoomOut()
+
+  if (chartContainer) {
+    chartContainer.updateZoomControls = updateZoomButtonStates
   }
-  if (zoomResetBtn && chartContainer?.resetZoom) {
-    zoomResetBtn.onclick = () => chartContainer.resetZoom()
+
+  updateZoomButtonStates(1)
+
+  if (panLeftBtn) {
+    panLeftBtn.onclick = () => {
+      if (typeof chartContainer?.panLeft === 'function') {
+        chartContainer.panLeft()
+      }
+    }
+  }
+
+  if (panRightBtn) {
+    panRightBtn.onclick = () => {
+      if (typeof chartContainer?.panRight === 'function') {
+        chartContainer.panRight()
+      }
+    }
+  }
+
+  if (zoomInBtn) {
+    zoomInBtn.onclick = () => {
+      if (typeof chartContainer?.zoomIn === 'function') {
+        chartContainer.zoomIn()
+      }
+    }
+  }
+  if (zoomOutBtn) {
+    zoomOutBtn.onclick = () => {
+      if (typeof chartContainer?.zoomOut === 'function') {
+        chartContainer.zoomOut()
+      }
+    }
+  }
+  if (zoomResetBtn) {
+    zoomResetBtn.onclick = () => {
+      if (typeof chartContainer?.resetZoom === 'function') {
+        chartContainer.resetZoom()
+      }
+    }
   }
 }
 
@@ -123,16 +170,19 @@ function initializeChartInfo(chart) {
 /**
  * Render chart for Style C (zoom/pan)
  */
-function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, historicData) {
+function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, historicData, currentFilter) {
+  const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
+
   const fullTelemetry = {
     ...realtimeTelemetry,
-    observed: mergedObserved
+    observed: filteredObserved
   }
 
-  updateTimeRangeLabel(null, mergedObserved.length, historicData && historicData.length > 0)
+  updateTimeRangeLabel(currentFilter)
+  updateActiveButtonState(currentFilter)
 
   const chart = lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
-    timeRange: '5y',
+    timeRange: currentFilter,
     enableZoom: true
   })
 
@@ -181,7 +231,7 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
 
     // Handle Chart Style C (zoom/pan) differently
     if (chartStyle === CHART_STYLE_C) {
-      renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, historicDataRef.data)
+      renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, historicDataRef.data, currentFilter.value)
       return
     }
 
@@ -191,14 +241,15 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
 }
 
 /**
- * Setup time filter button handlers
+ * Setup time filter link handlers
  */
 function setupTimeFilterHandlers(currentFilter, renderChart) {
-  document.querySelectorAll(TIME_FILTER_BTN_SELECTOR).forEach(button => {
-    button.addEventListener('click', function (e) {
-      // Check if button is marked as disabled (no historic data)
+  document.querySelectorAll(TIME_FILTER_LINK_SELECTOR).forEach(link => {
+    link.addEventListener('click', function (e) {
+      e.preventDefault()
+
+      // Check if link is marked as disabled (no historic data)
       if (this.getAttribute(ARIA_DISABLED) === 'true') {
-        e.preventDefault()
         alert('To view historic data beyond 5 days, please upload a historic data CSV file using the "Upload Historic Data CSV" button below.')
         return
       }

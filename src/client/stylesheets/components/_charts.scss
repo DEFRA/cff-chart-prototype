@@ -4,6 +4,74 @@
 .defra-line-chart {
   margin-bottom: 2rem;
 
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  &__time-filters {
+    margin-left: auto;
+  }
+
+  &__time-filters-list {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0;
+  }
+
+  .time-filter-link {
+    display: inline-block;
+    text-underline-offset: 2px;
+
+    &--active {
+      color: #0b0c0c;
+      font-weight: 700;
+      text-decoration-thickness: 3px;
+    }
+
+    &--disabled {
+      color: #505a5f;
+      text-decoration: none;
+      cursor: not-allowed;
+    }
+  }
+
+  &__control-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  #zoom-control-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+
+    .govuk-button {
+      &:disabled {
+        opacity: 0.55;
+      }
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+
+  &__file-input {
+    display: none;
+  }
+
   &__container {
     position: relative;
     width: 100%;
