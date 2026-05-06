@@ -155,63 +155,91 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
     <div class="defra-line-chart govuk-!-margin-bottom-4">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <div class="defra-line-chart__header">
         <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
           Height in metres - <span id="chart-time-range">Last 5 days</span><span id="chart-data-points"></span>
         </h2>
         
         {% if chartStyle === 'styleB' %}
-        {# Time filter buttons #}
-        <div id="time-filter-buttons" style="display: flex; gap: 0.5rem;">
-          <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="5d" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
-            5 days
-          </button>
-          <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="1m" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
-            1 month
-          </button>
-          <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="6m" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
-            6 months
-          </button>
-          <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="1y" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
-            1 year
-          </button>
-          <button type="button" class="govuk-button govuk-button--secondary time-filter-btn" data-filter="5y" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
-            5 years
-          </button>
-        </div>
+        {# Time filter links #}
+        <nav id="time-filter-nav" class="defra-line-chart__time-filters" aria-label="Chart time ranges">
+          <ul class="defra-line-chart__time-filters-list govuk-list">
+            <li>
+              <a href="#line-chart" class="govuk-link time-filter-link time-filter-link--active" data-filter="5d" aria-current="page">5 days</a>
+            </li>
+            <li>
+              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1m">1 month</a>
+            </li>
+            <li>
+              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="6m">6 months</a>
+            </li>
+            <li>
+              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1y">1 year</a>
+            </li>
+            <li>
+              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="5y">5 years</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+
+        {% if chartStyle === 'styleC' %}
+        {# Time filter links for interactive timeline #}
+        <nav id="time-filter-nav" class="defra-line-chart__time-filters" aria-label="Chart time ranges">
+          <ul class="defra-line-chart__time-filters-list govuk-list">
+            <li>
+              <a href="#line-chart" class="govuk-link time-filter-link time-filter-link--active" data-filter="5d" aria-current="page">5 days</a>
+            </li>
+            <li>
+              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="6m">6 months</a>
+            </li>
+            <li>
+              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1y">1 year</a>
+            </li>
+            <li>
+              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="3y">3 years</a>
+            </li>
+          </ul>
+        </nav>
         {% endif %}
         
-        {% if chartStyle === 'styleC' %}
-        {# Zoom control buttons #}
-        <div id="zoom-control-buttons" style="display: flex; gap: 0.5rem; align-items: center;">
-          <button type="button" id="zoom-out-btn" class="govuk-button govuk-button--secondary" data-module="govuk-button" style="margin: 0; padding: 5px 15px; font-size: 14px;" title="Zoom out">
-            −
-          </button>
-          <button type="button" id="zoom-in-btn" class="govuk-button govuk-button--secondary" data-module="govuk-button" style="margin: 0; padding: 5px 15px; font-size: 14px;" title="Zoom in">
-            +
-          </button>
-          <button type="button" id="zoom-reset-btn" class="govuk-button govuk-button--secondary" data-module="govuk-button" style="margin: 0; padding: 5px 10px; font-size: 14px;">
-            Reset View
-          </button>
-          <span id="zoom-instructions" style="font-size: 14px; color: #505a5f; margin-left: 10px;">
-            Drag to pan • Scroll to zoom
-          </span>
-        </div>
-        {% endif %}
       </div>
 
       {# Placeholder for chart - will be populated by JavaScript #}
-      <div id="line-chart" class="defra-line-chart__container" style="width: 100%; height: 400px;">
+      <div id="line-chart" class="defra-line-chart__container">
       </div>
 
-      <div style="display: flex; gap: 1rem; align-items: center;">
+      {% if chartStyle === 'styleC' %}
+      {# Zoom control buttons aligned like service prototype #}
+      <div class="defra-line-chart__control-row">
+        <div id="zoom-control-buttons">
+          <button type="button" id="pan-left-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart left" aria-controls="line-chart-visualisation" title="Pan left">
+            ←
+          </button>
+          <button type="button" id="pan-right-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart right" aria-controls="line-chart-visualisation" title="Pan right">
+            →
+          </button>
+          <button type="button" id="zoom-out-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom out" aria-controls="line-chart-visualisation" title="Zoom out">
+            -
+          </button>
+          <button type="button" id="zoom-in-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom in" aria-controls="line-chart-visualisation" title="Zoom in">
+            +
+          </button>
+          <button type="button" id="zoom-reset-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Reset chart view" aria-controls="line-chart-visualisation">
+            Reset view
+          </button>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="defra-line-chart__actions">
         <a href="/station-csv/{{ station.id }}" class="defra-button-secondary govuk-!-margin-bottom-0">
           <span class="defra-button-secondary__icon"></span>
           <span class="defra-button-secondary__text">Download data CSV (12KB)</span>
         </a>
         
         {% if chartStyle === 'styleB' or chartStyle === 'styleC' %}
-        <input type="file" id="historic-data-upload" accept=".csv" style="display: none;" />
+        <input type="file" id="historic-data-upload" accept=".csv" class="defra-line-chart__file-input" />
         <button type="button" id="upload-historic-btn" class="defra-button-secondary govuk-!-margin-bottom-0">
           <span class="defra-button-secondary__icon--upload"></span>
           <span class="defra-button-secondary__text">Upload Historic Data CSV</span>

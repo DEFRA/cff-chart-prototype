@@ -8,6 +8,7 @@ const DB_VERSION = 1
 const STORE_NAME = 'telemetry-data'
 const DATA_KEY_PREFIX = 'historic-data-'
 const FIVE_YEARS = 5
+const THREE_YEARS = 3
 const DAYS_PER_YEAR = 365
 const HOURS_PER_DAY = 24
 const MINUTES_PER_HOUR = 60
@@ -215,6 +216,9 @@ export function filterDataByTimeRange(data, range) {
     case '1y':
       cutoffDate = new Date(now.getTime() - (DAYS_PER_YEAR * MS_PER_DAY))
       break
+    case '3y':
+      cutoffDate = new Date(now.getTime() - (THREE_YEARS * DAYS_PER_YEAR * MS_PER_DAY))
+      break
     case '5y':
       cutoffDate = new Date(now.getTime() - FIVE_YEARS_MS)
       break
@@ -234,6 +238,7 @@ export function getTimeRangeLabel(range) {
     '1m': 'Last month',
     '6m': 'Last 6 months',
     '1y': 'Last year',
+    '3y': 'Last 3 years',
     '5y': 'Last 5 years'
   }
   return labels[range] || 'Last 5 days'

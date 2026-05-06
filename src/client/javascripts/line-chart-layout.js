@@ -21,13 +21,56 @@ import {
   SEVEN_DAYS
 } from './line-chart-constants.js'
 
-function generateEvenlySpacedTicks(xExtent, count = 8) {
+const MS_PER_DAY = 1000 * 60 * 60 * 24
+const VERY_ZOOMED_DAY_THRESHOLD = 1
+const VERY_ZOOMED_TICK_COUNT = 3
+const REDUCED_TICK_COUNT = 4
+const X_AXIS_TIME_TSPAN_DY = '15'
+const Y_RANGE_SMALL_THRESHOLD = 1
+const Y_RANGE_MEDIUM_THRESHOLD = 10
+const Y_TICK_COUNT_SMALL = 4
+const Y_TICK_COUNT_MEDIUM = 5
+const Y_TICK_COUNT_LARGE = 6
+const Y_FORMAT_THREE_DP_THRESHOLD = 0.1
+const Y_FORMAT_TWO_DP_THRESHOLD = 1
+const Y_FORMAT_THREE_DP = 3
+const Y_FORMAT_TWO_DP = 2
+const Y_FORMAT_ONE_DP = 1
+const FLOAT_DEDUPE_PRECISION = 100000
+const FLOAT_DEDUPE_DECIMALS = 5
+const MIN_UNIQUE_TICKS = 2
+const FIRST_TICK_TEXT_OFFSET_X = '2'
+const TIME_LABEL_DY = '0.71em'
+const LAST_TICKS_TO_REMOVE_WITH_TIME = 1
+const LAST_TICKS_TO_REMOVE_WITHOUT_TIME = 2
+
+function getAdaptiveYTickCount(yRange) {
+  if (yRange < Y_RANGE_SMALL_THRESHOLD) {
+    return Y_TICK_COUNT_SMALL
+  }
+
+  if (yRange < Y_RANGE_MEDIUM_THRESHOLD) {
+    return Y_TICK_COUNT_MEDIUM
+  }
+
+  return Y_TICK_COUNT_LARGE
+}
+
+function generateEvenlySpacedTicks(xExtent) {
   const ticks = []
   const start = xExtent[0].getTime()
   const end = xExtent[1].getTime()
-  const step = (end - start) / (count - 1)
+  const durationMs = end - start
+  const durationDays = durationMs / MS_PER_DAY
+  
+  // Aggressively reduce ticks for better mobile readability
+  const tickCount = durationDays < VERY_ZOOMED_DAY_THRESHOLD
+    ? VERY_ZOOMED_TICK_COUNT
+    : REDUCED_TICK_COUNT
+  
+  const step = (end - start) / (tickCount - 1)
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < tickCount; i++) {
     ticks.push(new Date(start + (step * i)))
   }
 
@@ -36,14 +79,14 @@ function generateEvenlySpacedTicks(xExtent, count = 8) {
 
 function calculateTickInterval(xExtent) {
   const timeDiff = xExtent[1] - xExtent[0]
-  const days = timeDiff / (1000 * 60 * 60 * 24)
-  const tickValues = generateEvenlySpacedTicks(xExtent, 8)
+  const days = timeDiff / MS_PER_DAY
+  const tickValues = generateEvenlySpacedTicks(xExtent)
 
   if (days <= SEVEN_DAYS) {
-    return { tickValues, formatTime: true, removeLastNTicks: 1 }
+    return { tickValues, formatTime: true, removeLastNTicks: LAST_TICKS_TO_REMOVE_WITH_TIME }
   }
 
-  return { tickValues, formatTime: false, removeLastNTicks: 2 }
+  return { tickValues, formatTime: false, removeLastNTicks: LAST_TICKS_TO_REMOVE_WITHOUT_TIME }
 }
 
 function formatXAxisLabels(d, i, nodes, showTime, isYearScale = false) {
@@ -53,7 +96,7 @@ function formatXAxisLabels(d, i, nodes, showTime, isYearScale = false) {
     const formattedTime = timeFormat('%-I%p')(new Date(d.setHours(DISPLAYED_HOUR_ON_X_AXIS, 0, 0, 0))).toLocaleLowerCase()
     const formattedDate = timeFormat('%-e %b')(new Date(d))
     element.append('tspan').text(formattedTime)
-    element.append('tspan').attr('x', 0).attr('dy', '15').text(formattedDate)
+    element.append('tspan').attr('x', 0).attr('dy', X_AXIS_TIME_TSPAN_DY).text(formattedDate)
     return
   }
 
@@ -63,6 +106,60 @@ function formatXAxisLabels(d, i, nodes, showTime, isYearScale = false) {
   }
 
   element.append('tspan').text(timeFormat('%-e %b')(new Date(d)))
+}
+
+function generateUniqueYTicks(yScale, desiredCount) {
+  const [min, max] = yScale.domain()
+  const range = max - min
+  
+  // For very small ranges, always generate manual ticks to avoid D3's duplicate behavior
+  if (range < 1) {
+    const manualRangeTicks = []
+    for (let i = 0; i < desiredCount; i++) {
+      manualRangeTicks.push(min + ((max - min) * i) / (desiredCount - 1))
+    }
+    return manualRangeTicks
+  }
+  
+  // For larger ranges, try D3's ticks but deduplicate
+  const generatedTicks = yScale.ticks(desiredCount)
+  
+  const uniqueTicks = []
+  const seen = new Set()
+  
+  for (const tick of generatedTicks) {
+    // Round to 5 decimal places to catch floating-point duplicates
+    const rounded = Math.round(tick * FLOAT_DEDUPE_PRECISION) / FLOAT_DEDUPE_PRECISION
+    const roundedStr = rounded.toFixed(FLOAT_DEDUPE_DECIMALS)
+    
+    if (!seen.has(roundedStr)) {
+      seen.add(roundedStr)
+      uniqueTicks.push(tick)
+    }
+  }
+  
+  // If deduplication removed too many, fall back to manual generation
+  if (uniqueTicks.length < MIN_UNIQUE_TICKS) {
+    const manualTicks = []
+    for (let i = 0; i < desiredCount; i++) {
+      manualTicks.push(min + ((max - min) * i) / (desiredCount - 1))
+    }
+    return manualTicks
+  }
+  
+  return uniqueTicks
+}
+
+export function getYAxisLabelFormatter(yRange) {
+  if (yRange < Y_FORMAT_THREE_DP_THRESHOLD) {
+    return (value) => Number.parseFloat(value).toFixed(Y_FORMAT_THREE_DP)
+  }
+
+  if (yRange < Y_FORMAT_TWO_DP_THRESHOLD) {
+    return (value) => Number.parseFloat(value).toFixed(Y_FORMAT_TWO_DP)
+  }
+
+  return (value) => Number.parseFloat(value).toFixed(Y_FORMAT_ONE_DP)
 }
 
 function removeLastTickLabel(svg, count = 1) {
@@ -75,6 +172,22 @@ function removeLastTickLabel(svg, count = 1) {
       const tick = xAxisTicks.nodes()[tickIndex]
       select(tick).select('text').remove()
     }
+  }
+}
+
+function alignEdgeTickLabels(svg) {
+  const xAxisTicks = svg.select('.x.axis').selectAll('.tick')
+  const tickCount = xAxisTicks.size()
+
+  if (tickCount === 0) {
+    return
+  }
+
+  const firstTickText = select(xAxisTicks.nodes()[0]).select('text')
+  if (!firstTickText.empty()) {
+    firstTickText
+      .style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
+      .attr('dx', FIRST_TICK_TEXT_OFFSET_X)
   }
 }
 
@@ -128,10 +241,21 @@ export function renderAxes(svg, config) {
     .tickFormat('')
     .tickValues(tickConfig.tickValues)
 
+  // Generate smart Y-axis ticks that respect the scale's domain
+  const yDomain = yScale.domain()
+  const yRange = yDomain[1] - yDomain[0]
+  
+  // Calculate appropriate tick count based on domain range
+  const yTickCount = getAdaptiveYTickCount(yRange)
+  
+  // Generate unique ticks without duplicates
+  const yTickValues = generateUniqueYTicks(yScale, yTickCount)
+  const yAxisTickFormat = getYAxisLabelFormatter(yRange)
+  
   const yAxis = axisLeft()
     .scale(yScale)
-    .ticks(Y_AXIS_NICE_TICKS)
-    .tickFormat(d => Number.parseFloat(d).toFixed(1))
+    .tickValues(yTickValues)
+    .tickFormat(yAxisTickFormat)
     .tickSizeOuter(0)
 
   svg.select('.x.axis')
@@ -145,6 +269,7 @@ export function renderAxes(svg, config) {
   svg.select('.x.axis').selectAll('text').each((d, i, nodes) => formatXAxisLabels(d, i, nodes, tickConfig.formatTime, isYearScale))
 
   removeLastTickLabel(svg, tickConfig.removeLastNTicks)
+  alignEdgeTickLabels(svg)
 
   svg.select(Y_AXIS_CLASS).style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)
   svg.selectAll(`${Y_AXIS_CLASS} .tick line`).attr('x1', TICK_OFFSET_X1).attr('x2', DISPLAYED_HOUR_ON_X_AXIS)
@@ -170,10 +295,18 @@ export function renderGridLines(svg, xScale, yScale, height, width, xExtent) {
     }
   })
 
+  // Use same smart tick calculation as renderAxes for consistency
+  const yDomain = yScale.domain()
+  const yRange = yDomain[1] - yDomain[0]
+  
+  const yTickCount = getAdaptiveYTickCount(yRange)
+  
+  const yTickValues = generateUniqueYTicks(yScale, yTickCount)
+
   svg.select('.y.grid')
     .attr('transform', 'translate(0, 0)')
     .call(axisLeft(yScale)
-      .ticks(Y_AXIS_NICE_TICKS)
+      .tickValues(yTickValues)
       .tickSize(-width, 0, 0)
       .tickFormat('')
     )
@@ -188,7 +321,7 @@ export function updateTimeIndicator(_svg, timeLabel, timeLine, xScale, height, i
   timeLabel
     .attr('y', height + TIME_LABEL_OFFSET_Y)
     .attr('transform', `translate(${timeX},0)`)
-    .attr('dy', '0.71em')
+    .attr('dy', TIME_LABEL_DY)
     .attr('x', isMobile ? TIME_LABEL_OFFSET_X_MOBILE : TIME_LABEL_OFFSET_X_DESKTOP)
 
   timeLabel.select('.time-now-text__time')
