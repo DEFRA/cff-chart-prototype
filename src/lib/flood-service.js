@@ -3,6 +3,10 @@ import { config } from '../config/config.js'
 
 const API_BASE_URL = config.get('api.floodMonitoring.baseUrl')
 
+const DEFAULT_HEADERS = {
+  'User-Agent': 'cff-chart-prototype/1.0 (https://github.com/DEFRA/cff-chart-prototype)'
+}
+
 /**
  * Fetch via proxy using Node.js native fetch
  * To use the fetch dispatcher option on Node.js native fetch, Node.js v18.2.0 or greater is required
@@ -10,15 +14,23 @@ const API_BASE_URL = config.get('api.floodMonitoring.baseUrl')
 export function proxyFetch(url, options = {}) {
   const proxyUrlConfig = config.get('httpProxy') // bound to HTTP_PROXY
 
+  const mergedOptions = {
+    ...options,
+    headers: {
+      ...DEFAULT_HEADERS,
+      ...options.headers
+    }
+  }
+
   if (!proxyUrlConfig) {
     console.log(`[PROXY] No HTTP_PROXY set - using direct fetch for: ${url}`)
-    return fetch(url, options)
+    return fetch(url, mergedOptions)
   }
 
   console.log(`[PROXY] Using proxy ${proxyUrlConfig} for: ${url}`)
   try {
     return fetch(url, {
-      ...options,
+      ...mergedOptions,
       dispatcher: new ProxyAgent({
         uri: proxyUrlConfig,
         keepAliveTimeout: 10,
