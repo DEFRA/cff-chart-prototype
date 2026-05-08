@@ -1,18 +1,12 @@
-import { scaleLinear } from 'd3-scale'
-import { extent } from 'd3-array'
 import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom'
 
 // Constants
-const Y_AXIS_NICE_TICKS = 5
-const Y_AXIS_PADDING_RATIO = 0.1
-const Y_AXIS_FALLBACK_PADDING = 0.5
 const ZOOM_TRANSITION_DURATION = 300
 const ZOOM_IN_FACTOR = 1.5
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR
 const PAN_STEP_RATIO = 0.2
 const ZOOM_MIN_SCALE = 1
 const ZOOM_MAX_SCALE = 100
-const BASE_ZOOM_TOLERANCE = 0.001
 
 /**
  * Create zoom event handler
@@ -32,35 +26,7 @@ export function createZoomHandler(config) {
     // Only zoom/pan on X-axis (time dimension)
     const newXScale = transform.rescaleX(baseXScale)
 
-    // Get visible time range
-    const visibleDomain = newXScale.domain()
-
-    // Filter data to visible range for Y-axis calculation
-    const visibleData = lines.filter(d => {
-      const date = new Date(d.dateTime)
-      return date >= visibleDomain[0] && date <= visibleDomain[1]
-    })
-
-    // Restore the original Y scale at base zoom; only auto-scale when zoomed in.
-    let newYScale
-    if (transform.k <= ZOOM_MIN_SCALE + BASE_ZOOM_TOLERANCE) {
-      newYScale = baseYScale.copy().range([height, 0])
-    } else {
-      let yDomain = [0, 1]
-      if (visibleData.length > 0) {
-        const yExtent = extent(visibleData, d => d.value)
-        const yPadding = (yExtent[1] - yExtent[0]) * Y_AXIS_PADDING_RATIO || Y_AXIS_FALLBACK_PADDING
-        yDomain = [
-          Math.max(0, yExtent[0] - yPadding),
-          yExtent[1] + yPadding
-        ]
-      }
-
-      newYScale = scaleLinear()
-        .domain(yDomain)
-        .range([height, 0])
-        .nice(Y_AXIS_NICE_TICKS)
-    }
+    const newYScale = baseYScale.copy().range([height, 0])
 
     // Re-render with appropriate level of detail
     const zoomLevel = transform.k
@@ -96,7 +62,7 @@ export function createZoomHandler(config) {
  * Setup zoom behavior for the chart
  */
 export function setupZoomBehavior(config) {
-  const { svg, mainGroup, width, height, handleZoomEvent } = config
+  const { svg, mainGroup, width, height, margin, handleZoomEvent } = config
 
   const zoomBehavior = d3Zoom()
     .scaleExtent([ZOOM_MIN_SCALE, ZOOM_MAX_SCALE])  // Min 1x (full view), Max 100x zoom for granular detail
@@ -120,10 +86,12 @@ export function setupZoomBehavior(config) {
   // Create invisible rect for capturing wheel events
   const zoomRect = mainGroup.insert('rect', ':first-child')
     .attr('class', 'zoom-capture')
-    .attr('width', width)
-    .attr('height', height)
+    .attr('x', -margin.left)
+    .attr('y', -margin.top)
+    .attr('width', width + margin.left + margin.right)
+    .attr('height', height + margin.top + margin.bottom)
     .style('fill', 'none')
-    .style('pointer-events', 'none')
+    .style('pointer-events', 'all')
 
   // Add wheel event listener to SVG to ensure preventDefault
   svg.node().addEventListener('wheel', (event) => {

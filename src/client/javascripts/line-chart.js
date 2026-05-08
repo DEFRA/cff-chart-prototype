@@ -75,6 +75,7 @@ function initializeZoom(config) {
     mainGroup,
     width: stateRef.width,
     height: stateRef.height,
+    margin: stateRef.margin,
     handleZoomEvent
   })
 
@@ -152,7 +153,11 @@ function createChartRenderer(config) {
     svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', stateRef.height)
 
     if (zoomRef.rect && zoomRef.behavior) {
-      zoomRef.rect.attr('width', stateRef.width).attr('height', stateRef.height)
+      zoomRef.rect
+        .attr('x', -stateRef.margin.left)
+        .attr('y', -stateRef.margin.top)
+        .attr('width', stateRef.width + stateRef.margin.left + stateRef.margin.right)
+        .attr('height', stateRef.height + stateRef.margin.top + stateRef.margin.bottom)
       zoomRef.behavior
         .translateExtent([[0, 0], [stateRef.width, stateRef.height]])
         .extent([[0, 0], [stateRef.width, stateRef.height]])

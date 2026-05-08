@@ -38,7 +38,11 @@ describe('flood-service - proxyFetch', () => {
 
       await proxyFetch(TEST_API_URL)
 
-      expect(globalThis.fetch).toHaveBeenCalledWith(TEST_API_URL, {})
+      expect(globalThis.fetch).toHaveBeenCalledWith(TEST_API_URL, {
+        headers: {
+          'User-Agent': 'cff-chart-prototype/1.0 (https://github.com/DEFRA/cff-chart-prototype)'
+        }
+      })
     })
 
     it('should call fetch with ProxyAgent when HTTP_PROXY is set', async () => {
