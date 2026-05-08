@@ -17,7 +17,7 @@ export function createZoomHandler(config) {
     processData, renderAxes, renderGridLines, renderLines, renderSignificantPoints,
     updateTimeIndicator, hideOverlappingTicks } = config
 
-  return (event, lines) => {
+  return (event, _lines) => {
     tooltipManager.hide()
 
     // Get the transform
