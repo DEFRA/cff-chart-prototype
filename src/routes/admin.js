@@ -13,7 +13,9 @@ async function getStoredStations() {
     const files = await readdir(dataDir)
 
     for (const file of files) {
-      if (!file.endsWith('.json')) continue
+      if (!file.endsWith('.json')) {
+        continue
+      }
 
       const rloiId = file.replace('.json', '')
       try {
@@ -57,7 +59,7 @@ export const admin = [
     handler: async function (request, h) {
       const { rloiId } = request.payload
 
-      if (!rloiId || !rloiId.trim()) {
+      if (!rloiId?.trim()) {
         return h.redirect('/admin?error=Please enter an RLOI ID')
       }
 

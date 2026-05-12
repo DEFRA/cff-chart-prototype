@@ -6,6 +6,7 @@ import { config } from '../config/config.js'
 const HYDROLOGY_BASE_URL = config.get('api.hydrology.baseUrl')
 const THREE_YEARS = 3
 const READINGS_LIMIT = 200000
+const FIFTEEN_MIN_PERIOD = 900
 
 export async function lookupStationByRLOI(rloiId) {
   const url = `${HYDROLOGY_BASE_URL}/id/stations?RLOIid=${rloiId}`
@@ -35,7 +36,7 @@ export async function lookupStationByRLOI(rloiId) {
   const measuresData = await measuresResponse.json()
   const measures = measuresData.items || []
 
-  const levelMeasure = measures.find(m => m.parameter === 'level' && m.period === 900)
+  const levelMeasure = measures.find(m => m.parameter === 'level' && m.period === FIFTEEN_MIN_PERIOD)
 
   if (!levelMeasure) {
     return null
