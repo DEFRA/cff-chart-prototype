@@ -42,7 +42,7 @@ const MIN_UNIQUE_TICKS = 2
 const FIRST_TICK_TEXT_OFFSET_X = '2'
 const TIME_LABEL_DY = '0.71em'
 const LAST_TICKS_TO_REMOVE_WITH_TIME = 1
-const LAST_TICKS_TO_REMOVE_WITHOUT_TIME = 2
+const LAST_TICKS_TO_REMOVE_WITHOUT_TIME = 1
 
 function getAdaptiveYTickCount(yRange) {
   if (yRange < Y_RANGE_SMALL_THRESHOLD) {
@@ -233,7 +233,7 @@ export function renderAxes(svg, config) {
   const { xScale, yScale, width, height, timeRange } = config
   const visibleExtent = xScale.domain()
   const tickConfig = calculateTickInterval(visibleExtent)
-  const isYearScale = timeRange === '5y'
+  const isYearScale = timeRange === '1y' || timeRange === '3y' || timeRange === '5y'
 
   const xAxis = axisBottom()
     .scale(xScale)

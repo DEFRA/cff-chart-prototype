@@ -255,6 +255,14 @@ export const config = convict({
         default: 'https://environment.data.gov.uk/flood-monitoring',
         env: 'API_FLOOD_MONITORING_BASE_URL'
       }
+    },
+    hydrology: {
+      baseUrl: {
+        doc: 'Environment Agency Hydrology API base URL',
+        format: 'url',
+        default: 'https://environment.data.gov.uk/hydrology',
+        env: 'API_HYDROLOGY_BASE_URL'
+      }
     }
   }
 

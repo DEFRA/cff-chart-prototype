@@ -350,14 +350,18 @@ async function initializeChartApp() {
   // Current filter state (using object to allow mutation in closure)
   const currentFilter = { value: DEFAULT_FILTER }
 
-  // Load any stored historic data
+  // Load historic data: prefer server-provided, fall back to IndexedDB
   const historicDataRef = { data: [] }
+  const serverHistoric = globalThis.flood?.model?.historicData || []
 
-  try {
-    historicDataRef.data = await loadHistoricData(stationId) || []
-  } catch (err) {
-    console.error('Failed to load historic data:', err)
-    // Continue with empty historic data
+  if (serverHistoric.length > 0) {
+    historicDataRef.data = serverHistoric
+  } else {
+    try {
+      historicDataRef.data = await loadHistoricData(stationId) || []
+    } catch (err) {
+      console.error('Failed to load historic data:', err)
+    }
   }
 
   // Create render function

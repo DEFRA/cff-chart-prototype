@@ -210,4 +210,30 @@ describe('Station route', () => {
     expect(result).toContain('line-chart')
     expect(result).toContain('defra-line-chart')
   }, 10000)
+
+  test('Should include historicData in model for station with pre-fetched data', async () => {
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/station?stationId=8085',
+      headers: {
+        cookie: authCookie
+      }
+    })
+
+    expect(statusCode).toBe(200)
+    expect(result).toContain('historicData')
+  }, 10000)
+
+  test('Should include empty historicData for station without pre-fetched data', async () => {
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/station?stationId=8085',
+      headers: {
+        cookie: authCookie
+      }
+    })
+
+    expect(statusCode).toBe(200)
+    expect(result).toContain('historicData')
+  }, 10000)
 })

@@ -9,7 +9,7 @@ export function createTooltipManager(tooltipConfig) {
     const locatorX = x
     const text = tooltip.select('text')
     const txtHeight = Math.round(text.node().getBBox().height) + TOOLTIP_TEXT_HEIGHT_OFFSET
-    const pathLength = (timeRange === '1y' || timeRange === '5y') ? TOOLTIP_PATH_LENGTH_WIDE : TOOLTIP_PATH_LENGTH
+    const pathLength = (timeRange === '6m' || timeRange === '1y' || timeRange === '3y' || timeRange === '5y') ? TOOLTIP_PATH_LENGTH_WIDE : TOOLTIP_PATH_LENGTH
     const pathCentre = `M${pathLength},${txtHeight}l0,-${txtHeight}l-${pathLength},0l0,${txtHeight}l${pathLength},0Z`
 
     tooltipPath.attr('d', pathCentre)
@@ -45,7 +45,7 @@ export function createTooltipManager(tooltipConfig) {
 
     const value = dataType === 'river' && (Math.round(dataPoint.value * 100) / 100) <= 0 ? '0' : dataPoint.value.toFixed(2)
     const dateObj = new Date(dataPoint.dateTime)
-    const includeYear = timeRange === '1y' || timeRange === '5y'
+    const includeYear = timeRange === '6m' || timeRange === '1y' || timeRange === '3y' || timeRange === '5y'
     const dateFormat = includeYear ? '%e %b %Y' : '%e %b'
 
     tooltipValue.text(`${value}m`)
