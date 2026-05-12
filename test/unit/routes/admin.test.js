@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
+import { admin } from '../../../src/routes/admin.js'
+import { lookupStationByRLOI, fetchHistoricReadings } from '../../../src/lib/hydrology-service.js'
+import { readdir, readFile, unlink } from 'node:fs/promises'
+
 vi.mock('../../../src/lib/hydrology-service.js', () => ({
   lookupStationByRLOI: vi.fn(),
   fetchHistoricReadings: vi.fn()
@@ -22,10 +26,6 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined)
 }))
-
-import { admin } from '../../../src/routes/admin.js'
-import { lookupStationByRLOI, fetchHistoricReadings } from '../../../src/lib/hydrology-service.js'
-import { readdir, readFile, unlink } from 'node:fs/promises'
 
 const [getAdmin, postFetch, postDelete] = admin
 

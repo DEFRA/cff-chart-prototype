@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 
+import { lookupStationByRLOI, fetchHistoricReadings } from '../../../src/lib/hydrology-service.js'
+import { proxyFetch } from '../../../src/lib/flood-service.js'
+import { writeFile, mkdir } from 'node:fs/promises'
+
 // Mock flood-service proxyFetch before importing hydrology-service
 vi.mock('../../../src/lib/flood-service.js', () => ({
   proxyFetch: vi.fn()
@@ -21,10 +25,6 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined)
 }))
-
-import { lookupStationByRLOI, fetchHistoricReadings } from '../../../src/lib/hydrology-service.js'
-import { proxyFetch } from '../../../src/lib/flood-service.js'
-import { writeFile, mkdir } from 'node:fs/promises'
 
 describe('hydrology-service', () => {
   beforeEach(() => {
