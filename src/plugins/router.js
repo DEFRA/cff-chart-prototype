@@ -4,6 +4,7 @@ import { healthCheck } from '../routes/health-check.js'
 import { index } from '../routes/index.js'
 import { station } from '../routes/station.js'
 import { login } from '../routes/login.js'
+import { admin } from '../routes/admin.js'
 import { serveStaticFiles } from '../common/helpers/serve-static-files.js'
 
 export const router = {
@@ -16,6 +17,7 @@ export const router = {
       await server.route(login)
       await server.route(index)
       await server.route(station)
+      await server.route(admin)
       await server.register([serveStaticFiles])
     }
   }

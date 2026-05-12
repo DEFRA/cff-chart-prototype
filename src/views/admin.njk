@@ -1,0 +1,141 @@
+{% extends "govuk/template.njk" %}
+
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+{% from "govuk/components/phase-banner/macro.njk" import govukPhaseBanner %}
+
+{% set assetUrl = false %}
+{% set webAppManifest = false %}
+{% set mainClasses = "app-main-wrapper" %}
+
+{% block icons %}
+  <link rel="shortcut icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
+  <link rel="shortcut icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
+  <link rel="icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ getAssetPath('assets/images/govuk-icon-180.png') }}">
+  <link rel="manifest" href="{{ getAssetPath('assets/manifest.json') }}">
+{% endblock %}
+
+{% block head %}
+  <link href="{{ getAssetPath('stylesheets/application.scss') }}" rel="stylesheet">
+{% endblock %}
+
+{% block header %}
+  {{ govukHeader({
+    homepageUrl: "https://www.gov.uk/",
+    classes: "app-header",
+    containerClasses: "govuk-width-container",
+    serviceName: serviceName,
+    serviceUrl: serviceUrl,
+    useTudorCrown: true
+  }) }}
+{% endblock %}
+
+{% block pageTitle %}
+  Manage Historic Data - {{ serviceName }} - GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+  {{ govukPhaseBanner({
+    tag: {
+      text: "Prototype"
+    },
+    html: 'This is a prototype for testing ideas. It is not a real service.'
+  }) }}
+  <a class="govuk-back-link" href="/">Back to home</a>
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">Manage Historic Data</h1>
+
+    {% if message %}
+      {{ govukNotificationBanner({
+        type: "success",
+        text: message
+      }) }}
+    {% endif %}
+
+    {% if error %}
+      {{ govukNotificationBanner({
+        text: error
+      }) }}
+    {% endif %}
+
+    <h2 class="govuk-heading-m">Add a station</h2>
+    <p class="govuk-body">Enter an RLOI ID to fetch 3 years of hourly historic data from the Hydrology API. This may take 10-20 seconds.</p>
+
+    <form method="post" action="/admin/fetch">
+      {{ govukInput({
+        label: {
+          text: "RLOI ID",
+          classes: "govuk-label--s"
+        },
+        hint: {
+          text: "The station ID used on Check for Flooding (e.g. 8085, 7041)"
+        },
+        id: "rloiId",
+        name: "rloiId",
+        classes: "govuk-input--width-10"
+      }) }}
+
+      {{ govukButton({
+        text: "Fetch Historic Data"
+      }) }}
+    </form>
+
+    <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible">
+
+    <h2 class="govuk-heading-m">Stations with historic data</h2>
+
+    {% if stations.length > 0 %}
+      <table class="govuk-table">
+        <thead class="govuk-table__header">
+          <tr class="govuk-table__row">
+            <th class="govuk-table__header" scope="col">Station</th>
+            <th class="govuk-table__header" scope="col">RLOI ID</th>
+            <th class="govuk-table__header" scope="col">Data points</th>
+            <th class="govuk-table__header" scope="col">Date range</th>
+            <th class="govuk-table__header" scope="col">Action</th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for station in stations %}
+            <tr class="govuk-table__row">
+              <td class="govuk-table__cell">
+                {{ station.name }}
+                {% if station.isProtected %}
+                  <strong class="govuk-tag govuk-tag--grey">Default</strong>
+                {% endif %}
+              </td>
+              <td class="govuk-table__cell">
+                <a href="/station?stationId={{ station.rloiId }}&chartStyle=styleB" class="govuk-link">{{ station.rloiId }}</a>
+              </td>
+              <td class="govuk-table__cell">{{ station.pointCount }}</td>
+              <td class="govuk-table__cell">{{ station.startDate }} to {{ station.endDate }}</td>
+              <td class="govuk-table__cell">
+                {% if not station.isProtected %}
+                  <form method="post" action="/admin/delete" style="margin: 0;">
+                    <input type="hidden" name="rloiId" value="{{ station.rloiId }}">
+                    <button type="submit" class="govuk-button govuk-button--warning govuk-!-margin-bottom-0">Delete</button>
+                  </form>
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="govuk-body">No stations have historic data yet.</p>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

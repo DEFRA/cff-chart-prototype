@@ -28,7 +28,8 @@
     "test": "TZ=UTC vitest run",
     "test:coverage": "TZ=UTC vitest run --coverage",
     "test:watch": "TZ=UTC vitest",
-    "docker:test": "npm run lint && npm test"
+    "docker:test": "npm run lint && npm test",
+    "fetch-historic": "node scripts/fetch-historic.js"
   },
   "author": "Defra DDTS",
   "contributors": [
