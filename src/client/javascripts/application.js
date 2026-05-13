@@ -152,7 +152,7 @@ function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, current
   updateTimeRangeLabel(currentFilter)
   updateActiveButtonState(currentFilter)
 
-  const chart = lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
+  lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
     timeRange: currentFilter,
     enableZoom: true
   })
