@@ -1,4 +1,4 @@
-import { createZoomHandler, setupZoomBehavior, setupZoomControls, setupChartInfoUpdate } from './chart-zoom.js'
+import { createZoomHandler, setupZoomBehavior, setupZoomControls } from './chart-zoom.js'
 import {
   MARGIN_TOP,
   MARGIN_BOTTOM,
@@ -83,7 +83,6 @@ function initializeZoom(config) {
   zoomRef.rect = zoomSetup.zoomRect
 
   setupZoomControls(container, mainGroup, zoomRef.behavior)
-  setupChartInfoUpdate(container)
 }
 
 function createChartRenderer(config) {

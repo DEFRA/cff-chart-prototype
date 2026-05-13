@@ -107,15 +107,18 @@ export async function getStationReadings(stationId, since = null) {
     // Exclude measures with placeholder units like "---"
     const levelMeasures = station.measures.filter(m =>
       (m.parameterName === 'Water Level' || m.parameter === 'level') &&
-      (!m.unitName || m.unitName !== '---') // Accept missing unitName or valid values
+      (!m.unitName || m.unitName !== '---')
     )
 
     if (levelMeasures.length === 0) {
       return []
     }
 
-    // Prefer measures with unit 'm' (meters), otherwise take the first valid one
-    const levelMeasure = levelMeasures.find(m => m.unitName === 'm') || levelMeasures[0]
+    // Prefer: 1) unit 'm', 2) Stage qualifier over Downstream Stage, 3) first valid
+    const levelMeasure = levelMeasures.find(m => m.unitName === 'm') ||
+      levelMeasures.find(m => m.qualifier === 'Stage') ||
+      levelMeasures.find(m => !m.qualifier?.includes('Downstream')) ||
+      levelMeasures[0]
 
     // Extract measure ID from the @id URL
     const measureId = levelMeasure['@id'].split('/').pop()

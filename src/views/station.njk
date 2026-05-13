@@ -132,32 +132,13 @@
 {# Chart Section #}
 <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible">
 
-{# Chart Style Indicator #}
-{% if chartStyle %}
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-    <div class="govuk-notification-banner" role="region" aria-labelledby="govuk-notification-banner-title" data-module="govuk-notification-banner" style="background-color: #f3f2f1; border-color: #0b0c0c;">
-      <div class="govuk-notification-banner__content">
-        <p class="govuk-notification-banner__heading govuk-!-font-size-16" style="color: #0b0c0c;">
-          <strong>Chart Style: 
-            {% if chartStyle === 'styleA' %}A - Current design (5 days)
-            {% elif chartStyle === 'styleB' %}B - Date range selector (up to 5 years)
-            {% elif chartStyle === 'styleC' %}C - Interactive timeline
-            {% endif %}
-          </strong>
-        </p>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
     <div class="defra-line-chart govuk-!-margin-bottom-4">
       <div class="defra-line-chart__header">
         <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
-          Height in metres - <span id="chart-time-range">Last 5 days</span><span id="chart-data-points"></span>
+          Height in metres over the <span id="chart-time-range">last 5 days</span>
         </h2>
         
         {% if chartStyle === 'styleB' %}
@@ -238,13 +219,6 @@
           <span class="defra-button-secondary__text">Download data CSV (12KB)</span>
         </a>
         
-        {% if chartStyle === 'styleB' or chartStyle === 'styleC' %}
-        <input type="file" id="historic-data-upload" accept=".csv" class="defra-line-chart__file-input" />
-        <button type="button" id="upload-historic-btn" class="defra-button-secondary govuk-!-margin-bottom-0">
-          <span class="defra-button-secondary__icon--upload"></span>
-          <span class="defra-button-secondary__text">Upload Historic Data CSV</span>
-        </button>
-        {% endif %}
       </div>
     </div>
   </div>

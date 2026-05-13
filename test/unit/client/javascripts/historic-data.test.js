@@ -1,10 +1,5 @@
-import { describe, test, expect, beforeEach, vi } from 'vitest'
-import 'fake-indexeddb/auto'
+import { describe, test, expect } from 'vitest'
 import {
-  parseHistoricCSV,
-  saveHistoricData,
-  loadHistoricData,
-  clearHistoricData,
   mergeData,
   filterDataByTimeRange,
   getTimeRangeLabel,
@@ -12,16 +7,9 @@ import {
 } from '../../../../src/client/javascripts/historic-data.js'
 
 // Test constants
-const TEST_STATION_ID = '8085'
 const SAMPLE_DATETIME_1 = '2024-01-15T10:00:00'
 const SAMPLE_DATETIME_2 = '2024-01-15T11:00:00'
 const SAMPLE_DATETIME_3 = '2024-01-15T12:00:00'
-const SAMPLE_VALUE_1 = 1.234
-const SAMPLE_VALUE_2 = 1.567
-const SAMPLE_VALUE_3 = 2.345
-const DAYS_PER_YEAR = 365
-const SIX_YEARS = 6
-const FOUR_YEARS = 4
 const TEN_DAYS = 10
 const THREE_DAYS = 3
 const FIVE_DAYS = 5
@@ -31,165 +19,7 @@ const FIVE_DAYS_MS = FIVE_DAYS * MILLISECONDS_PER_DAY
 const EXPECTED_ARRAY_LENGTH_3 = 3
 const REALTIME_OVERRIDE_VALUE = 2.5
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store = {}
-  return {
-    getItem: (key) => store[key] || null,
-    setItem: (key, value) => { store[key] = value },
-    removeItem: (key) => { delete store[key] },
-    clear: () => { store = {} }
-  }
-})()
-
-globalThis.localStorage = localStorageMock
-
 describe('Historic Data Management', () => {
-  beforeEach(async () => {
-    localStorageMock.clear()
-    vi.clearAllMocks()
-
-    // Clear IndexedDB before each test
-    await clearHistoricData(TEST_STATION_ID)
-  })
-
-  describe('parseHistoricCSV', () => {
-    test('should parse valid CSV with dateTime and value columns', () => {
-      const csv = `"measure","dateTime","date","value","completeness","quality","qcode"
-"http://example.com/measure","${SAMPLE_DATETIME_1}","2024-01-15","${SAMPLE_VALUE_1}","","Unchecked",""
-"http://example.com/measure","2024-01-15T10:15:00","2024-01-15","${SAMPLE_VALUE_2}","","Unchecked",""`
-
-      const result = parseHistoricCSV(csv)
-
-      expect(result).toHaveLength(2)
-      expect(result[0]).toEqual({
-        dateTime: SAMPLE_DATETIME_1,
-        value: SAMPLE_VALUE_1,
-        _: SAMPLE_VALUE_1
-      })
-      expect(result[1]).toEqual({
-        dateTime: '2024-01-15T10:15:00',
-        value: SAMPLE_VALUE_2,
-        _: SAMPLE_VALUE_2
-      })
-    })
-
-    test('should filter out data older than 5 years', () => {
-      const now = new Date()
-      const sixYearsAgo = new Date(now.getTime() - (SIX_YEARS * DAYS_PER_YEAR * MILLISECONDS_PER_DAY))
-      const fourYearsAgo = new Date(now.getTime() - (FOUR_YEARS * DAYS_PER_YEAR * MILLISECONDS_PER_DAY))
-
-      const csv = `"dateTime","value"
-"${sixYearsAgo.toISOString()}","1"
-"${fourYearsAgo.toISOString()}","2"`
-
-      const result = parseHistoricCSV(csv)
-
-      expect(result).toHaveLength(1)
-      expect(result[0].value).toBe(2)
-    })
-
-    test('should skip invalid rows with missing or invalid values', () => {
-      const csv = `"dateTime","value"
-"${SAMPLE_DATETIME_1}","${SAMPLE_VALUE_1}"
-"2024-01-15T10:15:00","invalid"
-"","1.567"
-"2024-01-15T10:30:00","${SAMPLE_VALUE_3}"`
-
-      const result = parseHistoricCSV(csv)
-
-      expect(result).toHaveLength(2)
-      expect(result[0].value).toBe(SAMPLE_VALUE_1)
-      expect(result[1].value).toBe(SAMPLE_VALUE_3)
-    })
-
-    test('should throw error for empty CSV', () => {
-      expect(() => parseHistoricCSV('')).toThrow('CSV file is empty or invalid')
-    })
-
-    test('should throw error for CSV without required columns', () => {
-      const csv = `"measure","date"
-"test","2024-01-15"`
-
-      expect(() => parseHistoricCSV(csv)).toThrow('CSV must contain "dateTime" and "value" columns')
-    })
-  })
-
-  describe('IndexedDB operations', () => {
-    test('saveHistoricData should save data to IndexedDB', async () => {
-      const data = [
-        { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
-      ]
-
-      const result = await saveHistoricData(TEST_STATION_ID, data)
-
-      expect(result).toBe(true)
-    })
-
-    test('loadHistoricData should load data from IndexedDB', async () => {
-      const data = [
-        { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
-      ]
-      await saveHistoricData(TEST_STATION_ID, data)
-
-      const result = await loadHistoricData(TEST_STATION_ID)
-
-      expect(result).toEqual(data)
-    })
-
-    test('loadHistoricData should return null when no data exists', async () => {
-      const result = await loadHistoricData(TEST_STATION_ID)
-
-      expect(result).toBeNull()
-    })
-
-    test('clearHistoricData should remove data from IndexedDB', async () => {
-      const data = [
-        { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
-      ]
-      await saveHistoricData(TEST_STATION_ID, data)
-
-      const result = await clearHistoricData(TEST_STATION_ID)
-
-      expect(result).toBe(true)
-
-      const loadedData = await loadHistoricData(TEST_STATION_ID)
-      expect(loadedData).toBeNull()
-    })
-
-    test('should isolate data per station ID', async () => {
-      const data8085 = [
-        { dateTime: SAMPLE_DATETIME_1, value: SAMPLE_VALUE_1, _: SAMPLE_VALUE_1 }
-      ]
-      const data8225 = [
-        { dateTime: SAMPLE_DATETIME_2, value: SAMPLE_VALUE_2, _: SAMPLE_VALUE_2 }
-      ]
-
-      // Save data for two different stations
-      await saveHistoricData('8085', data8085)
-      await saveHistoricData('8225', data8225)
-
-      // Load data for each station
-      const loaded8085 = await loadHistoricData('8085')
-      const loaded8225 = await loadHistoricData('8225')
-
-      // Verify each station has its own data
-      expect(loaded8085).toEqual(data8085)
-      expect(loaded8225).toEqual(data8225)
-      expect(loaded8085).not.toEqual(loaded8225)
-
-      // Clear one station's data
-      await clearHistoricData('8085')
-
-      // Verify only that station's data was cleared
-      const afterClear8085 = await loadHistoricData('8085')
-      const afterClear8225 = await loadHistoricData('8225')
-
-      expect(afterClear8085).toBeNull()
-      expect(afterClear8225).toEqual(data8225)
-    })
-  })
-
   describe('mergeData', () => {
     test('should merge historic and realtime data without duplicates', () => {
       const historic = [
@@ -286,27 +116,23 @@ describe('Historic Data Management', () => {
 
   describe('getTimeRangeLabel', () => {
     test('should return correct label for 5 days', () => {
-      expect(getTimeRangeLabel('5d')).toBe('Last 5 days')
-    })
-
-    test('should return correct label for 1 month', () => {
-      expect(getTimeRangeLabel('1m')).toBe('Last month')
+      expect(getTimeRangeLabel('5d')).toBe('last 5 days')
     })
 
     test('should return correct label for 6 months', () => {
-      expect(getTimeRangeLabel('6m')).toBe('Last 6 months')
+      expect(getTimeRangeLabel('6m')).toBe('last 6 months')
     })
 
     test('should return correct label for 1 year', () => {
-      expect(getTimeRangeLabel('1y')).toBe('Last year')
+      expect(getTimeRangeLabel('1y')).toBe('last year')
     })
 
-    test('should return correct label for 5 years', () => {
-      expect(getTimeRangeLabel('5y')).toBe('Last 5 years')
+    test('should return correct label for 3 years', () => {
+      expect(getTimeRangeLabel('3y')).toBe('last 3 years')
     })
 
     test('should return default label for unknown range', () => {
-      expect(getTimeRangeLabel('unknown')).toBe('Last 5 days')
+      expect(getTimeRangeLabel('unknown')).toBe('last 5 days')
     })
   })
 
