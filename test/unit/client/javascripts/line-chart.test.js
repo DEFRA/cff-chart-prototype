@@ -297,47 +297,6 @@ describe('line-chart - Data Processing Helpers', () => {
     })
   })
 
-  describe('Responsive margin calculation', () => {
-    test('should use mobile margins for mobile viewport', () => {
-      const isMobile = true
-      const MOBILE_MARGIN_RIGHT_BASE = 31
-      const DESKTOP_MARGIN_RIGHT_BASE = 36
-      const MARGIN_CHAR_MULTIPLIER = 9
-      const numChars = 2
-
-      const marginRight = (isMobile ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) +
-        (numChars * MARGIN_CHAR_MULTIPLIER)
-
-      expect(marginRight).toBe(49)
-    })
-
-    test('should use desktop margins for desktop viewport', () => {
-      const isMobile = false
-      const MOBILE_MARGIN_RIGHT_BASE = 31
-      const DESKTOP_MARGIN_RIGHT_BASE = 36
-      const MARGIN_CHAR_MULTIPLIER = 9
-      const numChars = 2
-
-      const marginRight = (isMobile ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) +
-        (numChars * MARGIN_CHAR_MULTIPLIER)
-
-      expect(marginRight).toBe(54)
-    })
-
-    test('should adjust margin based on number of characters', () => {
-      const MARGIN_CHAR_MULTIPLIER = 9
-      const DESKTOP_MARGIN_RIGHT_BASE = 36
-
-      const numChars3 = 3
-      const margin3 = DESKTOP_MARGIN_RIGHT_BASE + (numChars3 * MARGIN_CHAR_MULTIPLIER)
-
-      const numChars5 = 5
-      const margin5 = DESKTOP_MARGIN_RIGHT_BASE + (numChars5 * MARGIN_CHAR_MULTIPLIER)
-
-      expect(margin3).toBe(63)
-      expect(margin5).toBe(81)
-    })
-  })
 
   describe('Data point finding logic', () => {
     test('should return null for empty lines array', () => {
