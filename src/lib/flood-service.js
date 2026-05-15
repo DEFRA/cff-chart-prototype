@@ -79,13 +79,28 @@ export async function getStation(stationId) {
   }
 }
 
+function findLevelMeasure(measures) {
+  const levelMeasures = measures.filter(m =>
+    (m.parameterName === 'Water Level' || m.parameter === 'level') &&
+    (!m.unitName || m.unitName !== '---')
+  )
+
+  if (levelMeasures.length === 0) {
+    return null
+  }
+
+  return levelMeasures.find(m => m.unitName === 'm') ||
+    levelMeasures.find(m => m.qualifier === 'Stage') ||
+    levelMeasures.find(m => !m.qualifier?.includes('Downstream')) ||
+    levelMeasures[0]
+}
+
 /**
  * Fetch station readings/measurements
  */
 export async function getStationReadings(stationId, since = null) {
   const stationUrl = `${API_BASE_URL}/id/stations?RLOIid=${stationId}`
   try {
-    // First get the station to find its measures
     console.log(`Fetching station for readings from: ${stationUrl}`)
     const stationResponse = await proxyFetch(stationUrl)
     if (!stationResponse.ok) {
@@ -99,30 +114,12 @@ export async function getStationReadings(stationId, since = null) {
     }
 
     const station = stationData.items[0]
-    if (!station.measures || station.measures.length === 0) {
+    const levelMeasure = station.measures?.length > 0 ? findLevelMeasure(station.measures) : null
+    if (!levelMeasure) {
       return []
     }
 
-    // Find the level measure - prefer measures with valid units (m, mAOD, mASD)
-    // Exclude measures with placeholder units like "---"
-    const levelMeasures = station.measures.filter(m =>
-      (m.parameterName === 'Water Level' || m.parameter === 'level') &&
-      (!m.unitName || m.unitName !== '---') // Accept missing unitName or valid values
-    )
-
-    if (levelMeasures.length === 0) {
-      return []
-    }
-
-    // Prefer measures with unit 'm' (meters), otherwise take the first valid one
-    const levelMeasure = levelMeasures.find(m => m.unitName === 'm') || levelMeasures[0]
-
-    // Extract measure ID from the @id URL
     const measureId = levelMeasure['@id'].split('/').pop()
-
-    // Optimize data transfer by fetching only what we need
-    // At 15-min intervals: ~96 readings/day × 5 days = ~480 readings
-    // Request 500 for a small buffer, sorted by time
     const url = `${API_BASE_URL}/data/readings?measure=${measureId}&_sorted&_limit=500`
     console.log('Fetching readings from:', url)
     const response = await proxyFetch(url)

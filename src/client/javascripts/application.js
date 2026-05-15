@@ -3,9 +3,6 @@ import './utils.js'
 import './toggletip.js'
 import { lineChart } from './line-chart.js'
 import {
-  parseHistoricCSV,
-  saveHistoricData,
-  loadHistoricData,
   mergeData,
   filterDataByTimeRange,
   getTimeRangeLabel,
@@ -22,8 +19,6 @@ const ARIA_DISABLED = 'aria-disabled'
 const ARIA_CURRENT = 'aria-current'
 const CHART_STYLE_C = 'styleC'
 const CHART_STYLE_B = 'styleB'
-const INITIAL_DISPLAYED_POINTS = 500
-const CHART_INFO_UPDATE_DELAY = 100
 
 /**
  * Update filter link states based on historic data availability
@@ -49,23 +44,14 @@ function updateFilterButtonStates(hasHistoricData) {
 /**
  * Update time range display labels
  */
-function updateTimeRangeLabel(filter, dataPoints, hasHistoric) {
+function updateTimeRangeLabel(filter) {
   const timeRangeLabel = document.getElementById('chart-time-range')
-  const dataPointsLabel = document.getElementById('chart-data-points')
 
   if (!timeRangeLabel) {
     return
   }
 
-  if (filter) {
-    timeRangeLabel.textContent = getTimeRangeLabel(filter)
-  } else {
-    // Style C - no filter
-    timeRangeLabel.textContent = ''
-    if (dataPointsLabel && hasHistoric) {
-      dataPointsLabel.textContent = ` (${dataPoints.toLocaleString()} total points)`
-    }
-  }
+  timeRangeLabel.textContent = getTimeRangeLabel(filter)
 }
 
 /**
@@ -151,21 +137,6 @@ function setupZoomControls() {
   }
 }
 
-/**
- * Initialize chart info display for Style C
- */
-function initializeChartInfo(chart) {
-  if (!chart?.updateChartInfo) {
-    return
-  }
-
-  setTimeout(() => {
-    const chartContainer = document.getElementById(LINE_CHART_ID)
-    if (chartContainer?.updateChartInfo) {
-      chartContainer.updateChartInfo(INITIAL_DISPLAYED_POINTS, null)
-    }
-  }, CHART_INFO_UPDATE_DELAY)
-}
 
 /**
  * Render chart for Style C (zoom/pan)
@@ -181,12 +152,11 @@ function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, current
   updateTimeRangeLabel(currentFilter)
   updateActiveButtonState(currentFilter)
 
-  const chart = lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
+  lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
     timeRange: currentFilter,
     enableZoom: true
   })
 
-  initializeChartInfo(chart)
   setupZoomControls()
 }
 
@@ -248,9 +218,7 @@ function setupTimeFilterHandlers(currentFilter, renderChart) {
     link.addEventListener('click', function (e) {
       e.preventDefault()
 
-      // Check if link is marked as disabled (no historic data)
       if (this.getAttribute(ARIA_DISABLED) === 'true') {
-        alert('To view historic data beyond 5 days, please upload a historic data CSV file using the "Upload Historic Data CSV" button below.')
         return
       }
 
@@ -260,85 +228,11 @@ function setupTimeFilterHandlers(currentFilter, renderChart) {
   })
 }
 
-/**
- * Process and save uploaded historic data
- */
-async function processUploadedData(parsedData, stationId, historicDataRef, renderChart) {
-  if (parsedData.length === 0) {
-    alert('No valid data found in the CSV file (or all data is older than 5 years)')
-    return false
-  }
-
-  // Save to IndexedDB for this station (replaces any previous upload for this station)
-  historicDataRef.data = parsedData
-  const saved = await saveHistoricData(stationId, parsedData)
-
-  if (!saved) {
-    alert('Failed to upload historic data. Please try again.')
-    return false
-  }
-
-  // Re-render the chart with the new data
-  renderChart()
-
-  // Enable all filter buttons now that we have historic data
-  updateFilterButtonStates(true)
-
-  alert(`Successfully uploaded ${parsedData.length} data points from the last 5 years`)
-  return true
-}
-
-/**
- * Handle file upload for historic data
- */
-async function handleFileUpload(event, stationId, historicDataRef, renderChart) {
-  const file = event.target.files[0]
-  if (!file) {
-    return
-  }
-
-  try {
-    // Read the file
-    const text = await file.text()
-
-    // Parse the CSV
-    const parsedData = parseHistoricCSV(text)
-
-    // Process and save the data
-    await processUploadedData(parsedData, stationId, historicDataRef, renderChart)
-  } catch (error) {
-    console.error('Error processing CSV file:', error)
-    alert(`Error processing CSV file: ${error.message}`)
-  } finally {
-    // Reset file input
-    event.target.value = ''
-  }
-}
-
-/**
- * Setup upload button handler
- */
-function setupUploadHandler(stationId, historicDataRef, renderChart) {
-  const uploadBtn = document.getElementById('upload-historic-btn')
-  const fileInput = document.getElementById('historic-data-upload')
-
-  if (!uploadBtn || !fileInput) {
-    return
-  }
-
-  uploadBtn.addEventListener('click', () => {
-    fileInput.click()
-  })
-
-  fileInput.addEventListener('change', (event) =>
-    handleFileUpload(event, stationId, historicDataRef, renderChart)
-  )
-}
 
 /**
  * Initialize chart application
  */
-async function initializeChartApp() {
+function initializeChartApp() {
   const stationId = globalThis.flood?.model?.id
   const realtimeTelemetry = globalThis.flood?.model?.telemetry
 
@@ -350,19 +244,7 @@ async function initializeChartApp() {
   // Current filter state (using object to allow mutation in closure)
   const currentFilter = { value: DEFAULT_FILTER }
 
-  // Load historic data: prefer server-provided, fall back to IndexedDB
-  const historicDataRef = { data: [] }
-  const serverHistoric = globalThis.flood?.model?.historicData || []
-
-  if (serverHistoric.length > 0) {
-    historicDataRef.data = serverHistoric
-  } else {
-    try {
-      historicDataRef.data = await loadHistoricData(stationId) || []
-    } catch (err) {
-      console.error('Failed to load historic data:', err)
-    }
-  }
+  const historicDataRef = { data: globalThis.flood?.model?.historicData || [] }
 
   // Create render function
   const renderChart = createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter)
@@ -376,14 +258,13 @@ async function initializeChartApp() {
 
   // Setup event handlers
   setupTimeFilterHandlers(currentFilter, renderChart)
-  setupUploadHandler(stationId, historicDataRef, renderChart)
 }
 
 // Initialize chart with historic data support
 if (typeof document !== 'undefined' && typeof globalThis !== 'undefined') {
   const chartElement = document.getElementById(LINE_CHART_ID)
   if (chartElement && globalThis.flood?.model) {
-    await initializeChartApp()
+    initializeChartApp()
   }
 }
 

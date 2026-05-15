@@ -43,12 +43,6 @@ export function createZoomHandler(config) {
     updateTimeIndicator(svg, timeLabel, timeLine, newXScale, height, isMobile)
     hideOverlappingTicks(timeLabel)
 
-    // Update chart info display
-    const displayedPoints = newObservedPoints.length + newForecastPoints.length
-    if (container.updateChartInfo) {
-      container.updateChartInfo(displayedPoints)
-    }
-
     if (container.updateZoomControls) {
       container.updateZoomControls(transform.k)
     }
@@ -150,15 +144,3 @@ export function setupZoomControls(container, mainGroup, zoomBehavior) {
   }
 }
 
-/**
- * Setup chart info update method
- */
-export function setupChartInfoUpdate(container) {
-  container.updateChartInfo = (displayedPoints) => {
-    const dataPointsLabel = globalThis.document.getElementById('chart-data-points')
-
-    if (dataPointsLabel) {
-      dataPointsLabel.textContent = ` (${displayedPoints.toLocaleString()} displayed)`
-    }
-  }
-}

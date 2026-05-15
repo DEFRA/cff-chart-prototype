@@ -54,6 +54,12 @@
     align-items: center;
 
     .govuk-button {
+      min-width: 48px;
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
       &:disabled {
         opacity: 0.55;
       }

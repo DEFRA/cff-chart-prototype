@@ -213,8 +213,10 @@ function calculateYScaleDomain(lines, dataType) {
 
 export function createXScale(observed, forecast, width) {
   const xExtent = extent(observed.concat(forecast), (d) => new Date(d.dateTime))
-  const timeRange = xExtent[1] - xExtent[0]
-  const paddedMax = new Date(xExtent[1].getTime() + (timeRange * TIME_RANGE_PADDING))
+  const now = new Date()
+  const latestTime = Math.max(xExtent[1].getTime(), now.getTime())
+  const timeRange = latestTime - xExtent[0].getTime()
+  const paddedMax = new Date(latestTime + (timeRange * TIME_RANGE_PADDING))
 
   const scale = scaleTime().domain([xExtent[0], paddedMax]).range([0, width])
 
@@ -315,14 +317,21 @@ export function renderGridLines(svg, xScale, yScale, height, width, xExtent) {
 export function updateTimeIndicator(_svg, timeLabel, timeLine, xScale, height, isMobile) {
   const now = new Date()
   const timeX = Math.floor(xScale(now))
+  const [rangeMin, rangeMax] = xScale.range()
+  const isVisible = timeX >= rangeMin && timeX <= rangeMax
 
-  timeLine.attr('y1', 0).attr('y2', height).attr('transform', `translate(${timeX},0)`)
+  timeLine
+    .attr('y1', 0)
+    .attr('y2', height)
+    .attr('transform', `translate(${timeX},0)`)
+    .style('display', isVisible ? null : 'none')
 
   timeLabel
     .attr('y', height + TIME_LABEL_OFFSET_Y)
     .attr('transform', `translate(${timeX},0)`)
     .attr('dy', TIME_LABEL_DY)
     .attr('x', isMobile ? TIME_LABEL_OFFSET_X_MOBILE : TIME_LABEL_OFFSET_X_DESKTOP)
+    .style('display', isVisible ? null : 'none')
 
   timeLabel.select('.time-now-text__time')
     .text(timeFormat('%-I:%M%p')(now).toLowerCase())

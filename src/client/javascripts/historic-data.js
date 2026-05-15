@@ -1,161 +1,19 @@
 /**
  * Historic Data Manager
- * Handles CSV upload, parsing, storage, and filtering of historic telemetry data
+ * Handles merging, filtering, and downsampling of historic telemetry data
  */
 
-const DB_NAME = 'historic-telemetry-db'
-const DB_VERSION = 1
-const STORE_NAME = 'telemetry-data'
-const DATA_KEY_PREFIX = 'historic-data-'
-const FIVE_YEARS = 5
-const THREE_YEARS = 3
 const DAYS_PER_YEAR = 365
 const HOURS_PER_DAY = 24
 const MINUTES_PER_HOUR = 60
 const SECONDS_PER_MINUTE = 60
 const MS_PER_SECOND = 1000
+const FIVE_YEARS = 5
 const FIVE_DAYS = 5
 const THIRTY_DAYS = 30
 const SIX_MONTHS = 6
+const THREE_YEARS = 3
 const FIVE_YEARS_MS = FIVE_YEARS * DAYS_PER_YEAR * HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
-
-/**
- * Open IndexedDB database
- */
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-
-    request.onerror = () => reject(request.error)
-    request.onsuccess = () => resolve(request.result)
-
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME)
-      }
-    }
-  })
-}
-
-/**
- * Parse CSV content and extract dateTime and value fields
- * Only includes data from the last 5 years
- */
-export function parseHistoricCSV(csvContent) {
-  const lines = csvContent.trim().split('\n')
-  if (lines.length < 2) {
-    throw new Error('CSV file is empty or invalid')
-  }
-
-  // Parse header
-  const header = lines[0].split(',').map(h => h.replaceAll('"', '').trim())
-  const dateTimeIndex = header.indexOf('dateTime')
-  const valueIndex = header.indexOf('value')
-
-  if (dateTimeIndex === -1 || valueIndex === -1) {
-    throw new Error('CSV must contain "dateTime" and "value" columns')
-  }
-
-  // Calculate cutoff date (5 years ago)
-  const fiveYearsAgo = new Date(Date.now() - FIVE_YEARS_MS)
-
-  // Parse data rows
-  const data = []
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (line) {
-      const values = line.split(',').map(v => v.replaceAll('"', '').trim())
-      const dateTime = values[dateTimeIndex]
-      const value = Number.parseFloat(values[valueIndex])
-
-      // Only include valid rows from last 5 years
-      const date = new Date(dateTime)
-      if (dateTime && !Number.isNaN(value) && date >= fiveYearsAgo) {
-        data.push({
-          dateTime,
-          value,
-          _: value // Some charts may expect this format
-        })
-      }
-    }
-  }
-
-  return data
-}
-
-/**
- * Save historic data to IndexedDB for a specific station
- * @param {string} stationId - The station ID
- * @param {Array} data - The historic data array
- */
-export async function saveHistoricData(stationId, data) {
-  try {
-    const db = await openDatabase()
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite')
-      const store = transaction.objectStore(STORE_NAME)
-      const dataKey = DATA_KEY_PREFIX + stationId
-      const request = store.put(data, dataKey)
-
-      request.onsuccess = () => resolve(true)
-      request.onerror = () => reject(request.error)
-
-      transaction.oncomplete = () => db.close()
-    })
-  } catch (error) {
-    console.error('Failed to save historic data:', error)
-    return false
-  }
-}
-
-/**
- * Load historic data from IndexedDB for a specific station
- * @param {string} stationId - The station ID
- */
-export async function loadHistoricData(stationId) {
-  try {
-    const db = await openDatabase()
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readonly')
-      const store = transaction.objectStore(STORE_NAME)
-      const dataKey = DATA_KEY_PREFIX + stationId
-      const request = store.get(dataKey)
-
-      request.onsuccess = () => resolve(request.result || null)
-      request.onerror = () => reject(request.error)
-
-      transaction.oncomplete = () => db.close()
-    })
-  } catch (error) {
-    console.error('Failed to load historic data:', error)
-    return null
-  }
-}
-
-/**
- * Clear historic data from IndexedDB for a specific station
- * @param {string} stationId - The station ID
- */
-export async function clearHistoricData(stationId) {
-  try {
-    const db = await openDatabase()
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite')
-      const store = transaction.objectStore(STORE_NAME)
-      const dataKey = DATA_KEY_PREFIX + stationId
-      const request = store.delete(dataKey)
-
-      request.onsuccess = () => resolve(true)
-      request.onerror = () => reject(request.error)
-
-      transaction.oncomplete = () => db.close()
-    })
-  } catch (error) {
-    console.error('Failed to clear historic data:', error)
-    return false
-  }
-}
 
 /**
  * Merge historic data with real-time telemetry data
@@ -234,14 +92,12 @@ export function filterDataByTimeRange(data, range) {
  */
 export function getTimeRangeLabel(range) {
   const labels = {
-    '5d': 'Last 5 days',
-    '1m': 'Last month',
-    '6m': 'Last 6 months',
-    '1y': 'Last year',
-    '3y': 'Last 3 years',
-    '5y': 'Last 5 years'
+    '5d': 'last 5 days',
+    '6m': 'last 6 months',
+    '1y': 'last year',
+    '3y': 'last 3 years',
   }
-  return labels[range] || 'Last 5 days'
+  return labels[range] || 'last 5 days'
 }
 
 /**
