@@ -142,6 +142,18 @@ export function downsampleForStyleB(data, range) {
         lastInterval = interval
       }
     })
+  } else if (range === '3y') {
+    // Daily high points - group by day and keep max value
+    const dailyGroups = new Map()
+    data.forEach(item => {
+      const date = new Date(item.dateTime)
+      const dayKey = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+      if (!dailyGroups.has(dayKey) || item.value > dailyGroups.get(dayKey).value) {
+        dailyGroups.set(dayKey, item)
+      }
+    })
+    downsampled.push(...dailyGroups.values())
+    downsampled.sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
   } else if (range === '5y') {
     // Weekly high points - group by week and keep max value
     const weeklyGroups = new Map()

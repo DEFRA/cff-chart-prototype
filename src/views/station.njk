@@ -1,6 +1,5 @@
 {% extends "govuk/template.njk" %}
 
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/phase-banner/macro.njk" import govukPhaseBanner %}
 
 {% set assetUrl = false %}
@@ -22,11 +21,11 @@
 
 {% block header %}
   {{ govukHeader({
-    homepageUrl: "https://www.gov.uk/",
+    homepageUrl: "/",
     classes: "app-header",
     containerClasses: "govuk-width-container",
     serviceName: serviceName,
-    serviceUrl: serviceUrl,
+    serviceUrl: "/",
     useTudorCrown: true
   }) }}
 {% endblock %}
@@ -41,10 +40,6 @@
       text: "Prototype"
     },
     html: 'This is a prototype for testing ideas. It is not a real service.'
-  }) }}
-  {{ govukBackLink({
-    text: "Back",
-    href: "/"
   }) }}
 {% endblock %}
 

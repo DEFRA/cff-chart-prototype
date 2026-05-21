@@ -143,10 +143,13 @@ function setupZoomControls() {
  */
 function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter) {
   const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
+  const processedObserved = currentFilter === '3y'
+    ? downsampleForStyleB(filteredObserved, currentFilter)
+    : filteredObserved
 
   const fullTelemetry = {
     ...realtimeTelemetry,
-    observed: filteredObserved
+    observed: processedObserved
   }
 
   updateTimeRangeLabel(currentFilter)
