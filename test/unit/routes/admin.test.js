@@ -53,11 +53,11 @@ describe('admin routes', () => {
 
   describe('GET /admin', () => {
     it('should render admin page with stored stations', async () => {
-      readdir.mockResolvedValue(['8085.json', '7041.json'])
+      readdir.mockResolvedValue(['3089.json', '7041.json'])
       readFile.mockImplementation((filePath) => {
-        if (filePath.includes('8085')) {
+        if (filePath.includes('3089')) {
           return Promise.resolve(JSON.stringify({
-            meta: { name: 'Gosforth', hourlyPointCount: 26315, startDate: '2023-05-12', endDate: '2026-05-12', fetchedAt: '2026-05-12T14:00:00Z' },
+            meta: { name: 'Test Station', hourlyPointCount: 26315, startDate: '2023-05-12', endDate: '2026-05-12', fetchedAt: '2026-05-12T14:00:00Z' },
             readings: []
           }))
         }
@@ -74,7 +74,7 @@ describe('admin routes', () => {
 
       expect(h.view).toHaveBeenCalledWith('admin.njk', expect.objectContaining({
         stations: expect.arrayContaining([
-          expect.objectContaining({ rloiId: '8085', name: 'Gosforth', isProtected: true }),
+          expect.objectContaining({ rloiId: '3089', name: 'Test Station', isProtected: true }),
           expect.objectContaining({ rloiId: '7041', name: 'Bourton', isProtected: false })
         ])
       }))
@@ -108,10 +108,10 @@ describe('admin routes', () => {
     })
 
     it('should sort protected station first', async () => {
-      readdir.mockResolvedValue(['7041.json', '8085.json'])
+      readdir.mockResolvedValue(['7041.json', '3089.json'])
       readFile.mockImplementation((filePath) => {
-        if (filePath.includes('8085')) {
-          return Promise.resolve(JSON.stringify({ meta: { name: 'Gosforth', hourlyPointCount: 100 }, readings: [] }))
+        if (filePath.includes('3089')) {
+          return Promise.resolve(JSON.stringify({ meta: { name: 'Test Station', hourlyPointCount: 100 }, readings: [] }))
         }
         return Promise.resolve(JSON.stringify({ meta: { name: 'Bourton', hourlyPointCount: 200 }, readings: [] }))
       })
@@ -122,12 +122,12 @@ describe('admin routes', () => {
       await getAdmin.handler(request, h)
 
       const stations = h.view.mock.calls[0][1].stations
-      expect(stations[0].rloiId).toBe('8085')
+      expect(stations[0].rloiId).toBe('3089')
       expect(stations[0].isProtected).toBe(true)
     })
 
     it('should skip non-JSON files in data directory', async () => {
-      readdir.mockResolvedValue(['.gitkeep', '8085.json', 'readme.txt'])
+      readdir.mockResolvedValue(['.gitkeep', '3089.json', 'readme.txt'])
       readFile.mockResolvedValue(JSON.stringify({
         meta: { name: 'Test', hourlyPointCount: 100 },
         readings: []
@@ -140,7 +140,7 @@ describe('admin routes', () => {
 
       const stations = h.view.mock.calls[0][1].stations
       expect(stations).toHaveLength(1)
-      expect(stations[0].rloiId).toBe('8085')
+      expect(stations[0].rloiId).toBe('3089')
     })
   })
 
@@ -235,14 +235,14 @@ describe('admin routes', () => {
       expect(h.redirect).toHaveBeenCalledWith(expect.stringContaining('/admin?message='))
     })
 
-    it('should refuse to delete protected station 8085', async () => {
-      const request = createMockRequest({ rloiId: '8085' })
+    it('should refuse to delete protected station 3089', async () => {
+      const request = createMockRequest({ rloiId: '3089' })
       const h = createMockH()
 
       await postDelete.handler(request, h)
 
       expect(unlink).not.toHaveBeenCalled()
-      expect(h.redirect).toHaveBeenCalledWith('/admin?error=Cannot delete the default station (8085)')
+      expect(h.redirect).toHaveBeenCalledWith('/admin?error=Cannot delete the default station (3089)')
     })
 
     it('should redirect with error when delete fails', async () => {

@@ -43,7 +43,7 @@ describe('hydrology-service', () => {
         json: async () => ({
           items: [{
             notation: '7da7bf7a-21a3-486a-a4aa-1280770bf512',
-            label: 'Gosforth'
+            label: 'Test Station'
           }]
         })
       })
@@ -59,15 +59,15 @@ describe('hydrology-service', () => {
         })
       })
 
-      const result = await lookupStationByRLOI('8085')
+      const result = await lookupStationByRLOI('3089')
 
       expect(result).toEqual({
         guid: '7da7bf7a-21a3-486a-a4aa-1280770bf512',
-        name: 'Gosforth',
+        name: 'Test Station',
         measureId: '7da7bf7a-level-i-900-m-qualified'
       })
       expect(proxyFetch).toHaveBeenCalledWith(
-        'https://environment.data.gov.uk/hydrology/id/stations?RLOIid=8085'
+        'https://environment.data.gov.uk/hydrology/id/stations?RLOIid=3089'
       )
     })
 
@@ -107,7 +107,7 @@ describe('hydrology-service', () => {
         status: 500
       })
 
-      await expect(lookupStationByRLOI('8085')).rejects.toThrow('Hydrology API returned 500')
+      await expect(lookupStationByRLOI('3089')).rejects.toThrow('Hydrology API returned 500')
     })
 
     it('should throw when measures API returns error', async () => {
@@ -122,7 +122,7 @@ describe('hydrology-service', () => {
         status: 503
       })
 
-      await expect(lookupStationByRLOI('8085')).rejects.toThrow('Failed to fetch measures: 503')
+      await expect(lookupStationByRLOI('3089')).rejects.toThrow('Failed to fetch measures: 503')
     })
 
     it('should use stationGuid when notation is not available', async () => {
@@ -167,9 +167,9 @@ describe('hydrology-service', () => {
         json: async () => ({ items: rawReadings })
       })
 
-      const result = await fetchHistoricReadings('8085', stationInfo)
+      const result = await fetchHistoricReadings('3089', stationInfo)
 
-      expect(result.meta.rloiId).toBe('8085')
+      expect(result.meta.rloiId).toBe('3089')
       expect(result.meta.name).toBe('Test Station')
       expect(result.meta.rawPointCount).toBe(7)
       expect(result.meta.hourlyPointCount).toBe(3)
@@ -242,7 +242,7 @@ describe('hydrology-service', () => {
         status: 500
       })
 
-      await expect(fetchHistoricReadings('8085', stationInfo)).rejects.toThrow('Failed to fetch readings: 500')
+      await expect(fetchHistoricReadings('3089', stationInfo)).rejects.toThrow('Failed to fetch readings: 500')
     })
 
     it('should handle empty readings', async () => {
@@ -251,7 +251,7 @@ describe('hydrology-service', () => {
         json: async () => ({ items: [] })
       })
 
-      const result = await fetchHistoricReadings('8085', stationInfo)
+      const result = await fetchHistoricReadings('3089', stationInfo)
 
       expect(result.readings).toHaveLength(0)
       expect(result.meta.rawPointCount).toBe(0)
@@ -264,7 +264,7 @@ describe('hydrology-service', () => {
         json: async () => ({ items: [] })
       })
 
-      const result = await fetchHistoricReadings('8085', stationInfo)
+      const result = await fetchHistoricReadings('3089', stationInfo)
 
       const expectedEnd = new Date().toISOString().split('T')[0]
       const expectedStart = new Date()
@@ -280,7 +280,7 @@ describe('hydrology-service', () => {
         json: async () => ({ items: [] })
       })
 
-      await fetchHistoricReadings('8085', stationInfo)
+      await fetchHistoricReadings('3089', stationInfo)
 
       const url = proxyFetch.mock.calls[0][0]
       expect(url).toContain('https://environment.data.gov.uk/hydrology/id/measures/test-measure-i-900-m-qualified/readings.json')

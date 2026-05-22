@@ -18,7 +18,7 @@ export const healthCheck = {
 
     // Test Environment Agency API connectivity
     try {
-      const testUrl = 'https://environment.data.gov.uk/flood-monitoring/id/stations?RLOIid=8085'
+      const testUrl = 'https://environment.data.gov.uk/flood-monitoring/id/stations?RLOIid=3089'
       request.logger.info(`Testing connectivity to: ${testUrl}`)
 
       // No timeout - let it fail naturally to see the real error

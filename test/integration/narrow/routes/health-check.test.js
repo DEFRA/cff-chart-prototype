@@ -28,7 +28,7 @@ describe('Health Check Connectivity route - API reachable', () => {
       ok: true,
       status: HTTP_OK,
       statusText: 'OK',
-      json: async () => ({ items: [{ id: '8085', label: 'Test Station' }] })
+      json: async () => ({ items: [{ id: '3089', label: 'Test Station' }] })
     })
 
     const { result, statusCode } = await server.inject({

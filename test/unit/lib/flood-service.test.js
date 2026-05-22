@@ -79,17 +79,17 @@ describe('flood-service - getStation', () => {
         ok: true,
         json: async () => ({
           items: [{
-            RLOIid: '8085',
+            RLOIid: '3089',
             label: TEST_STATION_LABEL,
             riverName: 'Test River'
           }]
         })
       })
 
-      const result = await getStation('8085')
+      const result = await getStation('3089')
 
       expect(result).toMatchObject({
-        RLOIid: '8085',
+        RLOIid: '3089',
         label: TEST_STATION_LABEL
       })
     })
@@ -123,7 +123,7 @@ describe('flood-service - getStation', () => {
       globalThis.fetch.mockRejectedValueOnce(new Error(NETWORK_ERROR_MESSAGE))
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
-      const result = await getStation('8085')
+      const result = await getStation('3089')
 
       expect(result).toBeNull()
       expect(consoleSpy).toHaveBeenCalled()
@@ -167,7 +167,7 @@ describe('flood-service - getStationReadings', () => {
       })
 
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { })
-      const result = await getStationReadings('8085')
+      const result = await getStationReadings('3089')
 
       expect(result).toHaveLength(1)
       expect(result[0].value).toBe(0.5)
@@ -193,7 +193,7 @@ describe('flood-service - getStationReadings', () => {
       })
 
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { })
-      const result = await getStationReadings('8085')
+      const result = await getStationReadings('3089')
 
       expect(result).toEqual([])
       consoleSpy.mockRestore()
@@ -231,7 +231,7 @@ describe('flood-service - getStationReadings', () => {
         })
       })
 
-      const result = await getStationReadings('8085')
+      const result = await getStationReadings('3089')
 
       expect(result).toEqual([])
     })
@@ -249,7 +249,7 @@ describe('flood-service - getStationReadings', () => {
         })
       })
 
-      const result = await getStationReadings('8085')
+      const result = await getStationReadings('3089')
 
       expect(result).toEqual([])
     })
@@ -274,7 +274,7 @@ describe('flood-service - getStationReadings', () => {
       })
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
-      const result = await getStationReadings('8085')
+      const result = await getStationReadings('3089')
 
       expect(result).toEqual([])
       consoleSpy.mockRestore()
@@ -284,7 +284,7 @@ describe('flood-service - getStationReadings', () => {
       globalThis.fetch.mockRejectedValueOnce(new Error(NETWORK_ERROR_MESSAGE))
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
-      const result = await getStationReadings('8085')
+      const result = await getStationReadings('3089')
 
       expect(result).toEqual([])
       consoleSpy.mockRestore()
@@ -307,7 +307,7 @@ describe('flood-service - searchStations', () => {
         ok: true,
         json: async () => ({
           items: [
-            { RLOIid: '8085', label: 'Station 1' },
+            { RLOIid: '3089', label: 'Station 1' },
             { RLOIid: '8086', label: 'Station 2' }
           ]
         })
@@ -359,7 +359,7 @@ describe('flood-service - searchStations', () => {
 
 describe('formatStationData - Basic Operations', () => {
   const mockStation = {
-    RLOIid: 8085,
+    RLOIid: 3089,
     label: STATION_LABEL_TEME,
     riverName: RIVER_NAME_TEME,
     stationType: 'S',
@@ -381,7 +381,7 @@ describe('formatStationData - Basic Operations', () => {
     const result = formatStationData(mockStation, readings)
 
     expect(result).toMatchObject({
-      id: 8085,
+      id: 3089,
       name: STATION_LABEL_TEME,
       river: RIVER_NAME_TEME,
       type: 'S',
@@ -396,7 +396,7 @@ describe('formatStationData - Basic Operations', () => {
 
 describe('formatStationData - Trend Detection', () => {
   const mockStation = {
-    RLOIid: 8085,
+    RLOIid: 3089,
     label: STATION_LABEL_TEME,
     riverName: RIVER_NAME_TEME,
     stationType: 'S',
@@ -437,7 +437,7 @@ describe('formatStationData - Trend Detection', () => {
 
 describe('formatStationData - State Detection', () => {
   const mockStation = {
-    RLOIid: 8085,
+    RLOIid: 3089,
     label: STATION_LABEL_TEME,
     riverName: RIVER_NAME_TEME,
     stationType: 'S',
@@ -460,7 +460,7 @@ describe('formatStationData - State Detection', () => {
 
 describe('formatStationData - Edge Cases', () => {
   const mockStation = {
-    RLOIid: 8085,
+    RLOIid: 3089,
     label: STATION_LABEL_TEME,
     riverName: RIVER_NAME_TEME,
     stationType: 'S',
@@ -485,7 +485,7 @@ describe('formatStationData - Edge Cases', () => {
 
   it('should handle station without stageScale', () => {
     const stationWithoutScale = {
-      RLOIid: 8085,
+      RLOIid: 3089,
       label: TEST_STATION_LABEL,
       riverName: 'Test River'
     }
@@ -526,14 +526,14 @@ describe('formatStationData - Edge Cases', () => {
 
   it('should handle station with stationReference', () => {
     const stationWithRef = {
-      stationReference: 'E8085',
+      stationReference: 'E3089',
       town: 'Test Town'
     }
     const readings = []
 
     const result = formatStationData(stationWithRef, readings)
 
-    expect(result.id).toBe('E8085')
+    expect(result.id).toBe('E3089')
     expect(result.name).toBe('Test Town')
   })
 
