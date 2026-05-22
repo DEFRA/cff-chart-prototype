@@ -12,7 +12,7 @@ const DATETIME_4 = '2024-01-01T13:00:00Z'
 describe('flood-service edge cases', () => {
   describe('formatStationData edge cases', () => {
     const mockStation = {
-      RLOIid: '8085',
+      RLOIid: '3089',
       label: TEST_STATION_LABEL,
       riverName: TEST_RIVER_NAME,
       stageScale: {
@@ -94,7 +94,7 @@ describe('flood-service edge cases', () => {
 
     test('should handle station without stageScale', () => {
       const stationNoScale = {
-        RLOIid: '8085',
+        RLOIid: '3089',
         label: TEST_STATION_LABEL,
         riverName: TEST_RIVER_NAME
       }

@@ -51,7 +51,7 @@ describe('Auth plugin', () => {
     test('Should protect station route from unauthenticated access', async () => {
       const { statusCode, headers } = await server.inject({
         method: 'GET',
-        url: '/station?stationId=8085'
+        url: '/station?stationId=3089'
       })
 
       expect(statusCode).toBe(302)
@@ -71,7 +71,7 @@ describe('Auth plugin', () => {
       // Access station route
       const { statusCode } = await server.inject({
         method: 'GET',
-        url: '/station?stationId=8085',
+        url: '/station?stationId=3089',
         headers: { cookie }
       })
 
@@ -147,7 +147,7 @@ describe('Auth plugin', () => {
 
       const response2 = await server.inject({
         method: 'GET',
-        url: '/station?stationId=8085',
+        url: '/station?stationId=3089',
         headers: { cookie }
       })
 

@@ -3,7 +3,7 @@ import path from 'node:path'
 import { config } from '../config/config.js'
 import { lookupStationByRLOI, fetchHistoricReadings } from '../lib/hydrology-service.js'
 
-const PROTECTED_STATION = '8085'
+const PROTECTED_STATION = '3089'
 
 async function getStoredStations() {
   const dataDir = path.resolve(config.get('root'), 'data', 'historic')
@@ -90,7 +90,7 @@ export const admin = [
       const { rloiId } = request.payload
 
       if (rloiId === PROTECTED_STATION) {
-        return h.redirect('/admin?error=Cannot delete the default station (8085)')
+        return h.redirect('/admin?error=Cannot delete the default station (3089)')
       }
 
       try {

@@ -101,7 +101,7 @@ function formatXAxisLabels(d, i, nodes, showTime, isYearScale = false) {
   }
 
   if (isYearScale) {
-    element.append('tspan').text(timeFormat('%b \'%y')(new Date(d)))
+    element.append('tspan').text(timeFormat('%b %y')(new Date(d)))
     return
   }
 

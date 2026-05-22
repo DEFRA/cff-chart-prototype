@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { getStation, getStationReadings } from '../../../../src/lib/flood-service.js'
 
-const VALID_STATION_ID = 8085
+const VALID_STATION_ID = 3089
 const INVALID_STATION_ID = 999999
 
 describe('Flood Service Integration Tests', () => {
@@ -17,7 +17,7 @@ describe('Flood Service Integration Tests', () => {
 
       expect(result).toBeDefined()
       expect(result.stationReference).toBeTruthy() // Station reference differs from RLOIid
-      expect(result.RLOIid).toBe('8085')
+      expect(result.RLOIid).toBe('3089')
       expect(result.label).toBeTruthy()
       expect(result.riverName).toBeTruthy()
       expect(result.lat).toBeTypeOf('number')
@@ -40,7 +40,7 @@ describe('Flood Service Integration Tests', () => {
   })
 
   describe('getStationReadings', () => {
-    test('Should fetch telemetry readings for station 8085', async () => {
+    test('Should fetch telemetry readings for station 3089', async () => {
       const result = await getStationReadings(VALID_STATION_ID)
 
       expect(result).toBeDefined()

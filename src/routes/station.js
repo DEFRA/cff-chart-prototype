@@ -18,7 +18,7 @@ export const station = {
   method: 'GET',
   path: '/station',
   handler: async function (request, h) {
-    const { stationId = '8085', chartStyle = 'styleA' } = request.query
+    const { stationId = '3089', chartStyle = 'styleA' } = request.query
 
     try {
       request.logger.info(`Fetching station data for ID: ${stationId}, style: ${chartStyle}`)
