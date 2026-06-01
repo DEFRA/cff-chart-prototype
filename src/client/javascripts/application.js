@@ -19,6 +19,28 @@ const ARIA_DISABLED = 'aria-disabled'
 const ARIA_CURRENT = 'aria-current'
 const CHART_STYLE_C = 'styleC'
 const CHART_STYLE_B = 'styleB'
+const DOWNLOAD_CSV_BTN_ID = 'download-csv-btn'
+
+/**
+ * Enable or disable the download CSV button based on the current time filter
+ */
+function updateDownloadCsvState(currentFilter) {
+  const downloadBtn = document.getElementById(DOWNLOAD_CSV_BTN_ID)
+
+  if (!downloadBtn) {
+    return
+  }
+
+  if (currentFilter === DEFAULT_FILTER) {
+    downloadBtn.classList.remove('defra-button-secondary--disabled')
+    downloadBtn.removeAttribute(ARIA_DISABLED)
+    downloadBtn.removeAttribute('tabindex')
+  } else {
+    downloadBtn.classList.add('defra-button-secondary--disabled')
+    downloadBtn.setAttribute(ARIA_DISABLED, 'true')
+    downloadBtn.setAttribute('tabindex', '-1')
+  }
+}
 
 /**
  * Update filter link states based on historic data availability
@@ -154,6 +176,7 @@ function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, current
 
   updateTimeRangeLabel(currentFilter)
   updateActiveButtonState(currentFilter)
+  updateDownloadCsvState(currentFilter)
 
   lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
     timeRange: currentFilter,
@@ -183,6 +206,7 @@ function renderFilteredChart(stationId, realtimeTelemetry, mergedObserved, curre
 
   updateTimeRangeLabel(currentFilter)
   updateActiveButtonState(currentFilter)
+  updateDownloadCsvState(currentFilter)
 
   // Render the chart with filtered telemetry and time range
   lineChart(LINE_CHART_ID, stationId, filteredTelemetry, { timeRange: currentFilter })
@@ -210,6 +234,21 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
 
     // For Style A and B, use existing filter logic
     renderFilteredChart(stationId, realtimeTelemetry, mergedObserved, currentFilter.value, chartStyle)
+  }
+}
+
+/**
+ * Prevent click on disabled download CSV button
+ */
+function setupDownloadCsvHandler() {
+  const downloadBtn = document.getElementById(DOWNLOAD_CSV_BTN_ID)
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', function (e) {
+      if (this.getAttribute(ARIA_DISABLED) === 'true') {
+        e.preventDefault()
+      }
+    })
   }
 }
 
@@ -261,6 +300,7 @@ function initializeChartApp() {
 
   // Setup event handlers
   setupTimeFilterHandlers(currentFilter, renderChart)
+  setupDownloadCsvHandler()
 }
 
 // Initialize chart with historic data support

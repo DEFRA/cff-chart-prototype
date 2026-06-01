@@ -3,7 +3,6 @@ import {
   MARGIN_TOP,
   MARGIN_BOTTOM,
   MARGIN_LEFT,
-  MOBILE_MARGIN_RIGHT_BASE,
   DESKTOP_MARGIN_RIGHT_BASE,
   MARGIN_CHAR_MULTIPLIER,
   MOBILE_BREAKPOINT,
@@ -17,6 +16,9 @@ import { createTooltipManager, setupResponsiveHandlers } from './line-chart-inte
 
 const Y_AXIS_SAMPLE_TICK_COUNT = 6
 const MIN_Y_AXIS_LABEL_LENGTH = 3
+const MOBILE_MARGIN_LEFT = 8
+const MOBILE_MARGIN_RIGHT_BASE = 14
+const MOBILE_Y_LABEL_CHAR_WIDTH = 6
 
 function initializeZoom(config) {
   const {
@@ -85,6 +87,65 @@ function initializeZoom(config) {
   setupZoomControls(container, mainGroup, zoomRef.behavior)
 }
 
+function assignProcessedDataToState(stateRef, processedData) {
+  stateRef.lines = processedData.lines
+  stateRef.observedPoints = processedData.observedPoints
+  stateRef.forecastPoints = processedData.forecastPoints
+}
+
+function getLongestYAxisLabelLength(yScale) {
+  const yDomain = yScale.domain()
+  const yRange = yDomain[1] - yDomain[0]
+  const yAxisFormatter = getYAxisLabelFormatter(yRange)
+  const yLabelSamples = yScale.ticks(Y_AXIS_SAMPLE_TICK_COUNT).map(tick => yAxisFormatter(tick))
+
+  return yLabelSamples.reduce((max, label) => Math.max(max, label.length), MIN_Y_AXIS_LABEL_LENGTH)
+}
+
+function setChartMargins(stateRef, isMobile, longestYAxisLabelLength) {
+  const rightBase = isMobile ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE
+  const yLabelCharWidth = isMobile ? MOBILE_Y_LABEL_CHAR_WIDTH : MARGIN_CHAR_MULTIPLIER
+
+  stateRef.margin = {
+    top: MARGIN_TOP,
+    bottom: MARGIN_BOTTOM,
+    left: isMobile ? MOBILE_MARGIN_LEFT : MARGIN_LEFT,
+    right: rightBase + (longestYAxisLabelLength * yLabelCharWidth)
+  }
+}
+
+function setChartDimensionsFromContainer(container, stateRef) {
+  const containerRect = container.getBoundingClientRect()
+  stateRef.width = Math.floor(containerRect.width) - stateRef.margin.left - stateRef.margin.right
+  stateRef.height = Math.floor(containerRect.height) - stateRef.margin.top - stateRef.margin.bottom
+}
+
+function updateZoomViewport(zoomRef, stateRef) {
+  if (!zoomRef.rect || !zoomRef.behavior) {
+    return
+  }
+
+  zoomRef.rect
+    .attr('x', -stateRef.margin.left)
+    .attr('y', -stateRef.margin.top)
+    .attr('width', stateRef.width + stateRef.margin.left + stateRef.margin.right)
+    .attr('height', stateRef.height + stateRef.margin.top + stateRef.margin.bottom)
+
+  zoomRef.behavior
+    .translateExtent([[0, 0], [stateRef.width, stateRef.height]])
+    .extent([[0, 0], [stateRef.width, stateRef.height]])
+}
+
+function syncZoomBaseScales(zoomRef, stateRef) {
+  if (zoomRef.baseXScaleRef) {
+    zoomRef.baseXScaleRef.current = stateRef.xScale.copy()
+  }
+
+  if (zoomRef.baseYScaleRef) {
+    zoomRef.baseYScaleRef.current = stateRef.yScale.copy()
+  }
+}
+
 function createChartRenderer(config) {
   const {
     container,
@@ -100,9 +161,7 @@ function createChartRenderer(config) {
 
   return (zoomLevel = 1) => {
     const processedData = processData(dataCache, zoomLevel)
-    stateRef.lines = processedData.lines
-    stateRef.observedPoints = processedData.observedPoints
-    stateRef.forecastPoints = processedData.forecastPoints
+    assignProcessedDataToState(stateRef, processedData)
 
     if (!stateRef.lines || stateRef.lines.length === 0) {
       console.warn('No data to render')
@@ -114,22 +173,9 @@ function createChartRenderer(config) {
     stateRef.xExtent = xExtentNew
     stateRef.yScale = createYScale(stateRef.lines, dataCache.type, stateRef.height || DEFAULT_HEIGHT)
 
-    const yDomain = stateRef.yScale.domain()
-    const yRange = yDomain[1] - yDomain[0]
-    const yAxisFormatter = getYAxisLabelFormatter(yRange)
-    const yLabelSamples = stateRef.yScale.ticks(Y_AXIS_SAMPLE_TICK_COUNT).map(tick => yAxisFormatter(tick))
-    const longestYAxisLabelLength = yLabelSamples.reduce((max, label) => Math.max(max, label.length), MIN_Y_AXIS_LABEL_LENGTH)
-
-    stateRef.margin = {
-      top: MARGIN_TOP,
-      bottom: MARGIN_BOTTOM,
-      left: MARGIN_LEFT,
-      right: (isMobileRef.current ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (longestYAxisLabelLength * MARGIN_CHAR_MULTIPLIER)
-    }
-
-    const containerRect = container.getBoundingClientRect()
-    stateRef.width = Math.floor(containerRect.width) - stateRef.margin.left - stateRef.margin.right
-    stateRef.height = Math.floor(containerRect.height) - stateRef.margin.top - stateRef.margin.bottom
+    const longestYAxisLabelLength = getLongestYAxisLabelLength(stateRef.yScale)
+    setChartMargins(stateRef, isMobileRef.current, longestYAxisLabelLength)
+    setChartDimensionsFromContainer(container, stateRef)
 
     stateRef.xScale.range([0, stateRef.width])
     stateRef.yScale.range([stateRef.height, 0])
@@ -143,32 +189,16 @@ function createChartRenderer(config) {
       .attr('height', stateRef.height)
 
     renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange })
-    renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent)
-    updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current)
-    hideOverlappingTicks(svgElements.timeLabel)
+    renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent, timeRange)
+    updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current, timeRange)
+    hideOverlappingTicks(svgElements.timeLabel, timeRange)
     renderLines(svg, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, stateRef.height, dataCache.type)
     renderSignificantPoints(svgElements.significantContainer, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, timeRange)
 
     svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', stateRef.height)
 
-    if (zoomRef.rect && zoomRef.behavior) {
-      zoomRef.rect
-        .attr('x', -stateRef.margin.left)
-        .attr('y', -stateRef.margin.top)
-        .attr('width', stateRef.width + stateRef.margin.left + stateRef.margin.right)
-        .attr('height', stateRef.height + stateRef.margin.top + stateRef.margin.bottom)
-      zoomRef.behavior
-        .translateExtent([[0, 0], [stateRef.width, stateRef.height]])
-        .extent([[0, 0], [stateRef.width, stateRef.height]])
-    }
-
-    if (zoomRef.baseXScaleRef) {
-      zoomRef.baseXScaleRef.current = stateRef.xScale.copy()
-    }
-
-    if (zoomRef.baseYScaleRef) {
-      zoomRef.baseYScaleRef.current = stateRef.yScale.copy()
-    }
+    updateZoomViewport(zoomRef, stateRef)
+    syncZoomBaseScales(zoomRef, stateRef)
   }
 }
 

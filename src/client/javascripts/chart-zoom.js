@@ -37,11 +37,11 @@ export function createZoomHandler(config) {
 
     // Re-render axes and chart elements
     renderAxes(svg, { xScale: newXScale, yScale: newYScale, width, height, timeRange })
-    renderGridLines(svg, newXScale, newYScale, height, width, baseXScale.domain())
+    renderGridLines(svg, newXScale, newYScale, height, width, baseXScale.domain(), timeRange)
     renderLines(svg, newObservedPoints, newForecastPoints, newXScale, newYScale, height, dataCache.type)
     renderSignificantPoints(significantContainer, newObservedPoints, newForecastPoints, newXScale, newYScale, timeRange)
-    updateTimeIndicator(svg, timeLabel, timeLine, newXScale, height, isMobile)
-    hideOverlappingTicks(timeLabel)
+    updateTimeIndicator(svg, timeLabel, timeLine, newXScale, height, isMobile, timeRange)
+    hideOverlappingTicks(timeLabel, timeRange)
 
     if (container.updateZoomControls) {
       container.updateZoomControls(transform.k)
