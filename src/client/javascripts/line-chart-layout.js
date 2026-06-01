@@ -52,6 +52,20 @@ const MONTH_YEAR_LABEL_MODE = 'month-year'
 const MOBILE_CHART_WIDTH_THRESHOLD = 520
 const VERY_NARROW_CHART_WIDTH_THRESHOLD = 390
 const TIME_INDICATOR_RANGES = [FIVE_DAY_RANGE, ONE_MONTH_RANGE]
+const DEFAULT_REMOVE_LAST_N_TICKS = 0
+const ONE_MONTH_DAY_STEP_MOBILE = 4
+const ONE_MONTH_DAY_STEP_DESKTOP = 2
+const MONTH_STEP_MOBILE = 2
+const MONTH_STEP_DESKTOP = 1
+const THREE_YEAR_MONTH_STEP_VERY_NARROW = 8
+const THREE_YEAR_MONTH_STEP_NARROW = 6
+const THREE_YEAR_MONTH_STEP_DESKTOP = 3
+const FIVE_YEAR_MONTH_STEP_MOBILE = 12
+const FIVE_YEAR_MONTH_STEP_DESKTOP = 6
+const MOBILE_VIEWPORT_MAX_WIDTH_PX = 640
+const MOBILE_MAX_WIDTH_MEDIA_QUERY = `(max-width: ${MOBILE_VIEWPORT_MAX_WIDTH_PX}px)`
+const MOBILE_Y_TICK_TEXT_OFFSET = 6
+const MOBILE_TICK_OVERLAP_MARGIN = 2
 
 function getAdaptiveYTickCount(yRange) {
   if (yRange < Y_RANGE_SMALL_THRESHOLD) {
@@ -162,55 +176,61 @@ function generateOneMonthTicks(xExtent, dayStep = 2) {
   return ticks.length > 0 ? ticks : generateEvenlySpacedTicks(xExtent)
 }
 
+function getThreeYearMonthStep(isVeryNarrowChart, isNarrowChart) {
+  if (isVeryNarrowChart) {
+    return THREE_YEAR_MONTH_STEP_VERY_NARROW
+  }
+
+  if (isNarrowChart) {
+    return THREE_YEAR_MONTH_STEP_NARROW
+  }
+
+  return THREE_YEAR_MONTH_STEP_DESKTOP
+}
+
 function calculateTickInterval(xExtent, timeRange, width) {
   const isNarrowChart = width <= MOBILE_CHART_WIDTH_THRESHOLD
   const isVeryNarrowChart = width <= VERY_NARROW_CHART_WIDTH_THRESHOLD
+  const threeYearMonthStep = getThreeYearMonthStep(isVeryNarrowChart, isNarrowChart)
 
-  if (timeRange === FIVE_DAY_RANGE) {
-    return {
+  const configFactories = {
+    [FIVE_DAY_RANGE]: () => ({
       tickValues: generateFiveDayTicks(xExtent),
       labelMode: TIME_AND_DATE_LABEL_MODE,
-      removeLastNTicks: 0
-    }
-  }
-
-  if (timeRange === ONE_MONTH_RANGE) {
-    return {
-      tickValues: generateOneMonthTicks(xExtent, isNarrowChart ? 4 : 2),
+      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
+    }),
+    [ONE_MONTH_RANGE]: () => ({
+      tickValues: generateOneMonthTicks(xExtent, isNarrowChart ? ONE_MONTH_DAY_STEP_MOBILE : ONE_MONTH_DAY_STEP_DESKTOP),
       labelMode: DATE_LABEL_MODE,
-      removeLastNTicks: 0
-    }
-  }
-
-  if (timeRange === SIX_MONTH_RANGE || timeRange === ONE_YEAR_RANGE) {
-    return {
-      tickValues: generateMonthTicks(xExtent, isNarrowChart ? 2 : 1),
+      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
+    }),
+    [SIX_MONTH_RANGE]: () => ({
+      tickValues: generateMonthTicks(xExtent, isNarrowChart ? MONTH_STEP_MOBILE : MONTH_STEP_DESKTOP),
       labelMode: MONTH_YEAR_LABEL_MODE,
-      removeLastNTicks: 0
-    }
-  }
-
-  if (timeRange === THREE_YEAR_RANGE) {
-    return {
-      tickValues: generateMonthTicks(xExtent, isVeryNarrowChart ? 8 : (isNarrowChart ? 6 : 3)),
+      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
+    }),
+    [ONE_YEAR_RANGE]: () => ({
+      tickValues: generateMonthTicks(xExtent, isNarrowChart ? MONTH_STEP_MOBILE : MONTH_STEP_DESKTOP),
       labelMode: MONTH_YEAR_LABEL_MODE,
-      removeLastNTicks: 0
-    }
-  }
-
-  if (timeRange === FIVE_YEAR_RANGE) {
-    return {
-      tickValues: generateMonthTicks(xExtent, isNarrowChart ? 12 : 6),
+      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
+    }),
+    [THREE_YEAR_RANGE]: () => ({
+      tickValues: generateMonthTicks(xExtent, threeYearMonthStep),
       labelMode: MONTH_YEAR_LABEL_MODE,
-      removeLastNTicks: 0
-    }
+      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
+    }),
+    [FIVE_YEAR_RANGE]: () => ({
+      tickValues: generateMonthTicks(xExtent, isNarrowChart ? FIVE_YEAR_MONTH_STEP_MOBILE : FIVE_YEAR_MONTH_STEP_DESKTOP),
+      labelMode: MONTH_YEAR_LABEL_MODE,
+      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
+    })
   }
 
-  return {
+  return (configFactories[timeRange] ?? (() => ({
     tickValues: generateEvenlySpacedTicks(xExtent),
     labelMode: DATE_LABEL_MODE,
-    removeLastNTicks: 0
-  }
+    removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
+  })))()
 }
 
 function formatXAxisLabels(d, i, nodes, labelMode) {
@@ -304,7 +324,7 @@ function removeLastTickLabel(svg, count = 1) {
 function alignEdgeTickLabels(svg) {
   const xAxisTicks = svg.select('.x.axis').selectAll('.tick')
   const tickCount = xAxisTicks.size()
-  const isMobileViewport = globalThis.matchMedia && globalThis.matchMedia('(max-width: 640px)').matches
+  const isMobileViewport = globalThis.matchMedia?.(MOBILE_MAX_WIDTH_MEDIA_QUERY)?.matches ?? false
   const firstTickOffset = isMobileViewport ? '0' : '12'
 
   if (tickCount === 0) {
@@ -373,8 +393,8 @@ export function createYScale(lines, dataType, height) {
 
 export function renderAxes(svg, config) {
   const { xScale, yScale, width, height, timeRange } = config
-  const isMobileViewport = globalThis.matchMedia && globalThis.matchMedia('(max-width: 640px)').matches
-  const yTickTextOffset = isMobileViewport ? 6 : TICK_TEXT_OFFSET_X
+  const isMobileViewport = globalThis.matchMedia?.(MOBILE_MAX_WIDTH_MEDIA_QUERY)?.matches ?? false
+  const yTickTextOffset = isMobileViewport ? MOBILE_Y_TICK_TEXT_OFFSET : TICK_TEXT_OFFSET_X
   const visibleExtent = xScale.domain()
   const tickConfig = calculateTickInterval(visibleExtent, timeRange, width)
 
@@ -489,11 +509,64 @@ export function updateTimeIndicator(_svg, timeLabel, timeLine, xScale, height, i
     .text(timeFormat('%-e %b')(now))
 }
 
+function overlapsWithTimeLabel(textRect, isTimeLabelHidden, timeNowX, timeNowWidth, overlapMargin) {
+  if (isTimeLabelHidden) {
+    return false
+  }
+
+  return (textRect.right + overlapMargin) > timeNowX &&
+    textRect.left <= (timeNowX + timeNowWidth + overlapMargin)
+}
+
+function shouldHideTickLabel(isOverlapWithNow, isOverlapWithPreviousTick, preserveDenseDayTicks) {
+  if (preserveDenseDayTicks) {
+    return isOverlapWithNow
+  }
+
+  return isOverlapWithNow || isOverlapWithPreviousTick
+}
+
+function processTickVisibility(tick, context, lastVisibleTickRight) {
+  const tickSelection = select(tick)
+  const tickText = tickSelection.select('text')
+
+  if (tickText.empty()) {
+    tickSelection.classed('tick--hidden', false)
+    return lastVisibleTickRight
+  }
+
+  // Reset visibility before measuring, otherwise previously-hidden labels
+  // can report zero-width bounds after zoom/pan redraws.
+  tickText.style('display', null)
+
+  const textRect = tickText.node().getBoundingClientRect()
+  const isOverlapWithNow = overlapsWithTimeLabel(
+    textRect,
+    context.isTimeLabelHidden,
+    context.timeNowX,
+    context.timeNowWidth,
+    context.overlapMargin
+  )
+
+  const isOverlapWithPreviousTick = textRect.left <= (lastVisibleTickRight + context.overlapMargin)
+
+  const shouldHideTick = shouldHideTickLabel(
+    isOverlapWithNow,
+    isOverlapWithPreviousTick,
+    context.preserveDenseDayTicks
+  )
+
+  tickSelection.classed('tick--hidden', shouldHideTick)
+  tickText.style('display', shouldHideTick ? 'none' : null)
+
+  return shouldHideTick ? lastVisibleTickRight : textRect.right
+}
+
 export function hideOverlappingTicks(timeLabel, timeRange) {
   const ticks = selectAll('.x .tick')
   const timeLabelNode = timeLabel.node()
-  const isMobileViewport = globalThis.matchMedia && globalThis.matchMedia('(max-width: 640px)').matches
-  const overlapMargin = isMobileViewport ? 2 : TICK_OVERLAP_MARGIN
+  const isMobileViewport = globalThis.matchMedia?.(MOBILE_MAX_WIDTH_MEDIA_QUERY)?.matches ?? false
+  const overlapMargin = isMobileViewport ? MOBILE_TICK_OVERLAP_MARGIN : TICK_OVERLAP_MARGIN
   const preserveDenseDayTicks = isMobileViewport && timeRange === FIVE_DAY_RANGE
 
   if (!timeLabelNode) {
@@ -503,38 +576,17 @@ export function hideOverlappingTicks(timeLabel, timeRange) {
   const isTimeLabelHidden = timeLabel.style('display') === 'none'
   const timeNowX = timeLabelNode.getBoundingClientRect().left
   const timeNowWidth = timeLabelNode.getBoundingClientRect().width
+  const context = {
+    isTimeLabelHidden,
+    timeNowX,
+    timeNowWidth,
+    overlapMargin,
+    preserveDenseDayTicks
+  }
 
   let lastVisibleTickRight = Number.NEGATIVE_INFINITY
 
   for (const tick of ticks.nodes()) {
-    const tickSelection = select(tick)
-    const tickText = tickSelection.select('text')
-
-    if (tickText.empty()) {
-      tickSelection.classed('tick--hidden', false)
-      continue
-    }
-
-    // Reset visibility before measuring, otherwise previously-hidden labels
-    // can report zero-width bounds after zoom/pan redraws.
-    tickText.style('display', null)
-
-    const textRect = tickText.node().getBoundingClientRect()
-    const isOverlapWithNow = !isTimeLabelHidden &&
-      (textRect.right + overlapMargin) > timeNowX &&
-      textRect.left <= (timeNowX + timeNowWidth + overlapMargin)
-
-    const isOverlapWithPreviousTick = textRect.left <= (lastVisibleTickRight + overlapMargin)
-
-    const shouldHideTick = preserveDenseDayTicks
-      ? isOverlapWithNow
-      : (isOverlapWithNow || isOverlapWithPreviousTick)
-
-    tickSelection.classed('tick--hidden', shouldHideTick)
-    tickText.style('display', shouldHideTick ? 'none' : null)
-
-    if (!shouldHideTick) {
-      lastVisibleTickRight = textRect.right
-    }
+    lastVisibleTickRight = processTickVisibility(tick, context, lastVisibleTickRight)
   }
 }
