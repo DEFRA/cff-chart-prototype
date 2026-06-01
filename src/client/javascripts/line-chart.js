@@ -3,7 +3,6 @@ import {
   MARGIN_TOP,
   MARGIN_BOTTOM,
   MARGIN_LEFT,
-  MOBILE_MARGIN_RIGHT_BASE,
   DESKTOP_MARGIN_RIGHT_BASE,
   MARGIN_CHAR_MULTIPLIER,
   MOBILE_BREAKPOINT,
@@ -17,6 +16,9 @@ import { createTooltipManager, setupResponsiveHandlers } from './line-chart-inte
 
 const Y_AXIS_SAMPLE_TICK_COUNT = 6
 const MIN_Y_AXIS_LABEL_LENGTH = 3
+const MOBILE_MARGIN_LEFT = 8
+const MOBILE_MARGIN_RIGHT_BASE = 14
+const MOBILE_Y_LABEL_CHAR_WIDTH = 6
 
 function initializeZoom(config) {
   const {
@@ -120,11 +122,15 @@ function createChartRenderer(config) {
     const yLabelSamples = stateRef.yScale.ticks(Y_AXIS_SAMPLE_TICK_COUNT).map(tick => yAxisFormatter(tick))
     const longestYAxisLabelLength = yLabelSamples.reduce((max, label) => Math.max(max, label.length), MIN_Y_AXIS_LABEL_LENGTH)
 
+    const isMobile = isMobileRef.current
+    const rightBase = isMobile ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE
+    const yLabelCharWidth = isMobile ? MOBILE_Y_LABEL_CHAR_WIDTH : MARGIN_CHAR_MULTIPLIER
+
     stateRef.margin = {
       top: MARGIN_TOP,
       bottom: MARGIN_BOTTOM,
-      left: MARGIN_LEFT,
-      right: (isMobileRef.current ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE) + (longestYAxisLabelLength * MARGIN_CHAR_MULTIPLIER)
+      left: isMobile ? MOBILE_MARGIN_LEFT : MARGIN_LEFT,
+      right: rightBase + (longestYAxisLabelLength * yLabelCharWidth)
     }
 
     const containerRect = container.getBoundingClientRect()
@@ -143,9 +149,9 @@ function createChartRenderer(config) {
       .attr('height', stateRef.height)
 
     renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange })
-    renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent)
-    updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current)
-    hideOverlappingTicks(svgElements.timeLabel)
+    renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent, timeRange)
+    updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current, timeRange)
+    hideOverlappingTicks(svgElements.timeLabel, timeRange)
     renderLines(svg, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, stateRef.height, dataCache.type)
     renderSignificantPoints(svgElements.significantContainer, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, timeRange)
 

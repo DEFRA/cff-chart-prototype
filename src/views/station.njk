@@ -201,19 +201,19 @@
           <button type="button" id="zoom-in-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom in" aria-controls="line-chart-visualisation" title="Zoom in">
             +
           </button>
-          <button type="button" id="zoom-reset-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Reset chart view" aria-controls="line-chart-visualisation">
-            Reset view
+          <button type="button" id="zoom-reset-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0 defra-line-chart__reset-btn" data-module="govuk-button" aria-label="Reset chart view" aria-controls="line-chart-visualisation">
+            <span class="defra-line-chart__reset-full">Reset view</span><span class="defra-line-chart__reset-short">Reset</span>
           </button>
         </div>
       </div>
       {% endif %}
 
       <div class="defra-line-chart__actions">
-        <a href="/station-csv/{{ station.id }}" class="defra-button-secondary govuk-!-margin-bottom-0">
+        <a href="/station-csv/{{ station.id }}" id="download-csv-btn" class="defra-button-secondary govuk-!-margin-bottom-0">
           <span class="defra-button-secondary__icon"></span>
           <span class="defra-button-secondary__text">Download data CSV (12KB)</span>
         </a>
-        
+
       </div>
     </div>
   </div>

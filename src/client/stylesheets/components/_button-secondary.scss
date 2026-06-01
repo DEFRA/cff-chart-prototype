@@ -30,6 +30,16 @@
     top: 2px;
     box-shadow: none;
   }
+
+  &--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+
+    &:hover {
+      background-color: govuk.govuk-colour("white");
+    }
+  }
 }
 
 .defra-button-secondary__icon {

@@ -30,7 +30,15 @@
     &--active {
       color: #0b0c0c;
       font-weight: 700;
-      text-decoration-thickness: 3px;
+      text-decoration: none;
+
+      &:link,
+      &:visited,
+      &:hover,
+      &:active {
+        color: #0b0c0c;
+        text-decoration: none;
+      }
     }
 
     &--disabled {
@@ -61,6 +69,24 @@
 
       &:disabled {
         opacity: 0.55;
+      }
+    }
+
+    .defra-line-chart__reset-btn {
+      white-space: nowrap;
+    }
+
+    .defra-line-chart__reset-short {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      .defra-line-chart__reset-full {
+        display: none;
+      }
+
+      .defra-line-chart__reset-short {
+        display: inline;
       }
     }
   }
@@ -307,6 +333,18 @@
             r: 7;
           }
         }
+      }
+    }
+
+    @media (max-width: 640px) {
+      .axis {
+        text {
+          font-size: 13px;
+        }
+      }
+
+      .time-now-text {
+        font-size: 14px;
       }
     }
   }
