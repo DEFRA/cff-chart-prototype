@@ -139,13 +139,14 @@ describe('application - Threshold Control Handlers', () => {
         'top-normal': false
       }
 
-      const activeThresholdId = 'current-level'
+      const enabledCount = Object.values(thresholdState).filter(v => v).length
 
       // Uncheck highest-level (already unchecked)
       thresholdState['highest-level'] = false
       // activeThresholdId should remain current-level
 
-      expect(activeThresholdId).toBe('current-level')
+      expect(enabledCount).toBe(1)
+      expect(thresholdState['current-level']).toBe(true)
     })
   })
 
@@ -157,11 +158,11 @@ describe('application - Threshold Control Handlers', () => {
         'top-normal': true
       }
 
-      const activeThresholdId = 'highest-level'
-
       const enabledCount = Object.values(thresholdState).filter(v => v).length
+      const enabledIds = Object.keys(thresholdState).filter(key => thresholdState[key])
+
       expect(enabledCount).toBe(3)
-      expect(activeThresholdId).toBe('highest-level')
+      expect(enabledIds).toContain('highest-level')
     })
 
     test('clicking another threshold while multiple enabled switches active', () => {

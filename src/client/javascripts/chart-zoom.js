@@ -44,10 +44,10 @@ export function createZoomHandler(config) {
       svg.select('.thresholds'),
       width,
       newYScale,
-      thresholds,
       onThresholdDismiss,
       onThresholdActivate,
-      typeof getActiveThresholdId === 'function' ? getActiveThresholdId() : null
+      typeof getActiveThresholdId === 'function' ? getActiveThresholdId() : null,
+      thresholds
     )
     renderSignificantPoints(significantContainer, newObservedPoints, newForecastPoints, newXScale, newYScale, timeRange)
     updateTimeIndicator(svg, timeLabel, timeLine, newXScale, height, isMobile, timeRange)

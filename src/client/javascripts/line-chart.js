@@ -259,10 +259,10 @@ function createChartRenderer(config) {
       svgElements.thresholdsContainer,
       stateRef.width,
       stateRef.yScale,
-      stateRef.thresholds,
       dismissThreshold,
       activateThreshold,
-      stateRef.activeThresholdId
+      stateRef.activeThresholdId,
+      stateRef.thresholds
     )
     renderSignificantPoints(svgElements.significantContainer, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, timeRange)
 
@@ -426,7 +426,9 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     stateRef: context.stateRef,
     onThresholdLineHover: (hoveredThresholdId) => {
       const svgNode = context.svg.node()
-      if (!svgNode) return
+      if (!svgNode) {
+        return
+      }
       context.svg.classed('chart--threshold-line-hover', Boolean(hoveredThresholdId))
       context.svg.selectAll('.thresholds .threshold').classed('threshold--line-hover', false)
 

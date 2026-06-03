@@ -45,7 +45,7 @@ describe('renderThresholds - Multi-Threshold Behavior', () => {
     const thresholdsContainer = select(svgElement).select('.thresholds')
     const yScale = mockYScale()
 
-    renderThresholds(thresholdsContainer, 800, yScale, thresholdsData, () => {}, () => {}, 'top-normal')
+    renderThresholds(thresholdsContainer, 800, yScale, () => {}, () => {}, 'top-normal', thresholdsData)
 
     const thresholdGroups = thresholdsContainer.selectAll('.threshold').nodes()
     expect(thresholdGroups).toHaveLength(3)
@@ -69,7 +69,7 @@ describe('renderThresholds - Multi-Threshold Behavior', () => {
     const thresholdsContainer = select(svgElement).select('.thresholds')
     const yScale = mockYScale()
 
-    renderThresholds(thresholdsContainer, 800, yScale, thresholdsData, () => {}, () => {}, 'top-normal')
+    renderThresholds(thresholdsContainer, 800, yScale, () => {}, () => {}, 'top-normal', thresholdsData)
 
     const labels = thresholdsContainer.selectAll('.threshold-label').nodes()
     expect(labels.length).toBeGreaterThan(0)
@@ -85,7 +85,7 @@ describe('renderThresholds - Multi-Threshold Behavior', () => {
     const yScale = mockYScale()
 
     const onActivate = vi.fn()
-    renderThresholds(thresholdsContainer, 800, yScale, thresholdsData, () => {}, onActivate, null)
+    renderThresholds(thresholdsContainer, 800, yScale, () => {}, onActivate, null, thresholdsData)
 
     const hitArea = thresholdsContainer.select('.threshold__hit-area')
     expect(hitArea.empty()).toBe(false)
@@ -103,7 +103,7 @@ describe('renderThresholds - Multi-Threshold Behavior', () => {
     const thresholdsContainer = select(svgElement).select('.thresholds')
     const yScale = mockYScale()
 
-    renderThresholds(thresholdsContainer, 800, yScale, thresholdsData, () => {}, () => {}, 'top-normal')
+    renderThresholds(thresholdsContainer, 800, yScale, () => {}, () => {}, 'top-normal', thresholdsData)
 
     const closeHitArea = thresholdsContainer.select('.threshold-label__close-hit-area')
     expect(closeHitArea.empty()).toBe(false)
@@ -122,7 +122,7 @@ describe('renderThresholds - Multi-Threshold Behavior', () => {
     yScale.range = () => [100, 0]
     yScale.domain = () => [0, 1]
 
-    renderThresholds(thresholdsContainer, 800, yScale, thresholdsData, () => {}, () => {}, 'highest-level')
+    renderThresholds(thresholdsContainer, 800, yScale, () => {}, () => {}, 'highest-level', thresholdsData)
 
     const labelPath = thresholdsContainer.select('.threshold-label__bg').attr('d')
     expect(labelPath).toBeDefined()
@@ -139,7 +139,7 @@ describe('renderThresholds - Multi-Threshold Behavior', () => {
     const thresholdsContainer = select(svgElement).select('.thresholds')
     const yScale = mockYScale()
 
-    renderThresholds(thresholdsContainer, 800, yScale, thresholdsData, () => {}, () => {}, null)
+    renderThresholds(thresholdsContainer, 800, yScale, () => {}, () => {}, null, thresholdsData)
 
     const closeButton = thresholdsContainer.select('.threshold-label__close')
     expect(closeButton.empty()).toBe(true)

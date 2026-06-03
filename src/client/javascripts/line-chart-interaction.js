@@ -2,6 +2,8 @@ import { timeFormat } from 'd3-time-format'
 import { select } from 'd3-selection'
 import { TOOLTIP_TEXT_HEIGHT_OFFSET, TOOLTIP_PATH_LENGTH, TOOLTIP_PATH_LENGTH_WIDE, TOOLTIP_MARGIN_TOP, TOOLTIP_MARGIN_BOTTOM_OFFSET, TOOLTIP_VERTICAL_OFFSET } from './line-chart-constants.js'
 
+const THRESHOLD_DETECTION_TOLERANCE_PX = 12
+
 export function createTooltipManager(tooltipConfig) {
   const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, getHeight, dataType, latestDateTime, timeRange } = tooltipConfig
 
@@ -102,11 +104,43 @@ function findDataPointByX(x, lines, xScale) {
   return closestPoint
 }
 
+function detectNearestThreshold(chartY, yScale, thresholds) {
+  const enabledThresholds = thresholds?.filter(t => t.enabled) || []
+  let nearestThresholdId = null
+  let nearestDiff = Number.POSITIVE_INFINITY
+
+  for (const threshold of enabledThresholds) {
+    const thresholdY = yScale(threshold.value)
+    const diff = Math.abs(chartY - thresholdY)
+    if (diff <= THRESHOLD_DETECTION_TOLERANCE_PX && diff < nearestDiff) {
+      nearestDiff = diff
+      nearestThresholdId = threshold.id
+    }
+  }
+
+  return nearestThresholdId
+}
+
+function attachEventListeners(svgNode, container, handleClick, handleMouseMove, handleTouchMove, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef) {
+  svgNode.addEventListener('click', handleClick)
+  svgNode.addEventListener('mousemove', handleMouseMove)
+  svgNode.addEventListener('touchstart', () => { interfaceTypeRef.value = 'touch' })
+  svgNode.addEventListener('touchmove', handleTouchMove)
+  svgNode.addEventListener('touchend', () => { interfaceTypeRef.value = null })
+  container.addEventListener('mouseleave', () => {
+    tooltipManager.hide()
+    if (hoveredThresholdIdRef.value && typeof onThresholdLineHover === 'function') {
+      hoveredThresholdIdRef.value = null
+      onThresholdLineHover(null)
+    }
+  })
+}
+
 export function setupEventHandlers(container, svg, getState, tooltipManager, onThresholdLineHover) {
-  let interfaceType = null
+  const interfaceTypeRef = { value: null }
+  const hoveredThresholdIdRef = { value: null }
   let lastClientX
   let lastClientY
-  let hoveredThresholdId = null
 
   const getMousePosition = (e, svgElement) => {
     const rect = svgElement.getBoundingClientRect()
@@ -121,17 +155,17 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
     lastClientX = e.clientX
     lastClientY = e.clientY
 
-    const { margin, lines, xScale, yScale } = getState()
+    const { margin, lines, xScale, yScale, thresholds } = getState()
     if (!xScale) {
       return
     }
 
-    if (interfaceType === 'touch') {
-      interfaceType = 'mouse'
+    if (interfaceTypeRef.value === 'touch') {
+      interfaceTypeRef.value = 'mouse'
       return
     }
 
-    interfaceType = 'mouse'
+    interfaceTypeRef.value = 'mouse'
     const [mouseX, mouseY] = getMousePosition(e, svg.node())
     const chartX = mouseX - margin.left
     const chartY = mouseY - margin.top
@@ -139,21 +173,10 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
     tooltipManager.show(dataPoint, chartY, xScale, yScale)
 
     if (typeof onThresholdLineHover === 'function' && yScale) {
-      const enabledThresholds = getState().thresholds?.filter(t => t.enabled) || []
-      let nearestThresholdId = null
-      let nearestDiff = Number.POSITIVE_INFINITY
+      const nearestThresholdId = detectNearestThreshold(chartY, yScale, thresholds)
 
-      for (const threshold of enabledThresholds) {
-        const thresholdY = yScale(threshold.value)
-        const diff = Math.abs(chartY - thresholdY)
-        if (diff <= 12 && diff < nearestDiff) {
-          nearestDiff = diff
-          nearestThresholdId = threshold.id
-        }
-      }
-
-      if (nearestThresholdId !== hoveredThresholdId) {
-        hoveredThresholdId = nearestThresholdId
+      if (nearestThresholdId !== hoveredThresholdIdRef.value) {
+        hoveredThresholdIdRef.value = nearestThresholdId
         onThresholdLineHover(nearestThresholdId)
       }
     }
@@ -184,18 +207,7 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
   }
 
   const svgNode = svg.node()
-  svgNode.addEventListener('click', handleClick)
-  svgNode.addEventListener('mousemove', handleMouseMove)
-  svgNode.addEventListener('touchstart', () => { interfaceType = 'touch' })
-  svgNode.addEventListener('touchmove', handleTouchMove)
-  svgNode.addEventListener('touchend', () => { interfaceType = null })
-  container.addEventListener('mouseleave', () => {
-    tooltipManager.hide()
-    if (hoveredThresholdId && typeof onThresholdLineHover === 'function') {
-      hoveredThresholdId = null
-      onThresholdLineHover(null)
-    }
-  })
+  attachEventListeners(svgNode, container, handleClick, handleMouseMove, handleTouchMove, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef)
 }
 
 export function setupResponsiveHandlers(config) {

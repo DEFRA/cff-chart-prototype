@@ -196,6 +196,11 @@ function updateFilterButtonStates(hasHistoricData) {
         link.classList.add('time-filter-link--disabled')
         link.setAttribute('tabindex', '-1')
       }
+    } else {
+      // Default filter (5d) is always enabled
+      link.removeAttribute(ARIA_DISABLED)
+      link.classList.remove('time-filter-link--disabled')
+      link.removeAttribute('tabindex')
     }
   })
 }
