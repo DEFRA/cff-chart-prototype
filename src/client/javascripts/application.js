@@ -15,11 +15,151 @@ initAll()
 const LINE_CHART_ID = 'line-chart'
 const DEFAULT_FILTER = '5d'
 const TIME_FILTER_LINK_SELECTOR = '.time-filter-link'
+const TIME_FILTER_LINK_DISABLED_CLASS = 'time-filter-link--disabled'
 const ARIA_DISABLED = 'aria-disabled'
 const ARIA_CURRENT = 'aria-current'
 const CHART_STYLE_C = 'styleC'
 const CHART_STYLE_B = 'styleB'
 const DOWNLOAD_CSV_BTN_ID = 'download-csv-btn'
+const DEFAULT_CURRENT_LEVEL = 0.28
+const DEFAULT_HIGHEST_LEVEL = 0.64
+const DEFAULT_TOP_NORMAL_LEVEL = 0.5
+const THRESHOLD_CURRENT_LEVEL_ID = 'current-level'
+const THRESHOLD_HIGHEST_LEVEL_ID = 'highest-level'
+const THRESHOLD_TOP_NORMAL_ID = 'top-normal'
+
+const THRESHOLD_CONTROL_CONFIG = {
+  [THRESHOLD_CURRENT_LEVEL_ID]: {
+    inputId: 'threshold-current-level',
+    labelId: 'threshold-current-level-label'
+  },
+  [THRESHOLD_HIGHEST_LEVEL_ID]: {
+    inputId: 'threshold-highest-level',
+    labelId: 'threshold-highest-level-label'
+  },
+  [THRESHOLD_TOP_NORMAL_ID]: {
+    inputId: 'threshold-top-normal',
+    labelId: 'threshold-top-normal-label'
+  }
+}
+
+function formatMetres(value, decimals = 2) {
+  return `${Number(value).toFixed(decimals)}m`
+}
+
+function getDefaultActiveThresholdId(thresholdState) {
+  if (thresholdState[THRESHOLD_TOP_NORMAL_ID]) {
+    return THRESHOLD_TOP_NORMAL_ID
+  }
+
+  if (thresholdState[THRESHOLD_HIGHEST_LEVEL_ID]) {
+    return THRESHOLD_HIGHEST_LEVEL_ID
+  }
+
+  if (thresholdState[THRESHOLD_CURRENT_LEVEL_ID]) {
+    return THRESHOLD_CURRENT_LEVEL_ID
+  }
+
+  return null
+}
+
+function getThresholdMetrics(observed = []) {
+  const latestValue = observed.length > 0
+    ? Number(observed[observed.length - 1].value)
+    : DEFAULT_CURRENT_LEVEL
+
+  const highestValue = observed.length > 0
+    ? observed.reduce((max, point) => Math.max(max, Number(point.value)), Number.NEGATIVE_INFINITY)
+    : DEFAULT_HIGHEST_LEVEL
+
+  return {
+    currentLevel: Number.isFinite(latestValue) ? latestValue : DEFAULT_CURRENT_LEVEL,
+    highestLevel: Number.isFinite(highestValue) ? highestValue : DEFAULT_HIGHEST_LEVEL,
+    topNormal: DEFAULT_TOP_NORMAL_LEVEL
+  }
+}
+
+function buildThresholds(metrics, thresholdState) {
+  return [
+    {
+      id: THRESHOLD_CURRENT_LEVEL_ID,
+      label: `current level (${formatMetres(metrics.currentLevel)})`,
+      shortLabel: `${formatMetres(metrics.currentLevel)} Current level`,
+      value: metrics.currentLevel,
+      enabled: thresholdState[THRESHOLD_CURRENT_LEVEL_ID],
+      showLabel: thresholdState[THRESHOLD_CURRENT_LEVEL_ID],
+      dismissible: false
+    },
+    {
+      id: THRESHOLD_HIGHEST_LEVEL_ID,
+      label: `highest level (${formatMetres(metrics.highestLevel)})`,
+      shortLabel: `${formatMetres(metrics.highestLevel)} Highest level`,
+      value: metrics.highestLevel,
+      enabled: thresholdState[THRESHOLD_HIGHEST_LEVEL_ID],
+      showLabel: thresholdState[THRESHOLD_HIGHEST_LEVEL_ID],
+      dismissible: false
+    },
+    {
+      id: THRESHOLD_TOP_NORMAL_ID,
+      label: `top of normal range (${formatMetres(metrics.topNormal)})`,
+      shortLabel: `${formatMetres(metrics.topNormal)} Top of normal range`,
+      value: metrics.topNormal,
+      enabled: thresholdState[THRESHOLD_TOP_NORMAL_ID],
+      showLabel: thresholdState[THRESHOLD_TOP_NORMAL_ID],
+      dismissible: true
+    }
+  ]
+}
+
+function updateThresholdControls(metrics, thresholdState) {
+  const currentLabel = document.getElementById(THRESHOLD_CONTROL_CONFIG[THRESHOLD_CURRENT_LEVEL_ID].labelId)
+  const highestLabel = document.getElementById(THRESHOLD_CONTROL_CONFIG[THRESHOLD_HIGHEST_LEVEL_ID].labelId)
+  const topNormalLabel = document.getElementById(THRESHOLD_CONTROL_CONFIG[THRESHOLD_TOP_NORMAL_ID].labelId)
+
+  if (currentLabel) {
+    currentLabel.textContent = `Show current level (${formatMetres(metrics.currentLevel)})`
+  }
+
+  if (highestLabel) {
+    highestLabel.textContent = `Show highest level recorded at this measuring station (${formatMetres(metrics.highestLevel)})`
+  }
+
+  if (topNormalLabel) {
+    topNormalLabel.textContent = `Show top of normal range (${formatMetres(metrics.topNormal)}). Low-lying land flooding possible above this level`
+  }
+
+  for (const thresholdId of Object.keys(THRESHOLD_CONTROL_CONFIG)) {
+    const checkbox = document.getElementById(THRESHOLD_CONTROL_CONFIG[thresholdId].inputId)
+    if (checkbox) {
+      checkbox.checked = !!thresholdState[thresholdId]
+    }
+  }
+}
+
+function setupThresholdControlHandlers(thresholdState, activeThresholdRef, renderChart) {
+  for (const thresholdId of Object.keys(THRESHOLD_CONTROL_CONFIG)) {
+    const checkbox = document.getElementById(THRESHOLD_CONTROL_CONFIG[thresholdId].inputId)
+
+    if (!checkbox || checkbox.dataset.listenersBound === 'true') {
+      continue
+    }
+
+    checkbox.dataset.listenersBound = 'true'
+    checkbox.addEventListener('change', function () {
+      thresholdState[thresholdId] = this.checked
+
+      if (this.checked) {
+        activeThresholdRef.value = thresholdId
+      } else if (activeThresholdRef.value === thresholdId) {
+        activeThresholdRef.value = getDefaultActiveThresholdId(thresholdState)
+      } else {
+        // Unchecked but not the active threshold, no state change needed
+      }
+
+      renderChart()
+    })
+  }
+}
 
 /**
  * Enable or disable the download CSV button based on the current time filter
@@ -52,13 +192,18 @@ function updateFilterButtonStates(hasHistoricData) {
     if (filter !== DEFAULT_FILTER) {
       if (hasHistoricData) {
         link.removeAttribute(ARIA_DISABLED)
-        link.classList.remove('time-filter-link--disabled')
+        link.classList.remove(TIME_FILTER_LINK_DISABLED_CLASS)
         link.removeAttribute('tabindex')
       } else {
         link.setAttribute(ARIA_DISABLED, 'true')
-        link.classList.add('time-filter-link--disabled')
+        link.classList.add(TIME_FILTER_LINK_DISABLED_CLASS)
         link.setAttribute('tabindex', '-1')
       }
+    } else {
+      // Default filter (5d) is always enabled
+      link.removeAttribute(ARIA_DISABLED)
+      link.classList.remove(TIME_FILTER_LINK_DISABLED_CLASS)
+      link.removeAttribute('tabindex')
     }
   })
 }
@@ -163,7 +308,7 @@ function setupZoomControls() {
 /**
  * Render chart for Style C (zoom/pan)
  */
-function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter) {
+function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholds, onThresholdDismiss, activeThresholdRef) {
   const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
   const processedObserved = currentFilter === '3y'
     ? downsampleForStyleB(filteredObserved, currentFilter)
@@ -180,7 +325,13 @@ function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, current
 
   lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
     timeRange: currentFilter,
-    enableZoom: true
+    enableZoom: true,
+    thresholds,
+    activeThresholdId: activeThresholdRef.value,
+    onThresholdDismiss,
+    onThresholdActivate: (thresholdId) => {
+      activeThresholdRef.value = thresholdId
+    }
   })
 
   setupZoomControls()
@@ -215,7 +366,7 @@ function renderFilteredChart(stationId, realtimeTelemetry, mergedObserved, curre
 /**
  * Render the chart with current filter and data
  */
-function createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter) {
+function createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter, thresholdState, activeThresholdRef) {
   return () => {
     // Get the observed data array from telemetry
     const realtimeObserved = realtimeTelemetry?.observed || []
@@ -228,7 +379,18 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
 
     // Handle Chart Style C (zoom/pan) differently
     if (chartStyle === CHART_STYLE_C) {
-      renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter.value)
+      const thresholdMetrics = getThresholdMetrics(mergedObserved)
+      const thresholds = buildThresholds(thresholdMetrics, thresholdState)
+      const onThresholdDismiss = (thresholdId) => {
+        thresholdState[thresholdId] = false
+        if (activeThresholdRef.value === thresholdId) {
+          activeThresholdRef.value = getDefaultActiveThresholdId(thresholdState)
+        }
+        updateThresholdControls(thresholdMetrics, thresholdState)
+      }
+
+      updateThresholdControls(thresholdMetrics, thresholdState)
+      renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter.value, thresholds, onThresholdDismiss, activeThresholdRef)
       return
     }
 
@@ -285,11 +447,17 @@ function initializeChartApp() {
 
   // Current filter state (using object to allow mutation in closure)
   const currentFilter = { value: DEFAULT_FILTER }
+  const thresholdState = {
+    [THRESHOLD_CURRENT_LEVEL_ID]: false,
+    [THRESHOLD_HIGHEST_LEVEL_ID]: false,
+    [THRESHOLD_TOP_NORMAL_ID]: true
+  }
+  const activeThresholdRef = { value: THRESHOLD_TOP_NORMAL_ID }
 
   const historicDataRef = { data: globalThis.flood?.model?.historicData || [] }
 
   // Create render function
-  const renderChart = createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter)
+  const renderChart = createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter, thresholdState, activeThresholdRef)
 
   // Initial render with default filter (5 days)
   renderChart()
@@ -300,6 +468,7 @@ function initializeChartApp() {
 
   // Setup event handlers
   setupTimeFilterHandlers(currentFilter, renderChart)
+  setupThresholdControlHandlers(thresholdState, activeThresholdRef, renderChart)
   setupDownloadCsvHandler()
 }
 

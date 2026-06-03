@@ -28,6 +28,7 @@ const REDUCED_TICK_COUNT = 4
 const FIVE_DAY_RANGE = '5d'
 const ONE_MONTH_RANGE = '1m'
 const SIX_MONTH_RANGE = '6m'
+const TICK_HIDDEN_CLASS = 'tick--hidden'
 const ONE_YEAR_RANGE = '1y'
 const THREE_YEAR_RANGE = '3y'
 const FIVE_YEAR_RANGE = '5y'
@@ -51,15 +52,17 @@ const TIME_AND_DATE_LABEL_MODE = 'time-date'
 const MONTH_YEAR_LABEL_MODE = 'month-year'
 const MOBILE_CHART_WIDTH_THRESHOLD = 520
 const VERY_NARROW_CHART_WIDTH_THRESHOLD = 390
-const TIME_INDICATOR_RANGES = [FIVE_DAY_RANGE, ONE_MONTH_RANGE]
+const TIME_INDICATOR_RANGES = [FIVE_DAY_RANGE, ONE_MONTH_RANGE, SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE, FIVE_YEAR_RANGE]
 const DEFAULT_REMOVE_LAST_N_TICKS = 0
 const ONE_MONTH_DAY_STEP_MOBILE = 4
 const ONE_MONTH_DAY_STEP_DESKTOP = 2
-const MONTH_STEP_MOBILE = 2
+const MONTH_STEP_MOBILE = 1
 const MONTH_STEP_DESKTOP = 1
-const THREE_YEAR_MONTH_STEP_VERY_NARROW = 8
-const THREE_YEAR_MONTH_STEP_NARROW = 6
-const THREE_YEAR_MONTH_STEP_DESKTOP = 3
+const ONE_YEAR_MONTH_STEP_MOBILE = 2
+const ONE_YEAR_MONTH_STEP_DESKTOP = 1
+const THREE_YEAR_MONTH_STEP_VERY_NARROW = 6
+const THREE_YEAR_MONTH_STEP_NARROW = 4
+const THREE_YEAR_MONTH_STEP_DESKTOP = 2
 const FIVE_YEAR_MONTH_STEP_MOBILE = 12
 const FIVE_YEAR_MONTH_STEP_DESKTOP = 6
 const MOBILE_VIEWPORT_MAX_WIDTH_PX = 640
@@ -210,7 +213,7 @@ function calculateTickInterval(xExtent, timeRange, width) {
       removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
     }),
     [ONE_YEAR_RANGE]: () => ({
-      tickValues: generateMonthTicks(xExtent, isNarrowChart ? MONTH_STEP_MOBILE : MONTH_STEP_DESKTOP),
+      tickValues: generateMonthTicks(xExtent, isNarrowChart ? ONE_YEAR_MONTH_STEP_MOBILE : ONE_YEAR_MONTH_STEP_DESKTOP),
       labelMode: MONTH_YEAR_LABEL_MODE,
       removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
     }),
@@ -531,7 +534,7 @@ function processTickVisibility(tick, context, lastVisibleTickRight) {
   const tickText = tickSelection.select('text')
 
   if (tickText.empty()) {
-    tickSelection.classed('tick--hidden', false)
+    tickSelection.classed(TICK_HIDDEN_CLASS, false)
     return lastVisibleTickRight
   }
 
@@ -556,10 +559,43 @@ function processTickVisibility(tick, context, lastVisibleTickRight) {
     context.preserveDenseDayTicks
   )
 
-  tickSelection.classed('tick--hidden', shouldHideTick)
+  tickSelection.classed(TICK_HIDDEN_CLASS, shouldHideTick)
   tickText.style('display', shouldHideTick ? 'none' : null)
 
   return shouldHideTick ? lastVisibleTickRight : textRect.right
+}
+
+function shouldSkipOverlapDetection(timeRange, isMobileViewport, timeLabelNode, timeLabelRect) {
+  if (timeRange === FIVE_DAY_RANGE && !isMobileViewport) {
+    return true
+  }
+
+  if (!timeLabelNode) {
+    return true
+  }
+
+  if (timeLabelRect.width === 0 || timeLabelRect.height === 0) {
+    return true
+  }
+
+  if (timeLabelRect.left <= 0 || timeLabelRect.right <= 0) {
+    return true
+  }
+
+  return false
+}
+
+function buildTickContext(timeLabel, _isMobileViewport, overlapMargin, preserveDenseDayTicks) {
+  const timeLabelRect = timeLabel.node().getBoundingClientRect()
+  const isTimeLabelHidden = timeLabel.style('display') === 'none'
+
+  return {
+    isTimeLabelHidden,
+    timeNowX: timeLabelRect.left,
+    timeNowWidth: timeLabelRect.width,
+    overlapMargin,
+    preserveDenseDayTicks
+  }
 }
 
 export function hideOverlappingTicks(timeLabel, timeRange) {
@@ -569,21 +605,20 @@ export function hideOverlappingTicks(timeLabel, timeRange) {
   const overlapMargin = isMobileViewport ? MOBILE_TICK_OVERLAP_MARGIN : TICK_OVERLAP_MARGIN
   const preserveDenseDayTicks = isMobileViewport && timeRange === FIVE_DAY_RANGE
 
-  if (!timeLabelNode) {
+  // always clear stale hidden state first so early returns cannot leave
+  // all x-axis labels stuck with inline display:none.
+  for (const tick of ticks.nodes()) {
+    const tickSelection = select(tick)
+    tickSelection.classed(TICK_HIDDEN_CLASS, false)
+    tickSelection.select('text').style('display', null)
+  }
+
+  const timeLabelRect = timeLabelNode?.getBoundingClientRect()
+  if (!timeLabelRect || shouldSkipOverlapDetection(timeRange, isMobileViewport, timeLabelNode, timeLabelRect)) {
     return
   }
 
-  const isTimeLabelHidden = timeLabel.style('display') === 'none'
-  const timeNowX = timeLabelNode.getBoundingClientRect().left
-  const timeNowWidth = timeLabelNode.getBoundingClientRect().width
-  const context = {
-    isTimeLabelHidden,
-    timeNowX,
-    timeNowWidth,
-    overlapMargin,
-    preserveDenseDayTicks
-  }
-
+  const context = buildTickContext(timeLabel, isMobileViewport, overlapMargin, preserveDenseDayTicks)
   let lastVisibleTickRight = Number.NEGATIVE_INFINITY
 
   for (const tick of ticks.nodes()) {

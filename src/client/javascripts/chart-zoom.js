@@ -15,7 +15,8 @@ export function createZoomHandler(config) {
   const { svg, baseXScale, baseYScale, width, height, timeRange, dataCache,
     significantContainer, timeLine, timeLabel, isMobile, tooltipManager, container,
     processData, renderAxes, renderGridLines, renderLines, renderSignificantPoints,
-    updateTimeIndicator, hideOverlappingTicks } = config
+    renderThresholds, updateTimeIndicator, hideOverlappingTicks,
+    thresholds, onThresholdDismiss, onThresholdActivate, getActiveThresholdId } = config
 
   return (event, _lines) => {
     tooltipManager.hide()
@@ -39,6 +40,15 @@ export function createZoomHandler(config) {
     renderAxes(svg, { xScale: newXScale, yScale: newYScale, width, height, timeRange })
     renderGridLines(svg, newXScale, newYScale, height, width, baseXScale.domain(), timeRange)
     renderLines(svg, newObservedPoints, newForecastPoints, newXScale, newYScale, height, dataCache.type)
+    renderThresholds(
+      svg.select('.thresholds'),
+      width,
+      newYScale,
+      onThresholdDismiss,
+      onThresholdActivate,
+      typeof getActiveThresholdId === 'function' ? getActiveThresholdId() : null,
+      thresholds
+    )
     renderSignificantPoints(significantContainer, newObservedPoints, newForecastPoints, newXScale, newYScale, timeRange)
     updateTimeIndicator(svg, timeLabel, timeLine, newXScale, height, isMobile, timeRange)
     hideOverlappingTicks(timeLabel, timeRange)
