@@ -61,12 +61,6 @@
           <ul class="defra-navbar__list">
             <li class="defra-navbar__item" id="map-live"></li>
             <li class="defra-navbar__item">
-              <a href="#upstream">Upstream</a>
-            </li>
-            <li class="defra-navbar__item">
-              <a href="#downstream">Downstream</a>
-            </li>
-            <li class="defra-navbar__item">
               <a href="/river-and-sea-levels/rloi/{{ station.rloiId }}">Nearby levels</a>
             </li>
           </ul>
@@ -189,21 +183,64 @@
       {# Zoom control buttons aligned like service prototype #}
       <div class="defra-line-chart__control-row">
         <div id="zoom-control-buttons">
-          <button type="button" id="pan-left-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart left" aria-controls="line-chart-visualisation" title="Pan left">
-            ←
+          <button type="button" id="pan-left-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart left" aria-controls="line-chart-visualisation">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="7" y2="12"></line>
+              <polyline points="11 8 7 12 11 16"></polyline>
+            </svg>
           </button>
-          <button type="button" id="pan-right-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart right" aria-controls="line-chart-visualisation" title="Pan right">
-            →
+          <button type="button" id="pan-right-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart right" aria-controls="line-chart-visualisation">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="17" y2="12"></line>
+              <polyline points="13 8 17 12 13 16"></polyline>
+            </svg>
           </button>
-          <button type="button" id="zoom-out-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom out" aria-controls="line-chart-visualisation" title="Zoom out">
-            -
+          <button type="button" id="zoom-out-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom out" aria-controls="line-chart-visualisation">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
           </button>
-          <button type="button" id="zoom-in-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom in" aria-controls="line-chart-visualisation" title="Zoom in">
-            +
+          <button type="button" id="zoom-in-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom in" aria-controls="line-chart-visualisation">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
           </button>
           <button type="button" id="zoom-reset-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0 defra-line-chart__reset-btn" data-module="govuk-button" aria-label="Reset chart view" aria-controls="line-chart-visualisation">
-            <span class="defra-line-chart__reset-full">Reset view</span><span class="defra-line-chart__reset-short">Reset</span>
+            <svg class="defra-line-chart__reset-full" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
+            </svg>
+            <span class="defra-line-chart__reset-short">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
+              </svg>
+            </span>
           </button>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if chartStyle === 'styleC' %}
+      <div class="defra-line-chart__threshold-controls" id="chart-threshold-controls" aria-label="Chart reference lines">
+        <div class="govuk-checkboxes govuk-checkboxes--small">
+          <div class="govuk-checkboxes__item">
+            <input class="govuk-checkboxes__input" id="threshold-current-level" type="checkbox" data-threshold-id="current-level">
+            <label class="govuk-label govuk-checkboxes__label" id="threshold-current-level-label" for="threshold-current-level">
+              Show current level (0.28m)
+            </label>
+          </div>
+          <div class="govuk-checkboxes__item">
+            <input class="govuk-checkboxes__input" id="threshold-highest-level" type="checkbox" data-threshold-id="highest-level">
+            <label class="govuk-label govuk-checkboxes__label" id="threshold-highest-level-label" for="threshold-highest-level">
+              Show highest level recorded at this measuring station (0.64m)
+            </label>
+          </div>
+          <div class="govuk-checkboxes__item">
+            <input class="govuk-checkboxes__input" id="threshold-top-normal" type="checkbox" data-threshold-id="top-normal" checked>
+            <label class="govuk-label govuk-checkboxes__label" id="threshold-top-normal-label" for="threshold-top-normal">
+              Show top of normal range (0.50m). Low-lying land flooding possible above this level
+            </label>
+          </div>
         </div>
       </div>
       {% endif %}

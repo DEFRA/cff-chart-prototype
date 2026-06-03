@@ -11,7 +11,7 @@ import {
 } from './line-chart-constants.js'
 import { processData } from './line-chart-data.js'
 import { createXScale, createYScale, renderAxes, renderGridLines, updateTimeIndicator, hideOverlappingTicks, getYAxisLabelFormatter } from './line-chart-layout.js'
-import { renderLines, renderSignificantPoints, initializeSVG } from './line-chart-render.js'
+import { renderLines, renderSignificantPoints, renderThresholds, initializeSVG } from './line-chart-render.js'
 import { createTooltipManager, setupResponsiveHandlers } from './line-chart-interaction.js'
 
 const Y_AXIS_SAMPLE_TICK_COUNT = 6
@@ -19,6 +19,33 @@ const MIN_Y_AXIS_LABEL_LENGTH = 3
 const MOBILE_MARGIN_LEFT = 8
 const MOBILE_MARGIN_RIGHT_BASE = 14
 const MOBILE_Y_LABEL_CHAR_WIDTH = 6
+
+function createThresholdDismissHandler(stateRef) {
+  return (thresholdId) => {
+    if (Array.isArray(stateRef.thresholds)) {
+      stateRef.thresholds = stateRef.thresholds.map(threshold => {
+        if (threshold.id !== thresholdId) {
+          return threshold
+        }
+
+        return {
+          ...threshold,
+          enabled: false,
+          showLabel: false
+        }
+      })
+
+      const enabledThresholds = stateRef.thresholds.filter(threshold => threshold.enabled)
+      if (!enabledThresholds.some(threshold => threshold.id === stateRef.activeThresholdId)) {
+        stateRef.activeThresholdId = enabledThresholds.length ? enabledThresholds[enabledThresholds.length - 1].id : null
+      }
+    }
+
+    if (typeof stateRef.onThresholdDismiss === 'function') {
+      stateRef.onThresholdDismiss(thresholdId)
+    }
+  }
+}
 
 function initializeZoom(config) {
   const {
@@ -40,6 +67,7 @@ function initializeZoom(config) {
   zoomRef.baseXScaleRef.current = stateRef.xScale.copy()
   zoomRef.baseYScaleRef = zoomRef.baseYScaleRef || { current: stateRef.yScale.copy() }
   zoomRef.baseYScaleRef.current = stateRef.yScale.copy()
+  const dismissThreshold = createThresholdDismissHandler(stateRef)
 
   const handleZoomEvent = (event) => {
     const result = createZoomHandler({
@@ -60,9 +88,19 @@ function initializeZoom(config) {
       renderAxes,
       renderGridLines,
       renderLines,
+      renderThresholds,
       renderSignificantPoints,
       updateTimeIndicator,
-      hideOverlappingTicks
+      hideOverlappingTicks,
+      thresholds: stateRef.thresholds,
+      onThresholdDismiss: dismissThreshold,
+      onThresholdActivate: (thresholdId) => {
+        stateRef.activeThresholdId = thresholdId
+        if (typeof stateRef.onThresholdActivate === 'function') {
+          stateRef.onThresholdActivate(thresholdId)
+        }
+      },
+      getActiveThresholdId: () => stateRef.activeThresholdId
     })(event, stateRef.lines)
 
     stateRef.xScale = result.xScale
@@ -159,7 +197,31 @@ function createChartRenderer(config) {
     zoomRef
   } = config
 
-  return (zoomLevel = 1) => {
+  const render = (zoomLevel = 1) => {
+        const enabledThresholds = Array.isArray(stateRef.thresholds)
+          ? stateRef.thresholds.filter(threshold => threshold.enabled)
+          : []
+
+        if (!enabledThresholds.some(threshold => threshold.id === stateRef.activeThresholdId)) {
+          const labelPreferred = enabledThresholds.filter(threshold => threshold.showLabel)
+          stateRef.activeThresholdId = labelPreferred.length
+            ? labelPreferred[labelPreferred.length - 1].id
+            : (enabledThresholds.length ? enabledThresholds[enabledThresholds.length - 1].id : null)
+        }
+
+        const activateThreshold = (thresholdId) => {
+          if (stateRef.activeThresholdId === thresholdId) {
+            return
+          }
+
+          stateRef.activeThresholdId = thresholdId
+          if (typeof stateRef.onThresholdActivate === 'function') {
+            stateRef.onThresholdActivate(thresholdId)
+          }
+          render(zoomLevel)
+        }
+
+    const dismissThreshold = createThresholdDismissHandler(stateRef)
     const processedData = processData(dataCache, zoomLevel)
     assignProcessedDataToState(stateRef, processedData)
 
@@ -193,6 +255,15 @@ function createChartRenderer(config) {
     updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current, timeRange)
     hideOverlappingTicks(svgElements.timeLabel, timeRange)
     renderLines(svg, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, stateRef.height, dataCache.type)
+    renderThresholds(
+      svgElements.thresholdsContainer,
+      stateRef.width,
+      stateRef.yScale,
+      stateRef.thresholds,
+      dismissThreshold,
+      activateThreshold,
+      stateRef.activeThresholdId
+    )
     renderSignificantPoints(svgElements.significantContainer, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, timeRange)
 
     svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', stateRef.height)
@@ -200,6 +271,8 @@ function createChartRenderer(config) {
     updateZoomViewport(zoomRef, stateRef)
     syncZoomBaseScales(zoomRef, stateRef)
   }
+
+  return render
 }
 
 function createStateRef() {
@@ -212,7 +285,8 @@ function createStateRef() {
     xExtent: null,
     lines: null,
     observedPoints: null,
-    forecastPoints: null
+    forecastPoints: null,
+    activeThresholdId: null
   }
 }
 
@@ -226,6 +300,7 @@ function setupChartContext(containerId, data, options) {
     mainGroup,
     timeLine,
     timeLabel,
+    thresholdsContainer,
     locator,
     significantContainer,
     tooltip,
@@ -237,6 +312,18 @@ function setupChartContext(containerId, data, options) {
   const mobileMediaQuery = globalThis.matchMedia(MOBILE_BREAKPOINT)
   const isMobileRef = { current: mobileMediaQuery.matches }
   const stateRef = createStateRef()
+  stateRef.thresholds = Array.isArray(options.thresholds) ? options.thresholds : []
+  const initiallyEnabledThresholds = stateRef.thresholds.filter(threshold => threshold.enabled)
+  const hasExternalActive = typeof options.activeThresholdId === 'string' &&
+    initiallyEnabledThresholds.some(threshold => threshold.id === options.activeThresholdId)
+  const labelPreferred = initiallyEnabledThresholds.filter(threshold => threshold.showLabel)
+  stateRef.activeThresholdId = hasExternalActive
+    ? options.activeThresholdId
+    : (labelPreferred.length
+        ? labelPreferred[labelPreferred.length - 1].id
+        : (initiallyEnabledThresholds.length ? initiallyEnabledThresholds[initiallyEnabledThresholds.length - 1].id : null))
+  stateRef.onThresholdDismiss = typeof options.onThresholdDismiss === 'function' ? options.onThresholdDismiss : null
+  stateRef.onThresholdActivate = typeof options.onThresholdActivate === 'function' ? options.onThresholdActivate : null
   const zoomRef = { behavior: null, rect: null }
 
   return {
@@ -248,6 +335,7 @@ function setupChartContext(containerId, data, options) {
     mainGroup,
     timeLine,
     timeLabel,
+    thresholdsContainer,
     locator,
     significantContainer,
     tooltip,
@@ -335,7 +423,17 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
     isMobileRef: context.isMobileRef,
     tooltipManager,
     renderChart,
-    stateRef: context.stateRef
+    stateRef: context.stateRef,
+    onThresholdLineHover: (hoveredThresholdId) => {
+      const svgNode = context.svg.node()
+      if (!svgNode) return
+      context.svg.classed('chart--threshold-line-hover', Boolean(hoveredThresholdId))
+      context.svg.selectAll('.thresholds .threshold').classed('threshold--line-hover', false)
+
+      if (hoveredThresholdId) {
+        context.svg.select(`.thresholds .threshold--${hoveredThresholdId}`).classed('threshold--line-hover', true)
+      }
+    }
   })
 
   return container

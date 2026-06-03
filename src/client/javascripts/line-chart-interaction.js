@@ -1,8 +1,18 @@
 import { timeFormat } from 'd3-time-format'
-import { DEFAULT_TOOLTIP_Y, TOOLTIP_TEXT_HEIGHT_OFFSET, TOOLTIP_PATH_LENGTH, TOOLTIP_PATH_LENGTH_WIDE, TOOLTIP_MARGIN_TOP, TOOLTIP_MARGIN_BOTTOM_OFFSET, TOOLTIP_VERTICAL_OFFSET } from './line-chart-constants.js'
+import { select } from 'd3-selection'
+import { TOOLTIP_TEXT_HEIGHT_OFFSET, TOOLTIP_PATH_LENGTH, TOOLTIP_PATH_LENGTH_WIDE, TOOLTIP_MARGIN_TOP, TOOLTIP_MARGIN_BOTTOM_OFFSET, TOOLTIP_VERTICAL_OFFSET } from './line-chart-constants.js'
 
 export function createTooltipManager(tooltipConfig) {
   const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, getHeight, dataType, latestDateTime, timeRange } = tooltipConfig
+
+  function setThresholdHoverState(isHovering) {
+    const svgNode = tooltip.node()?.ownerSVGElement
+    if (!svgNode) {
+      return
+    }
+
+    select(svgNode).select('.thresholds').classed('thresholds--hovering', isHovering)
+  }
 
   function setPosition(x, y, dataPoint, yScaleFunc) {
     const currentHeight = getHeight()
@@ -29,6 +39,7 @@ export function createTooltipManager(tooltipConfig) {
 
     tooltip.attr('transform', `translate(${x.toFixed(0)},${y.toFixed(0)})`)
     tooltip.classed('tooltip--visible', true)
+    tooltip.raise()
 
     const locatorY = Math.floor(yScaleFunc(dataType === 'river' && dataPoint.value < 0 ? 0 : dataPoint.value))
     const isForecast = (new Date(dataPoint.dateTime)) > (new Date(latestDateTime))
@@ -51,6 +62,7 @@ export function createTooltipManager(tooltipConfig) {
     tooltipValue.text(`${value}m`)
     tooltipDescription.text(`${timeFormat('%-I:%M%p')(dateObj).toLowerCase()}, ${timeFormat(dateFormat)(dateObj)}`)
 
+    setThresholdHoverState(true)
     locator.classed('locator--visible', true)
 
     const tooltipX = xScaleFunc(new Date(dataPoint.dateTime))
@@ -60,6 +72,7 @@ export function createTooltipManager(tooltipConfig) {
   function hide() {
     tooltip.classed('tooltip--visible', false)
     locator.classed('locator--visible', false)
+    setThresholdHoverState(false)
   }
 
   return { show, hide }
@@ -89,10 +102,11 @@ function findDataPointByX(x, lines, xScale) {
   return closestPoint
 }
 
-export function setupEventHandlers(container, svg, getState, tooltipManager) {
+export function setupEventHandlers(container, svg, getState, tooltipManager, onThresholdLineHover) {
   let interfaceType = null
   let lastClientX
   let lastClientY
+  let hoveredThresholdId = null
 
   const getMousePosition = (e, svgElement) => {
     const rect = svgElement.getBoundingClientRect()
@@ -123,6 +137,26 @@ export function setupEventHandlers(container, svg, getState, tooltipManager) {
     const chartY = mouseY - margin.top
     const dataPoint = findDataPointByX(chartX, lines, xScale)
     tooltipManager.show(dataPoint, chartY, xScale, yScale)
+
+    if (typeof onThresholdLineHover === 'function' && yScale) {
+      const enabledThresholds = getState().thresholds?.filter(t => t.enabled) || []
+      let nearestThresholdId = null
+      let nearestDiff = Number.POSITIVE_INFINITY
+
+      for (const threshold of enabledThresholds) {
+        const thresholdY = yScale(threshold.value)
+        const diff = Math.abs(chartY - thresholdY)
+        if (diff <= 12 && diff < nearestDiff) {
+          nearestDiff = diff
+          nearestThresholdId = threshold.id
+        }
+      }
+
+      if (nearestThresholdId !== hoveredThresholdId) {
+        hoveredThresholdId = nearestThresholdId
+        onThresholdLineHover(nearestThresholdId)
+      }
+    }
   }
 
   const handleClick = (e) => {
@@ -135,16 +169,18 @@ export function setupEventHandlers(container, svg, getState, tooltipManager) {
   }
 
   const handleTouchMove = (e) => {
+    e.preventDefault()
     const { margin, lines, xScale, yScale } = getState()
     if (!xScale) {
       return
     }
 
     const touchEvent = e.touches[0]
-    const [mouseX] = getMousePosition(touchEvent, svg.node())
+    const [mouseX, mouseY] = getMousePosition(touchEvent, svg.node())
     const chartX = mouseX - margin.left
+    const chartY = mouseY - margin.top
     const dataPoint = findDataPointByX(chartX, lines, xScale)
-    tooltipManager.show(dataPoint, DEFAULT_TOOLTIP_Y, xScale, yScale)
+    tooltipManager.show(dataPoint, chartY, xScale, yScale)
   }
 
   const svgNode = svg.node()
@@ -153,7 +189,13 @@ export function setupEventHandlers(container, svg, getState, tooltipManager) {
   svgNode.addEventListener('touchstart', () => { interfaceType = 'touch' })
   svgNode.addEventListener('touchmove', handleTouchMove)
   svgNode.addEventListener('touchend', () => { interfaceType = null })
-  container.addEventListener('mouseleave', () => { tooltipManager.hide() })
+  container.addEventListener('mouseleave', () => {
+    tooltipManager.hide()
+    if (hoveredThresholdId && typeof onThresholdLineHover === 'function') {
+      hoveredThresholdId = null
+      onThresholdLineHover(null)
+    }
+  })
 }
 
 export function setupResponsiveHandlers(config) {
@@ -163,10 +205,11 @@ export function setupResponsiveHandlers(config) {
     margin: stateRef.margin,
     lines: stateRef.lines,
     xScale: stateRef.xScale,
-    yScale: stateRef.yScale
+    yScale: stateRef.yScale,
+    thresholds: stateRef.thresholds
   })
 
-  setupEventHandlers(container, svg, getState, tooltipManager)
+  setupEventHandlers(container, svg, getState, tooltipManager, config.onThresholdLineHover)
 
   mobileMediaQuery[mobileMediaQuery.addEventListener ? 'addEventListener' : 'addListener']('change', (e) => {
     isMobileRef.current = e.matches

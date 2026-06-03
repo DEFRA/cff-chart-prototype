@@ -51,15 +51,17 @@ const TIME_AND_DATE_LABEL_MODE = 'time-date'
 const MONTH_YEAR_LABEL_MODE = 'month-year'
 const MOBILE_CHART_WIDTH_THRESHOLD = 520
 const VERY_NARROW_CHART_WIDTH_THRESHOLD = 390
-const TIME_INDICATOR_RANGES = [FIVE_DAY_RANGE, ONE_MONTH_RANGE]
+const TIME_INDICATOR_RANGES = [FIVE_DAY_RANGE, ONE_MONTH_RANGE, SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE, FIVE_YEAR_RANGE]
 const DEFAULT_REMOVE_LAST_N_TICKS = 0
 const ONE_MONTH_DAY_STEP_MOBILE = 4
 const ONE_MONTH_DAY_STEP_DESKTOP = 2
-const MONTH_STEP_MOBILE = 2
+const MONTH_STEP_MOBILE = 1
 const MONTH_STEP_DESKTOP = 1
-const THREE_YEAR_MONTH_STEP_VERY_NARROW = 8
-const THREE_YEAR_MONTH_STEP_NARROW = 6
-const THREE_YEAR_MONTH_STEP_DESKTOP = 3
+const ONE_YEAR_MONTH_STEP_MOBILE = 2
+const ONE_YEAR_MONTH_STEP_DESKTOP = 1
+const THREE_YEAR_MONTH_STEP_VERY_NARROW = 6
+const THREE_YEAR_MONTH_STEP_NARROW = 4
+const THREE_YEAR_MONTH_STEP_DESKTOP = 2
 const FIVE_YEAR_MONTH_STEP_MOBILE = 12
 const FIVE_YEAR_MONTH_STEP_DESKTOP = 6
 const MOBILE_VIEWPORT_MAX_WIDTH_PX = 640
@@ -210,7 +212,7 @@ function calculateTickInterval(xExtent, timeRange, width) {
       removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
     }),
     [ONE_YEAR_RANGE]: () => ({
-      tickValues: generateMonthTicks(xExtent, isNarrowChart ? MONTH_STEP_MOBILE : MONTH_STEP_DESKTOP),
+      tickValues: generateMonthTicks(xExtent, isNarrowChart ? ONE_YEAR_MONTH_STEP_MOBILE : ONE_YEAR_MONTH_STEP_DESKTOP),
       labelMode: MONTH_YEAR_LABEL_MODE,
       removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
     }),
@@ -569,13 +571,41 @@ export function hideOverlappingTicks(timeLabel, timeRange) {
   const overlapMargin = isMobileViewport ? MOBILE_TICK_OVERLAP_MARGIN : TICK_OVERLAP_MARGIN
   const preserveDenseDayTicks = isMobileViewport && timeRange === FIVE_DAY_RANGE
 
+  // Always clear stale hidden state first so early returns cannot leave
+  // all x-axis labels stuck with inline display:none.
+  for (const tick of ticks.nodes()) {
+    const tickSelection = select(tick)
+    tickSelection.classed('tick--hidden', false)
+    tickSelection.select('text').style('display', null)
+  }
+
+  // For desktop 5-day view, keep all day ticks visible.
+  // On mobile, continue with overlap logic so the final 6am tick can be
+  // hidden when it collides with the now-label at the chart edge.
+  if (timeRange === FIVE_DAY_RANGE && !isMobileViewport) {
+    return
+  }
+
   if (!timeLabelNode) {
     return
   }
 
   const isTimeLabelHidden = timeLabel.style('display') === 'none'
-  const timeNowX = timeLabelNode.getBoundingClientRect().left
-  const timeNowWidth = timeLabelNode.getBoundingClientRect().width
+  const timeLabelRect = timeLabelNode.getBoundingClientRect()
+  
+  // Skip overlap detection if timeLabel has invalid dimensions (not yet rendered)
+  if (timeLabelRect.width === 0 || timeLabelRect.height === 0) {
+    return
+  }
+
+  // Guard against early layout passes where the time label has width but has
+  // not yet been translated into chart coordinates (left/right at 0).
+  if (timeLabelRect.left <= 0 || timeLabelRect.right <= 0) {
+    return
+  }
+  
+  const timeNowX = timeLabelRect.left
+  const timeNowWidth = timeLabelRect.width
   const context = {
     isTimeLabelHidden,
     timeNowX,
@@ -589,4 +619,5 @@ export function hideOverlappingTicks(timeLabel, timeRange) {
   for (const tick of ticks.nodes()) {
     lastVisibleTickRight = processTickVisibility(tick, context, lastVisibleTickRight)
   }
+
 }
