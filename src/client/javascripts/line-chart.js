@@ -204,9 +204,14 @@ function createChartRenderer(config) {
 
         if (!enabledThresholds.some(threshold => threshold.id === stateRef.activeThresholdId)) {
           const labelPreferred = enabledThresholds.filter(threshold => threshold.showLabel)
-          stateRef.activeThresholdId = labelPreferred.length
-            ? labelPreferred[labelPreferred.length - 1].id
-            : (enabledThresholds.length ? enabledThresholds[enabledThresholds.length - 1].id : null)
+          
+          if (labelPreferred.length) {
+            stateRef.activeThresholdId = labelPreferred[labelPreferred.length - 1].id
+          } else if (enabledThresholds.length) {
+            stateRef.activeThresholdId = enabledThresholds[enabledThresholds.length - 1].id
+          } else {
+            stateRef.activeThresholdId = null
+          }
         }
 
         const activateThreshold = (thresholdId) => {
@@ -317,11 +322,17 @@ function setupChartContext(containerId, data, options) {
   const hasExternalActive = typeof options.activeThresholdId === 'string' &&
     initiallyEnabledThresholds.some(threshold => threshold.id === options.activeThresholdId)
   const labelPreferred = initiallyEnabledThresholds.filter(threshold => threshold.showLabel)
-  stateRef.activeThresholdId = hasExternalActive
-    ? options.activeThresholdId
-    : (labelPreferred.length
-        ? labelPreferred[labelPreferred.length - 1].id
-        : (initiallyEnabledThresholds.length ? initiallyEnabledThresholds[initiallyEnabledThresholds.length - 1].id : null))
+  
+  if (hasExternalActive) {
+    stateRef.activeThresholdId = options.activeThresholdId
+  } else if (labelPreferred.length) {
+    stateRef.activeThresholdId = labelPreferred[labelPreferred.length - 1].id
+  } else if (initiallyEnabledThresholds.length) {
+    stateRef.activeThresholdId = initiallyEnabledThresholds[initiallyEnabledThresholds.length - 1].id
+  } else {
+    stateRef.activeThresholdId = null
+  }
+  
   stateRef.onThresholdDismiss = typeof options.onThresholdDismiss === 'function' ? options.onThresholdDismiss : null
   stateRef.onThresholdActivate = typeof options.onThresholdActivate === 'function' ? options.onThresholdActivate : null
   const zoomRef = { behavior: null, rect: null }

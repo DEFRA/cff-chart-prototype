@@ -585,7 +585,7 @@ function shouldSkipOverlapDetection(timeRange, isMobileViewport, timeLabelNode, 
   return false
 }
 
-function buildTickContext(timeLabel, isMobileViewport, overlapMargin, preserveDenseDayTicks) {
+function buildTickContext(timeLabel, _isMobileViewport, overlapMargin, preserveDenseDayTicks) {
   const timeLabelRect = timeLabel.node().getBoundingClientRect()
   const isTimeLabelHidden = timeLabel.style('display') === 'none'
 

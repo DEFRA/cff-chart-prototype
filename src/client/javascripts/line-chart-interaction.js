@@ -121,7 +121,9 @@ function detectNearestThreshold(chartY, yScale, thresholds) {
   return nearestThresholdId
 }
 
-function attachEventListeners(svgNode, container, handleClick, handleMouseMove, handleTouchMove, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef) {
+function attachEventListeners(svgNode, container, eventConfig) {
+  const { handleClick, handleMouseMove, handleTouchMove, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef } = eventConfig
+
   svgNode.addEventListener('click', handleClick)
   svgNode.addEventListener('mousemove', handleMouseMove)
   svgNode.addEventListener('touchstart', () => { interfaceTypeRef.value = 'touch' })
@@ -207,7 +209,15 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
   }
 
   const svgNode = svg.node()
-  attachEventListeners(svgNode, container, handleClick, handleMouseMove, handleTouchMove, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef)
+  attachEventListeners(svgNode, container, {
+    handleClick,
+    handleMouseMove,
+    handleTouchMove,
+    tooltipManager,
+    onThresholdLineHover,
+    interfaceTypeRef,
+    hoveredThresholdIdRef
+  })
 }
 
 export function setupResponsiveHandlers(config) {

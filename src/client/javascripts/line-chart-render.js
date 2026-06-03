@@ -173,9 +173,11 @@ function generateLabelPath(labelX, labelY, labelWidth, labelHeight, notchWidth, 
   const labelBottomY = labelY + labelHeight
   const notchLeftX = labelMidX - (notchWidth / 2)
   const notchRightX = labelMidX + (notchWidth / 2)
+  const notchTipY = canPlaceAbove
+    ? Math.min(y - NOTCH_TIP_Y_OFFSET, labelBottomY + NOTCH_DEPTH)
+    : Math.max(y + NOTCH_TIP_Y_OFFSET, labelTopY - NOTCH_DEPTH)
 
   if (canPlaceAbove) {
-    const notchTipY = Math.min(y - NOTCH_TIP_Y_OFFSET, labelBottomY + NOTCH_DEPTH)
     return [
       `M${labelX},${labelY}`,
       `H${labelX + labelWidth}`,
@@ -188,7 +190,6 @@ function generateLabelPath(labelX, labelY, labelWidth, labelHeight, notchWidth, 
     ].join(' ')
   }
 
-  const notchTipY = Math.max(y + NOTCH_TIP_Y_OFFSET, labelTopY - NOTCH_DEPTH)
   return [
     `M${labelX},${labelTopY}`,
     `H${notchLeftX}`,

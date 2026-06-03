@@ -15,6 +15,7 @@ initAll()
 const LINE_CHART_ID = 'line-chart'
 const DEFAULT_FILTER = '5d'
 const TIME_FILTER_LINK_SELECTOR = '.time-filter-link'
+const TIME_FILTER_LINK_DISABLED_CLASS = 'time-filter-link--disabled'
 const ARIA_DISABLED = 'aria-disabled'
 const ARIA_CURRENT = 'aria-current'
 const CHART_STYLE_C = 'styleC'
@@ -151,6 +152,8 @@ function setupThresholdControlHandlers(thresholdState, activeThresholdRef, rende
         activeThresholdRef.value = thresholdId
       } else if (activeThresholdRef.value === thresholdId) {
         activeThresholdRef.value = getDefaultActiveThresholdId(thresholdState)
+      } else {
+        // Unchecked but not the active threshold, no state change needed
       }
 
       renderChart()
@@ -189,17 +192,17 @@ function updateFilterButtonStates(hasHistoricData) {
     if (filter !== DEFAULT_FILTER) {
       if (hasHistoricData) {
         link.removeAttribute(ARIA_DISABLED)
-        link.classList.remove('time-filter-link--disabled')
+        link.classList.remove(TIME_FILTER_LINK_DISABLED_CLASS)
         link.removeAttribute('tabindex')
       } else {
         link.setAttribute(ARIA_DISABLED, 'true')
-        link.classList.add('time-filter-link--disabled')
+        link.classList.add(TIME_FILTER_LINK_DISABLED_CLASS)
         link.setAttribute('tabindex', '-1')
       }
     } else {
       // Default filter (5d) is always enabled
       link.removeAttribute(ARIA_DISABLED)
-      link.classList.remove('time-filter-link--disabled')
+      link.classList.remove(TIME_FILTER_LINK_DISABLED_CLASS)
       link.removeAttribute('tabindex')
     }
   })
