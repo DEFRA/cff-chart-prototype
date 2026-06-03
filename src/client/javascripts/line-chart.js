@@ -184,6 +184,42 @@ function syncZoomBaseScales(zoomRef, stateRef) {
   }
 }
 
+function getEnabledThresholds(thresholds) {
+  return Array.isArray(thresholds)
+    ? thresholds.filter(threshold => threshold.enabled)
+    : []
+}
+
+function ensureActiveThreshold(stateRef, enabledThresholds) {
+  if (enabledThresholds.some(threshold => threshold.id === stateRef.activeThresholdId)) {
+    return
+  }
+
+  const labelPreferred = enabledThresholds.filter(threshold => threshold.showLabel)
+
+  if (labelPreferred.length) {
+    stateRef.activeThresholdId = labelPreferred[labelPreferred.length - 1].id
+  } else if (enabledThresholds.length) {
+    stateRef.activeThresholdId = enabledThresholds[enabledThresholds.length - 1].id
+  } else {
+    stateRef.activeThresholdId = null
+  }
+}
+
+function createActivateThresholdHandler(stateRef, rerender) {
+  return (thresholdId) => {
+    if (stateRef.activeThresholdId === thresholdId) {
+      return
+    }
+
+    stateRef.activeThresholdId = thresholdId
+    if (typeof stateRef.onThresholdActivate === 'function') {
+      stateRef.onThresholdActivate(thresholdId)
+    }
+    rerender()
+  }
+}
+
 function createChartRenderer(config) {
   const {
     container,
@@ -198,33 +234,10 @@ function createChartRenderer(config) {
   } = config
 
   const render = (zoomLevel = 1) => {
-        const enabledThresholds = Array.isArray(stateRef.thresholds)
-          ? stateRef.thresholds.filter(threshold => threshold.enabled)
-          : []
+    const enabledThresholds = getEnabledThresholds(stateRef.thresholds)
+    ensureActiveThreshold(stateRef, enabledThresholds)
 
-        if (!enabledThresholds.some(threshold => threshold.id === stateRef.activeThresholdId)) {
-          const labelPreferred = enabledThresholds.filter(threshold => threshold.showLabel)
-          
-          if (labelPreferred.length) {
-            stateRef.activeThresholdId = labelPreferred[labelPreferred.length - 1].id
-          } else if (enabledThresholds.length) {
-            stateRef.activeThresholdId = enabledThresholds[enabledThresholds.length - 1].id
-          } else {
-            stateRef.activeThresholdId = null
-          }
-        }
-
-        const activateThreshold = (thresholdId) => {
-          if (stateRef.activeThresholdId === thresholdId) {
-            return
-          }
-
-          stateRef.activeThresholdId = thresholdId
-          if (typeof stateRef.onThresholdActivate === 'function') {
-            stateRef.onThresholdActivate(thresholdId)
-          }
-          render(zoomLevel)
-        }
+    const activateThreshold = createActivateThresholdHandler(stateRef, () => render(zoomLevel))
 
     const dismissThreshold = createThresholdDismissHandler(stateRef)
     const processedData = processData(dataCache, zoomLevel)
