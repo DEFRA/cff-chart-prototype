@@ -22,9 +22,12 @@ import {
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 const MS_PER_MINUTE = 1000 * 60
-const FIFTEEN_MINUTES_MS = 15 * MS_PER_MINUTE
-const THIRTY_MINUTES_MS = 30 * MS_PER_MINUTE
-const WEEK_MS = 7 * MS_PER_DAY
+const FIFTEEN = 15
+const THIRTY = 30
+const DAYS_PER_WEEK = 7
+const FIFTEEN_MINUTES_MS = FIFTEEN * MS_PER_MINUTE
+const THIRTY_MINUTES_MS = THIRTY * MS_PER_MINUTE
+const WEEK_MS = DAYS_PER_WEEK * MS_PER_DAY
 const VERY_ZOOMED_DAY_THRESHOLD = 1
 const VERY_ZOOMED_TICK_COUNT = 3
 const REDUCED_TICK_COUNT = 4
@@ -60,6 +63,11 @@ const MOBILE_Y_TICK_TEXT_OFFSET = 6
 const FIXED_X_TICK_COUNT = 6
 const TIME_AND_DATE_DURATION_THRESHOLD_DAYS = 2
 const DATE_DURATION_THRESHOLD_DAYS = 120
+const SVG_NAMESPACE_URI = 'http://www.w3.org/2000/svg'
+const FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD = 4.5
+const SIX_AM_HOUR = 6
+const FIRST_TICK_OFFSET_DESKTOP = '12'
+const FIRST_TICK_OFFSET_MOBILE = '0'
 
 function getTickSnapIntervalMs(timeRange) {
   if (timeRange === FIVE_DAY_RANGE || timeRange === ONE_MONTH_RANGE) {
@@ -82,7 +90,7 @@ function getTickSnapIntervalMs(timeRange) {
 }
 
 function snapTickValuesForRange(tickValues, timeRange, xExtent) {
-  const isNearFullFiveDayView = timeRange === FIVE_DAY_RANGE && getVisibleDurationDays(xExtent) >= 4.5
+  const isNearFullFiveDayView = timeRange === FIVE_DAY_RANGE && getVisibleDurationDays(xExtent) >= FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD
   if (isNearFullFiveDayView) {
     return tickValues
   }
@@ -148,23 +156,21 @@ function generateFixedTickValues(xExtent, tickCount = FIXED_X_TICK_COUNT, useSix
     return generateEvenlySpacedTicks(xExtent)
   }
 
-  if (useSixAmAlignment) {
+  if (useSixAmAlignment && durationDays >= FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD) {
     // Keep production-style 6am alignment only for near full 5d view.
     // As users zoom in, fall back to evenly spaced ticks so point count stays stable.
-    if (durationDays >= 4.5) {
-      let current = new Date(start)
-      current.setHours(6, 0, 0, 0)
-      if (current.getTime() > start) {
-        current = new Date(current.getTime() - MS_PER_DAY)
-      }
-
-      for (let i = 0; i < tickCount - 1; i++) {
-        ticks.push(new Date(current.getTime()))
-        current = new Date(current.getTime() + MS_PER_DAY)
-      }
-      ticks.push(new Date(end))
-      return ticks
+    let current = new Date(start)
+    current.setHours(SIX_AM_HOUR, 0, 0, 0)
+    if (current.getTime() > start) {
+      current = new Date(current.getTime() - MS_PER_DAY)
     }
+
+    for (let i = 0; i < tickCount - 1; i++) {
+      ticks.push(new Date(current.getTime()))
+      current = new Date(current.getTime() + MS_PER_DAY)
+    }
+    ticks.push(new Date(end))
+    return ticks
   }
 
   // For longer ranges, use evenly spaced ticks
@@ -193,7 +199,7 @@ function getSixAmMarkersInExtent(xExtent) {
 
   const markers = []
   const marker = new Date(start)
-  marker.setHours(6, 0, 0, 0)
+  marker.setHours(SIX_AM_HOUR, 0, 0, 0)
 
   if (marker.getTime() <= start) {
     marker.setDate(marker.getDate() + 1)
@@ -221,7 +227,7 @@ function getLabelModeForExtent(timeRange, xExtent) {
   return MONTH_YEAR_LABEL_MODE
 }
 
-function calculateTickInterval(xExtent, timeRange, width) {
+function calculateTickInterval(xExtent, timeRange, _width) {
   const labelMode = getLabelModeForExtent(timeRange, xExtent)
 
   const configFactories = {
@@ -356,7 +362,7 @@ function alignEdgeTickLabels(svg) {
   const xAxisTicks = svg.select('.x.axis').selectAll('.tick')
   const tickCount = xAxisTicks.size()
   const isMobileViewport = globalThis.matchMedia?.(MOBILE_MAX_WIDTH_MEDIA_QUERY)?.matches ?? false
-  const firstTickOffset = isMobileViewport ? '0' : '12'
+  const firstTickOffset = isMobileViewport ? FIRST_TICK_OFFSET_MOBILE : FIRST_TICK_OFFSET_DESKTOP
 
   if (tickCount === 0) {
     return
@@ -366,7 +372,7 @@ function alignEdgeTickLabels(svg) {
   if (!firstTickText.empty()) {
     firstTickText.style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_MIDDLE)
 
-    if (firstTickOffset === '0') {
+    if (firstTickOffset === FIRST_TICK_OFFSET_MOBILE) {
       return
     }
 
@@ -466,19 +472,21 @@ export function renderAxes(svg, config) {
   const tickElements = Array.from(document.querySelectorAll('.x.axis .tick'))
   
   tickElements.forEach((tickNode, i) => {
-    let textEl = tickNode.querySelector('text')
-    if (!textEl) {
+    const textEl = tickNode.querySelector('text') || (() => {
       // Create SVG text element
-      textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text')
-      textEl.setAttribute('y', '0')
-      textEl.setAttribute('x', '0')
-      textEl.setAttribute('dy', '0.71em')
-      textEl.setAttribute('text-anchor', 'middle')
-      tickNode.appendChild(textEl)
-    } else {
-      // Clear existing content
+      const el = document.createElementNS(SVG_NAMESPACE_URI, 'text')
+      el.setAttribute('y', '0')
+      el.setAttribute('x', '0')
+      el.setAttribute('dy', TIME_LABEL_DY)
+      el.setAttribute('text-anchor', 'middle')
+      tickNode.appendChild(el)
+      return el
+    })()
+    
+    // Clear existing content if queried from DOM
+    if (textEl.parentNode === tickNode) {
       while (textEl.firstChild) {
-        textEl.removeChild(textEl.firstChild)
+        textEl.firstChild.remove()
       }
     }
     
@@ -491,21 +499,21 @@ export function renderAxes(svg, config) {
         const formattedTime = formatTickTime(tickDate)
         const formattedDate = timeFormat('%-e %b')(tickDate)
         
-        const tspan1 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+        const tspan1 = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
         tspan1.textContent = formattedTime
         textEl.appendChild(tspan1)
         
-        const tspan2 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+        const tspan2 = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
         tspan2.setAttribute('x', '0')
         tspan2.setAttribute('dy', X_AXIS_TIME_TSPAN_DY)
         tspan2.textContent = formattedDate
         textEl.appendChild(tspan2)
       } else if (tickConfig.labelMode === MONTH_YEAR_LABEL_MODE) {
-        const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+        const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
         tspan.textContent = timeFormat('%b %y')(tickDate)
         textEl.appendChild(tspan)
       } else {
-        const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+        const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
         tspan.textContent = timeFormat('%-e %b')(tickDate)
         textEl.appendChild(tspan)
       }
@@ -524,7 +532,7 @@ export function renderAxes(svg, config) {
 export function renderGridLines(svg, xScale, yScale, height, width, xExtent, timeRange) {
   const visibleExtent = xScale.domain()
   const tickConfig = calculateTickInterval(visibleExtent, timeRange, width)
-  const useFiveDaySixAmMarkers = timeRange === FIVE_DAY_RANGE && getVisibleDurationDays(visibleExtent) >= 4.5
+  const useFiveDaySixAmMarkers = timeRange === FIVE_DAY_RANGE && getVisibleDurationDays(visibleExtent) >= FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD
   const gridTickValues = useFiveDaySixAmMarkers
     ? Array.from(new Set([
       ...tickConfig.tickValues.map((tick) => new Date(tick).getTime()),
@@ -602,7 +610,9 @@ export function updateTimeIndicator(_svg, timeLabel, timeLine, xScale, height, i
 
 export function hideOverlappingTicks(timeLabel, _timeRange) {
   const timeLabelNode = timeLabel.node()
-  if (!timeLabelNode) return
+  if (!timeLabelNode) {
+    return
+  }
 
   const timeLabelRect = timeLabelNode.getBoundingClientRect()
   const ticks = selectAll('.x .tick')
@@ -611,7 +621,9 @@ export function hideOverlappingTicks(timeLabel, _timeRange) {
     const tickSelection = select(tick)
     const tickText = tickSelection.select('text').node()
 
-    if (!tickText) continue
+    if (!tickText) {
+      continue
+    }
 
     const isAlreadyHidden = tickText.style.display === 'none'
 

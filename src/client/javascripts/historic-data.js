@@ -11,6 +11,7 @@ const MS_PER_SECOND = 1000
 const FIVE_YEARS = 5
 const FIVE_DAYS = 5
 const THIRTY_DAYS = 30
+const THIRTY_MINUTES = 30
 const SIX_MONTHS = 6
 const THREE_YEARS = 3
 const FIVE_YEARS_MS = FIVE_YEARS * DAYS_PER_YEAR * HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
@@ -118,20 +119,9 @@ export function downsampleForStyleB(data, range) {
   }
 
   const downsampled = []
-  const THIRTY_MINUTES_MS = 30 * SECONDS_PER_MINUTE * MS_PER_SECOND
+  const THIRTY_MINUTES_MS = THIRTY_MINUTES * SECONDS_PER_MINUTE * MS_PER_SECOND
 
-  if (range === '6m') {
-    // 30-minute intervals
-    let lastInterval = null
-    data.forEach(item => {
-      const timestamp = new Date(item.dateTime).getTime()
-      const interval = Math.floor(timestamp / THIRTY_MINUTES_MS) * THIRTY_MINUTES_MS
-      if (lastInterval !== interval) {
-        downsampled.push(item)
-        lastInterval = interval
-      }
-    })
-  } else if (range === '1y') {
+  if (range === '6m' || range === '1y') {
     // 30-minute intervals
     let lastInterval = null
     data.forEach(item => {
