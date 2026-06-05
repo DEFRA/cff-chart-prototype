@@ -31,7 +31,6 @@ const REDUCED_TICK_COUNT = 4
 const FIVE_DAY_RANGE = '5d'
 const ONE_MONTH_RANGE = '1m'
 const SIX_MONTH_RANGE = '6m'
-const TICK_HIDDEN_CLASS = 'tick--hidden'
 const ONE_YEAR_RANGE = '1y'
 const THREE_YEAR_RANGE = '3y'
 const FIVE_YEAR_RANGE = '5y'
@@ -601,13 +600,35 @@ export function updateTimeIndicator(_svg, timeLabel, timeLine, xScale, height, i
     .text(timeFormat('%-e %b')(now))
 }
 
-export function hideOverlappingTicks(_timeLabel, _timeRange) {
+export function hideOverlappingTicks(timeLabel, _timeRange) {
+  const timeLabelNode = timeLabel.node()
+  if (!timeLabelNode) return
+
+  const timeLabelRect = timeLabelNode.getBoundingClientRect()
   const ticks = selectAll('.x .tick')
 
-  // Fixed 5-tick mode: always keep labels visible and only update values.
   for (const tick of ticks.nodes()) {
     const tickSelection = select(tick)
-    tickSelection.classed(TICK_HIDDEN_CLASS, false)
-    tickSelection.select('text').style('display', null)
+    const tickText = tickSelection.select('text').node()
+
+    if (!tickText) continue
+
+    const isAlreadyHidden = tickText.style.display === 'none'
+
+    // If already hidden, keep it hidden
+    if (isAlreadyHidden) {
+      continue
+    }
+
+    const tickRect = tickText.getBoundingClientRect()
+
+    // Check if tick overlaps with time label
+    const overlaps =
+      tickRect.right > timeLabelRect.left &&
+      tickRect.left < timeLabelRect.right &&
+      tickRect.bottom > timeLabelRect.top &&
+      tickRect.top < timeLabelRect.bottom
+
+    tickSelection.select('text').style('display', overlaps ? 'none' : null)
   }
 }
