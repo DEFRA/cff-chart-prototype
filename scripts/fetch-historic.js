@@ -41,19 +41,20 @@ function getDateRange() {
   }
 }
 
-function downsampleToHourly(readings) {
-  const hourlyMap = new Map()
+function downsampleToThirtyMinutes(readings) {
+  const bucketMap = new Map()
 
   for (const reading of readings) {
     const date = new Date(reading.dateTime)
-    const hourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:00:00`
+    const minutes = date.getMinutes() < 30 ? '00' : '30'
+    const bucketKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${minutes}:00`
 
-    if (!hourlyMap.has(hourKey)) {
-      hourlyMap.set(hourKey, { dateTime: reading.dateTime, value: reading.value })
+    if (!bucketMap.has(bucketKey)) {
+      bucketMap.set(bucketKey, { dateTime: reading.dateTime, value: reading.value })
     }
   }
 
-  return Array.from(hourlyMap.values())
+  return Array.from(bucketMap.values())
     .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
 }
 
@@ -77,8 +78,8 @@ async function fetchStationData(rloiId, stationConfig) {
   const rawReadings = data.items || []
   console.log(`  Raw readings: ${rawReadings.length}`)
 
-  const hourlyReadings = downsampleToHourly(rawReadings)
-  console.log(`  Hourly readings: ${hourlyReadings.length}`)
+  const thirtyMinReadings = downsampleToThirtyMinutes(rawReadings)
+  console.log(`  30-minute readings: ${thirtyMinReadings.length}`)
 
   return {
     meta: {
@@ -89,9 +90,9 @@ async function fetchStationData(rloiId, stationConfig) {
       startDate,
       endDate,
       rawPointCount: rawReadings.length,
-      hourlyPointCount: hourlyReadings.length
+      thirtyMinPointCount: thirtyMinReadings.length
     },
-    readings: hourlyReadings
+    readings: thirtyMinReadings
   }
 }
 

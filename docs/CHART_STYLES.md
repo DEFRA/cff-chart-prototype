@@ -27,8 +27,8 @@ Date range selector providing access to up to 5 years of historical data.
 
 **Downsampling Strategy:**
 - **5 days, 1 month**: No downsampling (15-minute intervals)
-- **6 months**: Hourly values only
-- **1 year**: 4-hour intervals
+- **6 months**: 30-minute intervals
+- **1 year**: 30-minute intervals
 - **5 years**: Daily high points
 
 **Implementation:**

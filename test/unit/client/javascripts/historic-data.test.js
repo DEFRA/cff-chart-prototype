@@ -161,7 +161,7 @@ describe('Historic Data Management', () => {
       expect(result).toEqual(data)
     })
 
-    test('should downsample to hourly for 6m range', () => {
+    test('should downsample to 30-minute intervals for 6m range', () => {
       const data = [
         createDataPoint('2024-01-15T10:00:00', 1.0),
         createDataPoint('2024-01-15T10:15:00', 1.1),
@@ -169,30 +169,33 @@ describe('Historic Data Management', () => {
         createDataPoint('2024-01-15T10:45:00', 1.3),
         createDataPoint('2024-01-15T11:00:00', 2.0),
         createDataPoint('2024-01-15T11:15:00', 2.1),
+        createDataPoint('2024-01-15T11:30:00', 2.2),
         createDataPoint('2024-01-15T12:00:00', 3.0)
       ]
       const result = downsampleForStyleB(data, '6m')
-      expect(result).toHaveLength(3)
+      expect(result).toHaveLength(5)
       expect(result[0].dateTime).toBe('2024-01-15T10:00:00')
-      expect(result[1].dateTime).toBe('2024-01-15T11:00:00')
-      expect(result[2].dateTime).toBe('2024-01-15T12:00:00')
+      expect(result[1].dateTime).toBe('2024-01-15T10:30:00')
+      expect(result[2].dateTime).toBe('2024-01-15T11:00:00')
+      expect(result[3].dateTime).toBe('2024-01-15T11:30:00')
+      expect(result[4].dateTime).toBe('2024-01-15T12:00:00')
     })
 
-    test('should downsample to 4-hour intervals for 1y range', () => {
+    test('should downsample to 30-minute intervals for 1y range', () => {
       const data = [
         createDataPoint('2024-01-15T00:00:00', 1.0),
-        createDataPoint('2024-01-15T01:00:00', 1.1),
-        createDataPoint('2024-01-15T04:00:00', 2.0),
-        createDataPoint('2024-01-15T05:00:00', 2.1),
-        createDataPoint('2024-01-15T08:00:00', 3.0),
-        createDataPoint('2024-01-15T12:00:00', 4.0)
+        createDataPoint('2024-01-15T00:15:00', 1.1),
+        createDataPoint('2024-01-15T00:30:00', 2.0),
+        createDataPoint('2024-01-15T00:45:00', 2.1),
+        createDataPoint('2024-01-15T01:00:00', 3.0),
+        createDataPoint('2024-01-15T01:30:00', 4.0)
       ]
       const result = downsampleForStyleB(data, '1y')
       expect(result).toHaveLength(4)
       expect(result[0].dateTime).toBe('2024-01-15T00:00:00')
-      expect(result[1].dateTime).toBe('2024-01-15T04:00:00')
-      expect(result[2].dateTime).toBe('2024-01-15T08:00:00')
-      expect(result[3].dateTime).toBe('2024-01-15T12:00:00')
+      expect(result[1].dateTime).toBe('2024-01-15T00:30:00')
+      expect(result[2].dateTime).toBe('2024-01-15T01:00:00')
+      expect(result[3].dateTime).toBe('2024-01-15T01:30:00')
     })
 
     test('should downsample to weekly max for 5y range', () => {
