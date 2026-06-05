@@ -428,6 +428,53 @@ export function createYScale(lines, dataType, height) {
     .nice(Y_AXIS_NICE_TICKS)
 }
 
+function populateTickLabels(svg, tickConfig) {
+  const tickData = svg.select('.x.axis').selectAll('.tick').data()
+  const tickElements = Array.from(document.querySelectorAll('.x.axis .tick'))
+  
+  tickElements.forEach((tickNode, i) => {
+    const textEl = tickNode.querySelector('text') || (() => {
+      const el = document.createElementNS(SVG_NAMESPACE_URI, 'text')
+      el.setAttribute('y', '0')
+      el.setAttribute('x', '0')
+      el.setAttribute('dy', TIME_LABEL_DY)
+      el.setAttribute('text-anchor', 'middle')
+      tickNode.appendChild(el)
+      return el
+    })()
+    
+    if (textEl.parentNode === tickNode) {
+      while (textEl.firstChild) {
+        textEl.firstChild.remove()
+      }
+    }
+    
+    if (i < tickData.length) {
+      const tickDate = new Date(tickData[i])
+      
+      if (tickConfig.labelMode === TIME_AND_DATE_LABEL_MODE) {
+        const tspan1 = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
+        tspan1.textContent = formatTickTime(tickDate)
+        textEl.appendChild(tspan1)
+        
+        const tspan2 = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
+        tspan2.setAttribute('x', '0')
+        tspan2.setAttribute('dy', X_AXIS_TIME_TSPAN_DY)
+        tspan2.textContent = timeFormat('%-e %b')(tickDate)
+        textEl.appendChild(tspan2)
+      } else if (tickConfig.labelMode === MONTH_YEAR_LABEL_MODE) {
+        const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
+        tspan.textContent = timeFormat('%b %y')(tickDate)
+        textEl.appendChild(tspan)
+      } else {
+        const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
+        tspan.textContent = timeFormat('%-e %b')(tickDate)
+        textEl.appendChild(tspan)
+      }
+    }
+  })
+}
+
 export function renderAxes(svg, config) {
   const { xScale, yScale, width, height, timeRange } = config
   const isMobileViewport = globalThis.matchMedia?.(MOBILE_MAX_WIDTH_MEDIA_QUERY)?.matches ?? false
@@ -466,60 +513,7 @@ export function renderAxes(svg, config) {
     .attr('transform', `translate(${width}, 0)`)
     .call(yAxis)
 
-  // Post-process: Ensure all X-axis ticks have text elements
-  // Query the data from D3 after xAxis has been rendered
-  const tickData = svg.select('.x.axis').selectAll('.tick').data()
-  const tickElements = Array.from(document.querySelectorAll('.x.axis .tick'))
-  
-  tickElements.forEach((tickNode, i) => {
-    const textEl = tickNode.querySelector('text') || (() => {
-      // Create SVG text element
-      const el = document.createElementNS(SVG_NAMESPACE_URI, 'text')
-      el.setAttribute('y', '0')
-      el.setAttribute('x', '0')
-      el.setAttribute('dy', TIME_LABEL_DY)
-      el.setAttribute('text-anchor', 'middle')
-      tickNode.appendChild(el)
-      return el
-    })()
-    
-    // Clear existing content if queried from DOM
-    if (textEl.parentNode === tickNode) {
-      while (textEl.firstChild) {
-        textEl.firstChild.remove()
-      }
-    }
-    
-    // Add formatted text content
-    if (i < tickData.length) {
-      const d = tickData[i]
-      const tickDate = new Date(d)
-      
-      if (tickConfig.labelMode === TIME_AND_DATE_LABEL_MODE) {
-        const formattedTime = formatTickTime(tickDate)
-        const formattedDate = timeFormat('%-e %b')(tickDate)
-        
-        const tspan1 = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
-        tspan1.textContent = formattedTime
-        textEl.appendChild(tspan1)
-        
-        const tspan2 = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
-        tspan2.setAttribute('x', '0')
-        tspan2.setAttribute('dy', X_AXIS_TIME_TSPAN_DY)
-        tspan2.textContent = formattedDate
-        textEl.appendChild(tspan2)
-      } else if (tickConfig.labelMode === MONTH_YEAR_LABEL_MODE) {
-        const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
-        tspan.textContent = timeFormat('%b %y')(tickDate)
-        textEl.appendChild(tspan)
-      } else {
-        const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
-        tspan.textContent = timeFormat('%-e %b')(tickDate)
-        textEl.appendChild(tspan)
-      }
-    }
-  })
-
+  populateTickLabels(svg, tickConfig)
   removeFirstTickLabel(svg)
   removeLastTickLabel(svg, tickConfig.removeLastNTicks)
   alignEdgeTickLabels(svg)
