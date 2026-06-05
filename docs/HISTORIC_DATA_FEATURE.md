@@ -39,15 +39,15 @@ To improve chart performance and readability at larger time scales, Chart Style 
 |------------|---------------|-------------|
 | **5 days** | 15-minute intervals | No downsampling - all data points displayed |
 | **1 month** | 15-minute intervals | No downsampling - all data points displayed |
-| **6 months** | Hourly values | First value of each hour displayed |
-| **1 year** | 4-hour intervals | One value per 4-hour period |
+| **6 months** | 30-minute intervals | One value per 30-minute period displayed |
+| **1 year** | 30-minute intervals | One value per 30-minute period displayed |
 | **5 years** | Weekly high points | Maximum value per week displayed; X-axis shows month & year |
 
 #### Implementation Details
 
 The `downsampleForStyleB()` function:
-- **6m range**: Groups data by hour, keeping the first value of each hour
-- **1y range**: Groups data into 4-hour intervals using timestamp division
+- **6m range**: Groups data into 30-minute intervals using timestamp division
+- **1y range**: Groups data into 30-minute intervals using timestamp division
 - **5y range**: Groups data by calendar week (Sunday-Saturday), selecting the maximum value for each week; X-axis displays month & year format instead of day & month for better readability
 
 This approach:

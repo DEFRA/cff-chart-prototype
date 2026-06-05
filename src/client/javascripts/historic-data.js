@@ -11,6 +11,7 @@ const MS_PER_SECOND = 1000
 const FIVE_YEARS = 5
 const FIVE_DAYS = 5
 const THIRTY_DAYS = 30
+const THIRTY_MINUTES = 30
 const SIX_MONTHS = 6
 const THREE_YEARS = 3
 const FIVE_YEARS_MS = FIVE_YEARS * DAYS_PER_YEAR * HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
@@ -103,8 +104,8 @@ export function getTimeRangeLabel(range) {
 /**
  * Downsample data for chart style B to improve performance and readability
  * - 5 days, 1 month: no downsampling (15-min intervals)
- * - 6 months: hourly values only
- * - 1 year: 4-hour intervals
+ * - 6 months: 30-minute intervals
+ * - 1 year: 30-minute intervals
  * - 5 years: daily high points
  */
 export function downsampleForStyleB(data, range) {
@@ -118,25 +119,14 @@ export function downsampleForStyleB(data, range) {
   }
 
   const downsampled = []
-  const FOUR_HOURS_MS = 4 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
+  const THIRTY_MINUTES_MS = THIRTY_MINUTES * SECONDS_PER_MINUTE * MS_PER_SECOND
 
-  if (range === '6m') {
-    // Hourly values - keep first value of each hour
-    let lastHour = null
-    data.forEach(item => {
-      const date = new Date(item.dateTime)
-      const hour = new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours()).getTime()
-      if (lastHour !== hour) {
-        downsampled.push(item)
-        lastHour = hour
-      }
-    })
-  } else if (range === '1y') {
-    // 4-hour intervals
+  if (range === '6m' || range === '1y') {
+    // 30-minute intervals
     let lastInterval = null
     data.forEach(item => {
       const timestamp = new Date(item.dateTime).getTime()
-      const interval = Math.floor(timestamp / FOUR_HOURS_MS) * FOUR_HOURS_MS
+      const interval = Math.floor(timestamp / THIRTY_MINUTES_MS) * THIRTY_MINUTES_MS
       if (lastInterval !== interval) {
         downsampled.push(item)
         lastInterval = interval

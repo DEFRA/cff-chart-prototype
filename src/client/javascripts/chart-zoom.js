@@ -110,13 +110,15 @@ export function setupZoomBehavior(config) {
  */
 export function setupZoomControls(container, mainGroup, zoomBehavior) {
   container.resetZoom = () => {
-    mainGroup.interrupt()
-    mainGroup.call(zoomBehavior.transform, zoomIdentity)
-
-    // Touch/wheel sequences can leave a residual transform; apply again next frame.
-    globalThis.requestAnimationFrame(() => {
-      mainGroup.call(zoomBehavior.transform, zoomIdentity)
-    })
+    mainGroup.transition()
+      .duration(ZOOM_TRANSITION_DURATION)
+      .call(zoomBehavior.transform, zoomIdentity)
+      .on('end', () => {
+        // Touch/wheel sequences can leave a residual transform; apply again after transition.
+        globalThis.requestAnimationFrame(() => {
+          mainGroup.call(zoomBehavior.transform, zoomIdentity)
+        })
+      })
 
     if (container.updateZoomControls) {
       container.updateZoomControls(1)
