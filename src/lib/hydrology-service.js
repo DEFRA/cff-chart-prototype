@@ -76,7 +76,7 @@ export async function fetchHistoricReadings(rloiId, stationInfo) {
   const endDate = end.toISOString().split('T')[0]
 
   const url = `${HYDROLOGY_BASE_URL}/id/measures/${measureId}/readings.json?mineq-date=${startDate}&maxeq-date=${endDate}&_limit=${READINGS_LIMIT}`
-  const response = await proxyFetch(url)
+  const response = await proxyFetch(url, { timeout: 90000 })
 
   if (!response.ok) {
     throw new Error(`Failed to fetch readings: ${response.status}`)

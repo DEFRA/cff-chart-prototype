@@ -13,6 +13,7 @@ const DEFAULT_HEADERS = {
  */
 export function proxyFetch(url, options = {}) {
   const proxyUrlConfig = config.get('httpProxy') // bound to HTTP_PROXY
+  const timeoutMs = options.timeout || 30000 // Default 30 second timeout
 
   const mergedOptions = {
     ...options,
@@ -22,22 +23,38 @@ export function proxyFetch(url, options = {}) {
     }
   }
 
+  // Remove timeout from mergedOptions to avoid passing it to fetch
+  delete mergedOptions.timeout
+
+  // Create abort controller for timeout
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => {
+    console.warn(`[TIMEOUT] Fetch request exceeded ${timeoutMs}ms timeout for: ${url}`)
+    controller.abort()
+  }, timeoutMs)
+
+  const fetchOptions = {
+    ...mergedOptions,
+    signal: controller.signal
+  }
+
   if (!proxyUrlConfig) {
     console.log(`[PROXY] No HTTP_PROXY set - using direct fetch for: ${url}`)
-    return fetch(url, mergedOptions)
+    return fetch(url, fetchOptions).finally(() => clearTimeout(timeoutId))
   }
 
   console.log(`[PROXY] Using proxy ${proxyUrlConfig} for: ${url}`)
   try {
     return fetch(url, {
-      ...mergedOptions,
+      ...fetchOptions,
       dispatcher: new ProxyAgent({
         uri: proxyUrlConfig,
-        keepAliveTimeout: 10,
-        keepAliveMaxTimeout: 10
+        keepAliveTimeout: 30000,
+        keepAliveMaxTimeout: 30000
       })
-    })
+    }).finally(() => clearTimeout(timeoutId))
   } catch (error) {
+    clearTimeout(timeoutId)
     console.error(`[PROXY] Error setting up proxy for ${url}:`, error)
     throw error
   }
