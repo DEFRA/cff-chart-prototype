@@ -1,17 +1,19 @@
 import { extent } from 'd3-array'
 import { scaleLinear, scaleTime } from 'd3-scale'
 import { getVisibleDurationDays } from './line-chart-tick-utils.js'
+import {
+  RANGE_BUFFER_DIVISOR,
+  MIN_RANGE_VALUE,
+  TIME_RANGE_PADDING,
+  Y_AXIS_NICE_TICKS
+} from './line-chart-constants.js'
 
 const FIVE_DAY_RANGE = '5d'
-const TIME_RANGE_PADDING = 0.05
-const Y_AXIS_NICE_TICKS = 5
 const Y_FORMAT_THREE_DP_THRESHOLD = 0.1
 const Y_FORMAT_TWO_DP_THRESHOLD = 1
 const Y_FORMAT_THREE_DP = 3
 const Y_FORMAT_TWO_DP = 2
 const Y_FORMAT_ONE_DP = 1
-const MIN_RANGE_VALUE = 0.001
-const RANGE_BUFFER_DIVISOR = 10
 const TIME_AND_DATE_DURATION_THRESHOLD_DAYS = 2
 const DATE_DURATION_THRESHOLD_DAYS = 120
 
