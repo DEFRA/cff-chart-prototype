@@ -3,6 +3,8 @@ import { config } from '../config/config.js'
 
 const API_BASE_URL = config.get('api.floodMonitoring.baseUrl')
 
+const DEFAULT_TIMEOUT_MS = 15000
+
 const DEFAULT_HEADERS = {
   'User-Agent': 'cff-chart-prototype/1.0 (https://github.com/DEFRA/cff-chart-prototype)'
 }
@@ -13,6 +15,7 @@ const DEFAULT_HEADERS = {
  */
 export function proxyFetch(url, options = {}) {
   const proxyUrlConfig = config.get('httpProxy') // bound to HTTP_PROXY
+  const timeoutMs = options.timeout || DEFAULT_TIMEOUT_MS
 
   const mergedOptions = {
     ...options,
@@ -22,22 +25,38 @@ export function proxyFetch(url, options = {}) {
     }
   }
 
+  // Remove timeout from mergedOptions to avoid passing it to fetch
+  delete mergedOptions.timeout
+
+  // Create abort controller for timeout
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => {
+    console.warn(`[TIMEOUT] Fetch request exceeded ${timeoutMs}ms timeout for: ${url}`)
+    controller.abort()
+  }, timeoutMs)
+
+  const fetchOptions = {
+    ...mergedOptions,
+    signal: controller.signal
+  }
+
   if (!proxyUrlConfig) {
     console.log(`[PROXY] No HTTP_PROXY set - using direct fetch for: ${url}`)
-    return fetch(url, mergedOptions)
+    return fetch(url, fetchOptions).finally(() => clearTimeout(timeoutId))
   }
 
   console.log(`[PROXY] Using proxy ${proxyUrlConfig} for: ${url}`)
   try {
     return fetch(url, {
-      ...mergedOptions,
+      ...fetchOptions,
       dispatcher: new ProxyAgent({
         uri: proxyUrlConfig,
-        keepAliveTimeout: 10,
-        keepAliveMaxTimeout: 10
+        keepAliveTimeout: DEFAULT_TIMEOUT_MS,
+        keepAliveMaxTimeout: DEFAULT_TIMEOUT_MS
       })
-    })
+    }).finally(() => clearTimeout(timeoutId))
   } catch (error) {
+    clearTimeout(timeoutId)
     console.error(`[PROXY] Error setting up proxy for ${url}:`, error)
     throw error
   }

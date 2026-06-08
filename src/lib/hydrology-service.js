@@ -7,6 +7,7 @@ const HYDROLOGY_BASE_URL = config.get('api.hydrology.baseUrl')
 const THREE_YEARS = 3
 const READINGS_LIMIT = 200000
 const FIFTEEN_MIN_PERIOD = 900
+const HISTORIC_FETCH_TIMEOUT_MS = 90000
 
 export async function lookupStationByRLOI(rloiId) {
   const url = `${HYDROLOGY_BASE_URL}/id/stations?RLOIid=${rloiId}`
@@ -76,7 +77,7 @@ export async function fetchHistoricReadings(rloiId, stationInfo) {
   const endDate = end.toISOString().split('T')[0]
 
   const url = `${HYDROLOGY_BASE_URL}/id/measures/${measureId}/readings.json?mineq-date=${startDate}&maxeq-date=${endDate}&_limit=${READINGS_LIMIT}`
-  const response = await proxyFetch(url)
+  const response = await proxyFetch(url, { timeout: HISTORIC_FETCH_TIMEOUT_MS })
 
   if (!response.ok) {
     throw new Error(`Failed to fetch readings: ${response.status}`)

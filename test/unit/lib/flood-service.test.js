@@ -38,10 +38,13 @@ describe('flood-service - proxyFetch', () => {
 
       await proxyFetch(TEST_API_URL)
 
-      expect(globalThis.fetch).toHaveBeenCalledWith(TEST_API_URL, {
-        headers: {
-          'User-Agent': 'cff-chart-prototype/1.0 (https://github.com/DEFRA/cff-chart-prototype)'
-        }
+      expect(globalThis.fetch).toHaveBeenCalled()
+      const callArgs = globalThis.fetch.mock.calls[0]
+      expect(callArgs[0]).toBe(TEST_API_URL)
+      expect(callArgs[1]).toHaveProperty('headers')
+      expect(callArgs[1]).toHaveProperty('signal')
+      expect(callArgs[1].headers).toEqual({
+        'User-Agent': 'cff-chart-prototype/1.0 (https://github.com/DEFRA/cff-chart-prototype)'
       })
     })
 

@@ -220,6 +220,14 @@
       </div>
       {% endif %}
 
+      <div class="defra-line-chart__actions govuk-!-margin-bottom-4">
+        <a href="/station-csv/{{ station.id }}" id="download-csv-btn" class="defra-button-secondary govuk-!-margin-bottom-0">
+          <span class="defra-button-secondary__icon"></span>
+          <span class="defra-button-secondary__text">Download data CSV (12KB)</span>
+        </a>
+
+      </div>
+
       {% if chartStyle === 'styleC' %}
       <div class="defra-line-chart__threshold-controls" id="chart-threshold-controls" aria-label="Chart reference lines">
         <div class="govuk-checkboxes govuk-checkboxes--small">
@@ -245,19 +253,11 @@
       </div>
       {% endif %}
 
-      <div class="defra-line-chart__actions">
-        <a href="/station-csv/{{ station.id }}" id="download-csv-btn" class="defra-button-secondary govuk-!-margin-bottom-0">
-          <span class="defra-button-secondary__icon"></span>
-          <span class="defra-button-secondary__text">Download data CSV (12KB)</span>
-        </a>
-
-      </div>
     </div>
   </div>
 </div>
 
 {# Additional Information #}
-<hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-6">
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
