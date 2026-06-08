@@ -3,7 +3,7 @@ import { config } from '../config/config.js'
 
 const API_BASE_URL = config.get('api.floodMonitoring.baseUrl')
 
-const DEFAULT_TIMEOUT_MS = 30000
+const DEFAULT_TIMEOUT_MS = 15000
 
 const DEFAULT_HEADERS = {
   'User-Agent': 'cff-chart-prototype/1.0 (https://github.com/DEFRA/cff-chart-prototype)'
