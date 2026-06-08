@@ -3,6 +3,8 @@ import { config } from '../config/config.js'
 
 const API_BASE_URL = config.get('api.floodMonitoring.baseUrl')
 
+const DEFAULT_TIMEOUT_MS = 30000
+
 const DEFAULT_HEADERS = {
   'User-Agent': 'cff-chart-prototype/1.0 (https://github.com/DEFRA/cff-chart-prototype)'
 }
@@ -13,7 +15,7 @@ const DEFAULT_HEADERS = {
  */
 export function proxyFetch(url, options = {}) {
   const proxyUrlConfig = config.get('httpProxy') // bound to HTTP_PROXY
-  const timeoutMs = options.timeout || 30000 // Default 30 second timeout
+  const timeoutMs = options.timeout || DEFAULT_TIMEOUT_MS
 
   const mergedOptions = {
     ...options,
@@ -49,8 +51,8 @@ export function proxyFetch(url, options = {}) {
       ...fetchOptions,
       dispatcher: new ProxyAgent({
         uri: proxyUrlConfig,
-        keepAliveTimeout: 30000,
-        keepAliveMaxTimeout: 30000
+        keepAliveTimeout: DEFAULT_TIMEOUT_MS,
+        keepAliveMaxTimeout: DEFAULT_TIMEOUT_MS
       })
     }).finally(() => clearTimeout(timeoutId))
   } catch (error) {
