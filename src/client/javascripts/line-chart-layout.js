@@ -23,6 +23,7 @@ import {
   snapTickValuesForRange
 } from './line-chart-tick-utils.js'
 import {
+  DATE_LABEL_MODE,
   TIME_AND_DATE_LABEL_MODE,
   MONTH_YEAR_LABEL_MODE,
   getLabelModeForExtent,
@@ -35,6 +36,7 @@ const SIX_MONTH_RANGE = '6m'
 const ONE_YEAR_RANGE = '1y'
 const THREE_YEAR_RANGE = '3y'
 const FIVE_YEAR_RANGE = '5y'
+const TWO_LINE_MONTH_YEAR_RANGES = new Set([SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE])
 const X_AXIS_TIME_TSPAN_DY = '15'
 const TIME_LABEL_DY = '0.71em'
 const FIXED_X_TICK_COUNT = 6
@@ -184,9 +186,37 @@ function populateTickLabels(svg, tickConfig) {
         tspan2.textContent = timeFormat('%-e %b')(tickDate)
         textEl.appendChild(tspan2)
       } else if (tickConfig.labelMode === MONTH_YEAR_LABEL_MODE) {
-        const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
-        tspan.textContent = timeFormat('%b %y')(tickDate)
-        textEl.appendChild(tspan)
+        if (TWO_LINE_MONTH_YEAR_RANGES.has(tickConfig.timeRange)) {
+          const monthTspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
+          monthTspan.textContent = timeFormat('%b')(tickDate)
+          textEl.appendChild(monthTspan)
+
+          const yearTspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
+          yearTspan.setAttribute('x', '0')
+          yearTspan.setAttribute('dy', X_AXIS_TIME_TSPAN_DY)
+          yearTspan.textContent = timeFormat('%Y')(tickDate)
+          textEl.appendChild(yearTspan)
+        } else {
+          const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
+          tspan.textContent = timeFormat('%b %y')(tickDate)
+          textEl.appendChild(tspan)
+        }
+      } else if (tickConfig.labelMode === DATE_LABEL_MODE) {
+        if (TWO_LINE_MONTH_YEAR_RANGES.has(tickConfig.timeRange)) {
+          const dateTspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
+          dateTspan.textContent = timeFormat('%-e %b')(tickDate)
+          textEl.appendChild(dateTspan)
+
+          const yearTspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
+          yearTspan.setAttribute('x', '0')
+          yearTspan.setAttribute('dy', X_AXIS_TIME_TSPAN_DY)
+          yearTspan.textContent = timeFormat('%Y')(tickDate)
+          textEl.appendChild(yearTspan)
+        } else {
+          const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
+          tspan.textContent = timeFormat('%-e %b')(tickDate)
+          textEl.appendChild(tspan)
+        }
       } else {
         const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
         tspan.textContent = timeFormat('%-e %b')(tickDate)
@@ -202,6 +232,7 @@ export function renderAxes(svg, config) {
   const yTickTextOffset = isMobileViewport ? MOBILE_Y_TICK_TEXT_OFFSET : TICK_TEXT_OFFSET_X
   const visibleExtent = xScale.domain()
   const tickConfig = calculateTickInterval(visibleExtent, timeRange, width)
+  tickConfig.timeRange = timeRange
 
   const xAxis = axisBottom()
     .scale(xScale)
