@@ -71,7 +71,7 @@ async function resolveStageScale(stageScale) {
   }
   try {
     const response = await proxyFetch(stageScale)
-    if (!response.ok) return null
+    if (!response.ok) { return null }
     const data = await response.json()
     return data.items || null
   } catch {
