@@ -63,6 +63,23 @@ export function proxyFetch(url, options = {}) {
 }
 
 /**
+ * Fetch stageScale data from its URL if returned as a reference string
+ */
+async function resolveStageScale(stageScale) {
+  if (!stageScale || typeof stageScale !== 'string') {
+    return stageScale
+  }
+  try {
+    const response = await proxyFetch(stageScale)
+    if (!response.ok) return null
+    const data = await response.json()
+    return data.items || null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Fetch station details by RLOI ID (Check for Flooding ID)
  */
 export async function getStation(stationId) {
@@ -79,8 +96,11 @@ export async function getStation(stationId) {
     const data = await response.json()
     // The API returns an array of stations in items
     if (data.items && data.items.length > 0) {
+      const station = data.items[0]
+      // stageScale may be returned as a URL reference - resolve it to get the actual values
+      station.stageScale = await resolveStageScale(station.stageScale)
       console.log(`Station data retrieved successfully for ${stationId}`)
-      return data.items[0]
+      return station
     }
     console.log(`No station items found for ${stationId}`)
     return null
@@ -214,6 +234,7 @@ export function formatStationData(station, readings) {
     stateInformation: station.stageScale
       ? `${station.stageScale.typicalRangeLow?.toFixed(2) || '0.00'}m to ${station.stageScale.typicalRangeHigh?.toFixed(2) || '1.00'}m`
       : 'Data not available',
+    typicalRangeHigh: station.stageScale?.typicalRangeHigh ?? null,
     hasPercentiles: !!station.stageScale,
     isActive: station.status === 'Active' || !station.status,
     status: station.status?.toLowerCase() || 'active',

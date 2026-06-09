@@ -72,10 +72,12 @@ function getThresholdMetrics(observed = []) {
     ? observed.reduce((max, point) => Math.max(max, Number(point.value)), Number.NEGATIVE_INFINITY)
     : DEFAULT_HIGHEST_LEVEL
 
+  const typicalRangeHigh = globalThis.flood?.model?.typicalRangeHigh
+
   return {
     currentLevel: Number.isFinite(latestValue) ? latestValue : DEFAULT_CURRENT_LEVEL,
     highestLevel: Number.isFinite(highestValue) ? highestValue : DEFAULT_HIGHEST_LEVEL,
-    topNormal: DEFAULT_TOP_NORMAL_LEVEL
+    topNormal: (typicalRangeHigh != null && Number.isFinite(Number(typicalRangeHigh))) ? Number(typicalRangeHigh) : DEFAULT_TOP_NORMAL_LEVEL
   }
 }
 

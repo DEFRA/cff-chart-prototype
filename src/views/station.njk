@@ -359,7 +359,8 @@
       telemetry: {{ telemetry | dump | safe }},
       chartThreshold: [],
       chartStyle: '{{ chartStyle }}',
-      historicData: {{ historicData | dump | safe }}
+      historicData: {{ historicData | dump | safe }},
+      typicalRangeHigh: {{ station.typicalRangeHigh | dump | safe }}
     };
   </script>
   <script src="{{ getAssetPath('application.js') }}"></script>
