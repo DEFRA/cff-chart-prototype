@@ -154,8 +154,8 @@ function alignEdgeTickLabels(svg) {
 function makeTspan(text, x, dy) {
   const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
   tspan.textContent = text
-  if (x !== undefined) tspan.setAttribute('x', x)
-  if (dy !== undefined) tspan.setAttribute('dy', dy)
+  if (x !== undefined) {tspan.setAttribute('x', x)}
+  if (dy !== undefined) {tspan.setAttribute('dy', dy)}
   return tspan
 }
 

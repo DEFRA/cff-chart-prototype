@@ -3,6 +3,41 @@ import { select } from 'd3-selection'
 import { TOOLTIP_TEXT_HEIGHT_OFFSET, TOOLTIP_PATH_LENGTH, TOOLTIP_PATH_LENGTH_WIDE, TOOLTIP_MARGIN_TOP, TOOLTIP_MARGIN_BOTTOM_OFFSET, TOOLTIP_VERTICAL_OFFSET } from './line-chart-constants.js'
 
 const THRESHOLD_DETECTION_TOLERANCE_PX = 12
+const WIDE_TIME_RANGES = new Set(['6m', '1y', '3y', '5y'])
+
+function getPathLength(timeRange) {
+  return WIDE_TIME_RANGES.has(timeRange) ? TOOLTIP_PATH_LENGTH_WIDE : TOOLTIP_PATH_LENGTH
+}
+
+function clampTooltipX(x, pathLength, chartWidth) {
+  if (chartWidth === null) {
+    return x
+  }
+
+  if (x < 0) {
+    return 0
+  }
+
+  if (x + pathLength > chartWidth) {
+    return chartWidth - pathLength
+  }
+
+  return x
+}
+
+function clampTooltipY(y, tooltipHeight, currentHeight) {
+  const marginBottom = currentHeight - (tooltipHeight + TOOLTIP_MARGIN_BOTTOM_OFFSET)
+
+  if (y < TOOLTIP_MARGIN_TOP) {
+    return TOOLTIP_MARGIN_TOP
+  }
+
+  if (y > marginBottom) {
+    return marginBottom
+  }
+
+  return y
+}
 
 export function createTooltipManager(tooltipConfig) {
   const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, getHeight, getWidth, dataType, latestDateTime, timeRange } = tooltipConfig
@@ -19,42 +54,21 @@ export function createTooltipManager(tooltipConfig) {
   function setPosition(x, y, dataPoint, yScaleFunc) {
     const currentHeight = getHeight()
     const locatorX = x
-    const text = tooltip.select('text')
-    const txtHeight = Math.round(text.node().getBBox().height) + TOOLTIP_TEXT_HEIGHT_OFFSET
-    const pathLength = (timeRange === '6m' || timeRange === '1y' || timeRange === '3y' || timeRange === '5y') ? TOOLTIP_PATH_LENGTH_WIDE : TOOLTIP_PATH_LENGTH
-    const pathCentre = `M${pathLength},${txtHeight}l0,-${txtHeight}l-${pathLength},0l0,${txtHeight}l${pathLength},0Z`
+    const txtHeight = Math.round(tooltip.select('text').node().getBBox().height) + TOOLTIP_TEXT_HEIGHT_OFFSET
+    const pathLength = getPathLength(timeRange)
 
-    tooltipPath.attr('d', pathCentre)
-    x -= (pathLength / 2)
+    tooltipPath.attr('d', `M${pathLength},${txtHeight}l0,-${txtHeight}l-${pathLength},0l0,${txtHeight}l${pathLength},0Z`)
 
     const chartWidth = typeof getWidth === 'function' ? getWidth() : null
-    if (chartWidth !== null) {
-      if (x < 0) {
-        x = 0
-      } else if (x + pathLength > chartWidth) {
-        x = chartWidth - pathLength
-      }
-    }
-
-    const tooltipHeight = tooltipPath.node().getBBox().height
-    const tooltipMarginBottom = currentHeight - (tooltipHeight + TOOLTIP_MARGIN_BOTTOM_OFFSET)
-    y -= tooltipHeight + TOOLTIP_VERTICAL_OFFSET
-
-    if (y < TOOLTIP_MARGIN_TOP) {
-      y = TOOLTIP_MARGIN_TOP
-    } else if (y > tooltipMarginBottom) {
-      y = tooltipMarginBottom
-    } else {
-      // Keep existing calculated y when already inside tooltip bounds.
-    }
+    x = clampTooltipX(x - (pathLength / 2), pathLength, chartWidth)
+    y = clampTooltipY(y - tooltipPath.node().getBBox().height - TOOLTIP_VERTICAL_OFFSET, tooltipPath.node().getBBox().height, currentHeight)
 
     tooltip.attr('transform', `translate(${x.toFixed(0)},${y.toFixed(0)})`)
     tooltip.classed('tooltip--visible', true)
     tooltip.raise()
 
     const locatorY = Math.floor(yScaleFunc(dataType === 'river' && dataPoint.value < 0 ? 0 : dataPoint.value))
-    const isForecast = (new Date(dataPoint.dateTime)) > (new Date(latestDateTime))
-    locator.classed('locator--forecast', isForecast)
+    locator.classed('locator--forecast', new Date(dataPoint.dateTime) > new Date(latestDateTime))
     locator.attr('transform', `translate(${locatorX.toFixed(0)},0)`)
     locator.select('.locator__line').attr('y2', currentHeight)
     locator.select('.locator-point').attr('transform', `translate(0,${locatorY})`)
