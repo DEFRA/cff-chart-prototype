@@ -5,7 +5,7 @@ import { TOOLTIP_TEXT_HEIGHT_OFFSET, TOOLTIP_PATH_LENGTH, TOOLTIP_PATH_LENGTH_WI
 const THRESHOLD_DETECTION_TOLERANCE_PX = 12
 
 export function createTooltipManager(tooltipConfig) {
-  const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, getHeight, dataType, latestDateTime, timeRange } = tooltipConfig
+  const { tooltip, tooltipPath, tooltipValue, tooltipDescription, locator, getHeight, getWidth, dataType, latestDateTime, timeRange } = tooltipConfig
 
   function setThresholdHoverState(isHovering) {
     const svgNode = tooltip.node()?.ownerSVGElement
@@ -26,6 +26,15 @@ export function createTooltipManager(tooltipConfig) {
 
     tooltipPath.attr('d', pathCentre)
     x -= (pathLength / 2)
+
+    const chartWidth = typeof getWidth === 'function' ? getWidth() : null
+    if (chartWidth !== null) {
+      if (x < 0) {
+        x = 0
+      } else if (x + pathLength > chartWidth) {
+        x = chartWidth - pathLength
+      }
+    }
 
     const tooltipHeight = tooltipPath.node().getBBox().height
     const tooltipMarginBottom = currentHeight - (tooltipHeight + TOOLTIP_MARGIN_BOTTOM_OFFSET)

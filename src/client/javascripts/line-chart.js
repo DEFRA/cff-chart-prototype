@@ -381,6 +381,7 @@ function setupTooltipManager(context) {
     tooltipDescription: context.tooltipDescription,
     locator: context.locator,
     getHeight: () => context.stateRef.height,
+    getWidth: () => context.stateRef.width,
     dataType: context.dataCache.type,
     latestDateTime: context.dataCache.latestDateTime,
     timeRange: context.timeRange
