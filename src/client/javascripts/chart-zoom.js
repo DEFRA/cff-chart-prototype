@@ -77,7 +77,15 @@ export function setupZoomBehavior(config) {
       if (event.type === 'wheel') {
         event.preventDefault()
         event.stopPropagation()
+        return true
       }
+      
+      // For touch events, only allow multi-touch (2+ fingers) for zooming/panning
+      // Single touch (1 finger) is handled by interaction handlers for showing tooltip
+      if (event.type === 'touchstart' || event.type === 'touchmove' || event.type === 'touchend') {
+        return event.touches && event.touches.length > 1
+      }
+      
       return true
     })
     .on('zoom', (event) => {
