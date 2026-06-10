@@ -3,6 +3,7 @@ import { select } from 'd3-selection'
 import { TOOLTIP_TEXT_HEIGHT_OFFSET, TOOLTIP_PATH_LENGTH, TOOLTIP_PATH_LENGTH_WIDE, TOOLTIP_MARGIN_TOP, TOOLTIP_MARGIN_BOTTOM_OFFSET, TOOLTIP_VERTICAL_OFFSET } from './line-chart-constants.js'
 
 const THRESHOLD_DETECTION_TOLERANCE_PX = 12
+const TOUCH_EDGE_PAN_THRESHOLD_PX = 16
 const WIDE_TIME_RANGES = new Set(['6m', '1y', '3y', '5y'])
 
 function getPathLength(timeRange) {
@@ -218,15 +219,31 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
 
   const handleTouchMove = (e) => {
     e.preventDefault()
-    const { margin, lines, xScale, yScale } = getState()
+    let { margin, lines, xScale, yScale } = getState()
     if (!xScale) {
       return
     }
 
     const touchEvent = e.touches[0]
     const [mouseX, mouseY] = getMousePosition(touchEvent, svg.node())
-    const chartX = mouseX - margin.left
+    let chartX = mouseX - margin.left
     const chartY = mouseY - margin.top
+    const chartWidth = Array.isArray(xScale.range()) ? xScale.range()[1] : null
+
+    if (Number.isFinite(chartWidth) && chartWidth > 0 && typeof container.panBy === 'function') {
+      const touchPanStep = typeof container.getTouchPanStep === 'function' ? container.getTouchPanStep() : 8
+
+      if (chartX <= TOUCH_EDGE_PAN_THRESHOLD_PX) {
+        container.panBy(touchPanStep)
+      } else if (chartX >= chartWidth - TOUCH_EDGE_PAN_THRESHOLD_PX) {
+        container.panBy(-touchPanStep)
+      }
+
+      // Zoom/pan updates xScale through zoom handlers; refresh state before resolving point.
+      ({ margin, lines, xScale, yScale } = getState())
+      chartX = mouseX - margin.left
+    }
+
     const dataPoint = findDataPointByX(chartX, lines, xScale)
     tooltipManager.show(dataPoint, chartY, xScale, yScale)
   }
