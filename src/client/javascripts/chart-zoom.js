@@ -81,10 +81,15 @@ export function setupZoomBehavior(config) {
         return true
       }
       
-      // For touch events, only allow multi-touch (2+ fingers) for zooming/panning
-      // Single touch (1 finger) is handled by interaction handlers for showing tooltip
-      if (event.type === 'touchstart' || event.type === 'touchmove' || event.type === 'touchend') {
+      // For touch events, only allow multi-touch (2+ fingers) for zooming/panning.
+      // Single touch (1 finger) is handled by interaction handlers for showing tooltip.
+      if (event.type === 'touchstart' || event.type === 'touchmove') {
         return event.touches && event.touches.length > 1
+      }
+
+      // Always allow end/cancel events so d3-zoom can complete gesture lifecycles.
+      if (event.type === 'touchend' || event.type === 'touchcancel') {
+        return true
       }
       
       return true

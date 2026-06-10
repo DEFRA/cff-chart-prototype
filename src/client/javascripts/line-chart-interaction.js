@@ -180,7 +180,7 @@ function attachEventListeners(svgNode, container, eventConfig) {
   svgNode.addEventListener('click', handleClick)
   svgNode.addEventListener('mousemove', handleMouseMove)
   svgNode.addEventListener('touchstart', () => { interfaceTypeRef.value = 'touch' })
-  svgNode.addEventListener('touchmove', handleTouchMove)
+  svgNode.addEventListener('touchmove', handleTouchMove, { passive: false })
   svgNode.addEventListener('touchend', () => { interfaceTypeRef.value = null })
   container.addEventListener('mouseleave', () => {
     tooltipManager.hide()
@@ -236,6 +236,10 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
     tooltipManager.show(dataPoint, chartY, xScale, yScale)
   }
   const handleTouchMove = (e) => {
+    if (e.touches?.length !== 1) {
+      return
+    }
+
     e.preventDefault()
     let { margin, lines, xScale, yScale } = getState()
     if (!xScale) {
