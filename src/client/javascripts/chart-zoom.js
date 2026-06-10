@@ -5,6 +5,7 @@ const ZOOM_TRANSITION_DURATION = 300
 const ZOOM_IN_FACTOR = 1.5
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR
 const PAN_STEP_RATIO = 0.2
+const TOUCH_PAN_STEP_PX = 8
 const ZOOM_MIN_SCALE = 1
 const ZOOM_MAX_SCALE = 100
 
@@ -77,7 +78,15 @@ export function setupZoomBehavior(config) {
       if (event.type === 'wheel') {
         event.preventDefault()
         event.stopPropagation()
+        return true
       }
+      
+      // For touch events, only allow multi-touch (2+ fingers) for zooming/panning
+      // Single touch (1 finger) is handled by interaction handlers for showing tooltip
+      if (event.type === 'touchstart' || event.type === 'touchmove' || event.type === 'touchend') {
+        return event.touches && event.touches.length > 1
+      }
+      
       return true
     })
     .on('zoom', (event) => {
@@ -109,6 +118,16 @@ export function setupZoomBehavior(config) {
  * Setup zoom control methods on container
  */
 export function setupZoomControls(container, mainGroup, zoomBehavior) {
+  container.panBy = (deltaX) => {
+    if (!Number.isFinite(deltaX) || deltaX === 0) {
+      return
+    }
+
+    mainGroup.call(zoomBehavior.translateBy, deltaX, 0)
+  }
+
+  container.getTouchPanStep = () => TOUCH_PAN_STEP_PX
+
   container.resetZoom = () => {
     mainGroup.transition()
       .duration(ZOOM_TRANSITION_DURATION)
