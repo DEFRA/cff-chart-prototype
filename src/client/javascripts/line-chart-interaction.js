@@ -236,7 +236,7 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
     tooltipManager.show(dataPoint, chartY, xScale, yScale)
   }
   const handleTouchMove = (e) => {
-    if (!e.touches || e.touches.length !== 1) {
+    if (e.touches?.length !== 1) {
       return
     }
 
