@@ -145,6 +145,33 @@ function detectNearestThreshold(chartY, yScale, thresholds) {
   return nearestThresholdId
 }
 
+function updateThresholdHover(chartY, yScale, thresholds, hoveredThresholdIdRef, onThresholdLineHover) {
+  if (typeof onThresholdLineHover !== 'function' || !yScale) {
+    return
+  }
+
+  const nearestThresholdId = detectNearestThreshold(chartY, yScale, thresholds)
+
+  if (nearestThresholdId !== hoveredThresholdIdRef.value) {
+    hoveredThresholdIdRef.value = nearestThresholdId
+    onThresholdLineHover(nearestThresholdId)
+  }
+}
+
+function handleTouchPan(touchX, touchWidth, container) {
+  if (!Number.isFinite(touchWidth) || touchWidth <= 0 || typeof container.panBy !== 'function') {
+    return
+  }
+
+  const touchPanStep = typeof container.getTouchPanStep === 'function' ? container.getTouchPanStep() : 8
+
+  if (touchX <= TOUCH_EDGE_PAN_THRESHOLD_PX) {
+    container.panBy(touchPanStep)
+  } else if (touchX >= touchWidth - TOUCH_EDGE_PAN_THRESHOLD_PX) {
+    container.panBy(-touchPanStep)
+  }
+}
+
 function attachEventListeners(svgNode, container, eventConfig) {
   const { handleClick, handleMouseMove, handleTouchMove, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef } = eventConfig
 
@@ -162,16 +189,15 @@ function attachEventListeners(svgNode, container, eventConfig) {
   })
 }
 
+function getMousePosition(e, svgElement) {
+  const rect = svgElement.getBoundingClientRect()
+  return [e.clientX - rect.left, e.clientY - rect.top]
+}
+
 export function setupEventHandlers(container, svg, getState, tooltipManager, onThresholdLineHover) {
   const interfaceTypeRef = { value: null }
   const hoveredThresholdIdRef = { value: null }
-  let lastClientX
-  let lastClientY
-
-  const getMousePosition = (e, svgElement) => {
-    const rect = svgElement.getBoundingClientRect()
-    return [e.clientX - rect.left, e.clientY - rect.top]
-  }
+  let lastClientX, lastClientY
 
   const handleMouseMove = (e) => {
     if (lastClientX === e.clientX && lastClientY === e.clientY) {
@@ -197,17 +223,8 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
     const chartY = mouseY - margin.top
     const dataPoint = findDataPointByX(chartX, lines, xScale)
     tooltipManager.show(dataPoint, chartY, xScale, yScale)
-
-    if (typeof onThresholdLineHover === 'function' && yScale) {
-      const nearestThresholdId = detectNearestThreshold(chartY, yScale, thresholds)
-
-      if (nearestThresholdId !== hoveredThresholdIdRef.value) {
-        hoveredThresholdIdRef.value = nearestThresholdId
-        onThresholdLineHover(nearestThresholdId)
-      }
-    }
+    updateThresholdHover(chartY, yScale, thresholds, hoveredThresholdIdRef, onThresholdLineHover)
   }
-
   const handleClick = (e) => {
     const { margin, lines, xScale, yScale } = getState()
     const [mouseX, mouseY] = getMousePosition(e, svg.node())
@@ -216,7 +233,6 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
     const dataPoint = findDataPointByX(chartX, lines, xScale)
     tooltipManager.show(dataPoint, chartY, xScale, yScale)
   }
-
   const handleTouchMove = (e) => {
     e.preventDefault()
     let { margin, lines, xScale, yScale } = getState()
@@ -230,19 +246,10 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
     const chartY = mouseY - margin.top
     const chartWidth = Array.isArray(xScale.range()) ? xScale.range()[1] : null
 
-    if (Number.isFinite(chartWidth) && chartWidth > 0 && typeof container.panBy === 'function') {
-      const touchPanStep = typeof container.getTouchPanStep === 'function' ? container.getTouchPanStep() : 8
-
-      if (chartX <= TOUCH_EDGE_PAN_THRESHOLD_PX) {
-        container.panBy(touchPanStep)
-      } else if (chartX >= chartWidth - TOUCH_EDGE_PAN_THRESHOLD_PX) {
-        container.panBy(-touchPanStep)
-      }
-
-      // Zoom/pan updates xScale through zoom handlers; refresh state before resolving point.
-      ({ margin, lines, xScale, yScale } = getState())
-      chartX = mouseX - margin.left
-    }
+    handleTouchPan(chartX, chartWidth, container)
+    // Zoom/pan updates xScale through zoom handlers; refresh state before resolving point.
+    ({ margin, lines, xScale, yScale } = getState())
+    chartX = mouseX - margin.left
 
     const dataPoint = findDataPointByX(chartX, lines, xScale)
     tooltipManager.show(dataPoint, chartY, xScale, yScale)
