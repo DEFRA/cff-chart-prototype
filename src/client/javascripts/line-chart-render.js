@@ -99,6 +99,8 @@ const MIN_LABEL_Y = 10
 const LABEL_FONT_WIDTH_MULTIPLIER = 7
 const NOTCH_DEPTH = 10
 const NOTCH_TIP_Y_OFFSET = 2
+const POINTER_EVENTS_STYLE = 'pointer-events'
+const POINTER_EVENTS_NONE = 'none'
 
 // Close button dimensions
 const CLOSE_BUTTON_RADIUS = 14
@@ -303,14 +305,14 @@ export function renderThresholds(container, width, yScale, onDismiss, onActivate
 
     const labelGroup = group.append('g')
       .attr('class', 'threshold-label')
-      .style('pointer-events', 'none')
+      .style(POINTER_EVENTS_STYLE, POINTER_EVENTS_NONE)
     const labelMidX = labelDims.labelX + (labelDims.labelWidth / 2)
     const textY = labelDims.labelY + (labelDims.labelHeight / 2)
 
     labelGroup.append('path')
       .attr('class', 'threshold-label__bg')
       .attr('d', labelPath)
-      .style('pointer-events', 'none')
+      .style(POINTER_EVENTS_STYLE, POINTER_EVENTS_NONE)
 
     labelGroup.append('text')
       .attr('class', 'threshold-label__text')
@@ -318,7 +320,7 @@ export function renderThresholds(container, width, yScale, onDismiss, onActivate
       .attr('y', textY)
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'middle')
-      .style('pointer-events', 'none')
+      .style(POINTER_EVENTS_STYLE, POINTER_EVENTS_NONE)
       .text(threshold.shortLabel || threshold.label)
 
     if (threshold.dismissible) {
