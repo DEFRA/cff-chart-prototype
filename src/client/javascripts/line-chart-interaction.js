@@ -169,6 +169,8 @@ function handleTouchPan(touchX, touchWidth, container) {
     container.panBy(touchPanStep)
   } else if (touchX >= touchWidth - TOUCH_EDGE_PAN_THRESHOLD_PX) {
     container.panBy(-touchPanStep)
+  } else {
+    // Touch is not near edges; do not pan
   }
 }
 
