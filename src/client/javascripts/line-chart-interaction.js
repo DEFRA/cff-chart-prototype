@@ -247,8 +247,9 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
     const chartWidth = Array.isArray(xScale.range()) ? xScale.range()[1] : null
 
     handleTouchPan(chartX, chartWidth, container)
-    // Zoom/pan updates xScale through zoom handlers; refresh state before resolving point.
-    ({ margin, lines, xScale, yScale } = getState())
+    // Refresh state after pan; xScale may have updated
+    const updatedState = getState();
+    ({ margin, lines, xScale, yScale } = updatedState)
     chartX = mouseX - margin.left
 
     const dataPoint = findDataPointByX(chartX, lines, xScale)
