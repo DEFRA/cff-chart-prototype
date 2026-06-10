@@ -301,13 +301,16 @@ export function renderThresholds(container, width, yScale, onDismiss, onActivate
     const labelDims = calculateLabelDimensions(width, y, chartHeight, threshold.shortLabel, threshold.label)
     const labelPath = generateLabelPath(labelDims.labelX, labelDims.labelY, labelDims.labelWidth, labelDims.labelHeight, labelDims.notchWidth, y, labelDims.canPlaceAbove)
 
-    const labelGroup = group.append('g').attr('class', 'threshold-label')
+    const labelGroup = group.append('g')
+      .attr('class', 'threshold-label')
+      .style('pointer-events', 'none')
     const labelMidX = labelDims.labelX + (labelDims.labelWidth / 2)
     const textY = labelDims.labelY + (labelDims.labelHeight / 2)
 
     labelGroup.append('path')
       .attr('class', 'threshold-label__bg')
       .attr('d', labelPath)
+      .style('pointer-events', 'none')
 
     labelGroup.append('text')
       .attr('class', 'threshold-label__text')
@@ -315,6 +318,7 @@ export function renderThresholds(container, width, yScale, onDismiss, onActivate
       .attr('y', textY)
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'middle')
+      .style('pointer-events', 'none')
       .text(threshold.shortLabel || threshold.label)
 
     if (threshold.dismissible) {
