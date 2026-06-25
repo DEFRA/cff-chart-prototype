@@ -17,10 +17,8 @@ import {
   getAdaptiveYTickCount,
   generateFixedTickValues,
   getVisibleDurationDays,
-  getSixAmMarkersInExtent,
   formatTickTime,
-  generateUniqueYTicks,
-  snapTickValuesForRange
+  generateUniqueYTicks
 } from './line-chart-tick-utils.js'
 import {
   DATE_LABEL_MODE,
@@ -46,56 +44,95 @@ const MOBILE_MAX_WIDTH_MEDIA_QUERY = `(max-width: ${MOBILE_VIEWPORT_MAX_WIDTH_PX
 const MOBILE_Y_TICK_TEXT_OFFSET = 6
 const SVG_NAMESPACE_URI = 'http://www.w3.org/2000/svg'
 const FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD = 4.5
+const MS_PER_DAY = 1000 * 60 * 60 * 24
 const FIRST_TICK_OFFSET_DESKTOP = '12'
 const FIRST_TICK_OFFSET_MOBILE = '0'
 const TIME_INDICATOR_RANGES = [FIVE_DAY_RANGE, ONE_MONTH_RANGE, SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE, FIVE_YEAR_RANGE]
 
+function getFiveDayTicksWithTodayEnd(xExtent) {
+  const now = new Date()
+  const maxTime = Math.min(xExtent[1].getTime(), now.getTime())
+  const minTime = xExtent[0].getTime()
+
+  const endTick = new Date(maxTime)
+  const todaySixAm = new Date(maxTime)
+  todaySixAm.setHours(6, 0, 0, 0)
+
+  if (todaySixAm.getTime() > maxTime) {
+    todaySixAm.setTime(todaySixAm.getTime() - MS_PER_DAY)
+  }
+
+  const sixAmTicks = []
+  for (let i = 4; i >= 0; i--) {
+    const tick = new Date(todaySixAm.getTime() - (i * MS_PER_DAY))
+    if (tick.getTime() >= minTime) {
+      sixAmTicks.push(tick)
+    }
+  }
+
+  const ticks = [...sixAmTicks]
+  const lastTick = ticks[ticks.length - 1]
+  if (!lastTick || lastTick.getTime() !== endTick.getTime()) {
+    ticks.push(endTick)
+  }
+
+  return ticks
+}
+
 function calculateTickInterval(xExtent, timeRange, _width) {
   const labelMode = getLabelModeForExtent(timeRange, xExtent)
+  const visibleDurationDays = getVisibleDurationDays(xExtent)
+  const isNearFullFiveDayView = timeRange === FIVE_DAY_RANGE && visibleDurationDays >= FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD
 
   const configFactories = {
     [FIVE_DAY_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT, true),
+      tickValues: isNearFullFiveDayView
+        ? getFiveDayTicksWithTodayEnd(xExtent)
+        : generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
-      removeLastNTicks: 1
+      removeLastNTicks: 1,
+      hideFirstTickLabel: !isNearFullFiveDayView
     }),
     [ONE_MONTH_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent),
+      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
-      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
+      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
+      hideFirstTickLabel: true
     }),
     [SIX_MONTH_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent),
+      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
-      removeLastNTicks: 1
+      removeLastNTicks: 1,
+      hideFirstTickLabel: true
     }),
     [ONE_YEAR_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent),
+      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
-      removeLastNTicks: 1
+      removeLastNTicks: 1,
+      hideFirstTickLabel: true
     }),
     [THREE_YEAR_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent),
+      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
-      removeLastNTicks: 1
+      removeLastNTicks: 1,
+      hideFirstTickLabel: true
     }),
     [FIVE_YEAR_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent),
+      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
-      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
+      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
+      hideFirstTickLabel: true
     })
   }
 
   const config = (configFactories[timeRange] ?? (() => ({
-    tickValues: generateFixedTickValues(xExtent),
+    tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
     labelMode,
-    removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS
+    removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
+    hideFirstTickLabel: true
   })))()
 
-  return {
-    ...config,
-    tickValues: snapTickValuesForRange(config.tickValues, timeRange, xExtent)
-  }
+  return config
 }
 
 function removeLastTickLabel(svg, count = 1) {
@@ -260,7 +297,9 @@ export function renderAxes(svg, config) {
     .call(yAxis)
 
   populateTickLabels(svg, tickConfig)
-  removeFirstTickLabel(svg)
+  if (tickConfig.hideFirstTickLabel) {
+    removeFirstTickLabel(svg)
+  }
   removeLastTickLabel(svg, tickConfig.removeLastNTicks)
   alignEdgeTickLabels(svg)
 
@@ -272,27 +311,18 @@ export function renderAxes(svg, config) {
 export function renderGridLines(svg, xScale, yScale, height, width, xExtent, timeRange) {
   const visibleExtent = xScale.domain()
   const tickConfig = calculateTickInterval(visibleExtent, timeRange, width)
-  const useFiveDaySixAmMarkers = timeRange === FIVE_DAY_RANGE && getVisibleDurationDays(visibleExtent) >= FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD
-  const gridTickValues = useFiveDaySixAmMarkers
-    ? Array.from(new Set([
-      ...tickConfig.tickValues.map((tick) => new Date(tick).getTime()),
-      ...getSixAmMarkersInExtent(visibleExtent).map((tick) => tick.getTime())
-    ])).sort((a, b) => a - b).map((tick) => new Date(tick))
-    : tickConfig.tickValues
 
   const xGrid = axisBottom(xScale)
     .tickSize(-height, 0, 0)
     .tickFormat('')
-    .tickValues(gridTickValues)
+    .tickValues(tickConfig.tickValues)
 
   svg.select('.x.grid')
     .attr('transform', `translate(0,${height})`)
     .call(xGrid)
 
-  const maxVisibleTick = useFiveDaySixAmMarkers ? visibleExtent[1] : xExtent[1]
-
   svg.select('.x.grid').selectAll('.tick').each(function (d) {
-    if (d > maxVisibleTick) {
+    if (d > xExtent[1]) {
       select(this).remove()
     }
   })

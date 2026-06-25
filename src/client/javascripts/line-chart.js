@@ -116,13 +116,14 @@ function initializeZoom(config) {
     width: stateRef.width,
     height: stateRef.height,
     margin: stateRef.margin,
-    handleZoomEvent
+    handleZoomEvent,
+    baseXScale: zoomRef.baseXScaleRef.current
   })
 
   zoomRef.behavior = zoomSetup.zoomBehavior
   zoomRef.rect = zoomSetup.zoomRect
 
-  setupZoomControls(container, mainGroup, zoomRef.behavior)
+  setupZoomControls(container, mainGroup, zoomRef.behavior, zoomSetup.maxScale)
 }
 
 function assignProcessedDataToState(stateRef, processedData) {
@@ -233,14 +234,14 @@ function createChartRenderer(config) {
     zoomRef
   } = config
 
-  const render = (zoomLevel = 1) => {
+  const render = (visibleDomain = null) => {
     const enabledThresholds = getEnabledThresholds(stateRef.thresholds)
     ensureActiveThreshold(stateRef, enabledThresholds)
 
-    const activateThreshold = createActivateThresholdHandler(stateRef, () => render(zoomLevel))
+    const activateThreshold = createActivateThresholdHandler(stateRef, () => render(visibleDomain))
 
     const dismissThreshold = createThresholdDismissHandler(stateRef)
-    const processedData = processData(dataCache, zoomLevel)
+    const processedData = processData(dataCache, visibleDomain, timeRange)
     assignProcessedDataToState(stateRef, processedData)
 
     if (!stateRef.lines || stateRef.lines.length === 0) {
@@ -249,8 +250,23 @@ function createChartRenderer(config) {
     }
 
     const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH)
+    
+    // When zoomed in with snapped data, recalculate extent from actual snapped data
+    // to ensure axis aligns with data points
+    let finalExtent = xExtentNew
+    if (visibleDomain && stateRef.lines && stateRef.lines.length > 0) {
+      const snappedTimes = stateRef.lines.map(d => new Date(d.dateTime).getTime())
+      if (snappedTimes.length > 0) {
+        const minTime = Math.min(...snappedTimes)
+        const maxTime = Math.max(...snappedTimes)
+        if (Number.isFinite(minTime) && Number.isFinite(maxTime) && minTime !== maxTime) {
+          finalExtent = [new Date(minTime), new Date(maxTime)]
+        }
+      }
+    }
+    
     stateRef.xScale = xScaleNew
-    stateRef.xExtent = xExtentNew
+    stateRef.xExtent = finalExtent
     stateRef.yScale = createYScale(stateRef.lines, dataCache.type, stateRef.height || DEFAULT_HEIGHT)
 
     const longestYAxisLabelLength = getLongestYAxisLabelLength(stateRef.yScale)
@@ -390,6 +406,19 @@ function setupTooltipManager(context) {
 
 function initializeZoomIfEnabled(context, container, tooltipManager) {
   if (!context.enableZoom) {
+    container.panBy = undefined
+    container.getTouchPanStep = undefined
+    container.getMaxZoomScale = undefined
+    container.resetZoom = undefined
+    container.zoomIn = undefined
+    container.zoomOut = undefined
+    container.panLeft = undefined
+    container.panRight = undefined
+
+    if (typeof container.updateZoomControls === 'function') {
+      container.updateZoomControls(1)
+    }
+
     return
   }
 

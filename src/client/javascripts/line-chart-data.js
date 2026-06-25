@@ -1,57 +1,82 @@
 import { simplify } from './utils.js'
 import {
-  FORECAST_POINTS_RATIO,
   TOLERANCE_TIDE,
   TOLERANCE_DEFAULT
 } from './line-chart-constants.js'
+import { getTickSnapIntervalMs, getVisibleDurationDays } from './line-chart-tick-utils.js'
 
-const DEFAULT_BASE_POINTS = 500
-const BASE_ZOOM_LEVEL = 1
-const MODERATE_ZOOM_THRESHOLD = 3
-const HIGH_ZOOM_THRESHOLD = 10
-const MODERATE_ZOOM_MULTIPLIER = 1.5
-const HIGH_ZOOM_MULTIPLIER = 3
-const MAX_ZOOM_MULTIPLIER = 4
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+const THIRTY_MINUTES_MS = 30 * 60 * 1000
+const DAYS_DAILY_TIER = 180
+const DAYS_THIRTY_MIN_TIER = 30
+const DOMAIN_BUFFER_RATIO = 0.1
+const FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD = 4.5
+const FIVE_DAY_RANGE = '5d'
+const FIVE_DAY_ZOOM_THRESHOLD = 5
+const FIFTEEN_MINUTES_MS = 15 * 60 * 1000
 
-function downsampleData(data, targetPoints) {
-  if (!data || data.length <= targetPoints) {
-    return data
+function downsampleToDaily(data) {
+  const dailyGroups = new Map()
+  for (const item of data) {
+    const date = new Date(item.dateTime)
+    const dayKey = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+    if (!dailyGroups.has(dayKey) || item.value > dailyGroups.get(dayKey).value) {
+      dailyGroups.set(dayKey, item)
+    }
   }
-
-  const step = Math.ceil(data.length / targetPoints)
-  const result = []
-
-  for (let i = 0; i < data.length; i += step) {
-    result.push(data[i])
-  }
-
-  if (result.at(-1) !== data.at(-1)) {
-    result.push(data.at(-1))
-  }
-
+  const result = [...dailyGroups.values()]
+  result.sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
   return result
 }
 
-function getTargetPointsForZoom(zoomLevel, basePoints = DEFAULT_BASE_POINTS) {
-  // Be more conservative with point density, especially at high zoom levels
-  // to prevent overlapping labels on mobile screens
-  
-  if (zoomLevel <= BASE_ZOOM_LEVEL) {
-    return basePoints
+function downsampleToThirtyMin(data) {
+  const result = []
+  let lastInterval = null
+  for (const item of data) {
+    const timestamp = new Date(item.dateTime).getTime()
+    const interval = Math.floor(timestamp / THIRTY_MINUTES_MS) * THIRTY_MINUTES_MS
+    if (lastInterval !== interval) {
+      result.push(item)
+      lastInterval = interval
+    }
   }
-  
-  if (zoomLevel <= MODERATE_ZOOM_THRESHOLD) {
-    // Moderate zoom: reduce multiplier to prevent too much detail
-    return Math.floor(basePoints * MODERATE_ZOOM_MULTIPLIER)
+  return result
+}
+
+function filterToVisibleWindow(data, visibleDomain) {
+  if (!visibleDomain) return data
+
+  const [start, end] = visibleDomain
+  const startMs = start.getTime()
+  const endMs = end.getTime()
+  const buffer = (endMs - startMs) * DOMAIN_BUFFER_RATIO
+
+  const windowStart = startMs - buffer
+  const windowEnd = endMs + buffer
+
+  return data.filter(item => {
+    const t = new Date(item.dateTime).getTime()
+    return t >= windowStart && t <= windowEnd
+  })
+}
+
+function downsampleByVisibleDomain(data, visibleDomain) {
+  if (!visibleDomain || !data || data.length === 0) {
+    return data || []
   }
-  
-  if (zoomLevel <= HIGH_ZOOM_THRESHOLD) {
-    // Higher zoom: cap multiplier at 3x for readability
-    return Math.floor(basePoints * HIGH_ZOOM_MULTIPLIER)
+
+  const [start, end] = visibleDomain
+  const visibleDays = (end.getTime() - start.getTime()) / MS_PER_DAY
+
+  if (visibleDays > DAYS_DAILY_TIER) {
+    return downsampleToDaily(data)
   }
-  
-  // Very high zoom (>10x): cap at 4x to keep labels readable
-  return Math.floor(basePoints * MAX_ZOOM_MULTIPLIER)
+
+  if (visibleDays > DAYS_THIRTY_MIN_TIER) {
+    return downsampleToThirtyMin(data)
+  }
+
+  return data
 }
 
 function simplifyByType(data, dataType) {
@@ -87,7 +112,55 @@ function processForecastData(forecast, dataType, observed) {
   return processed.map(l => ({ ...l, type: 'forecast' }))
 }
 
-export function processData(dataCache, zoomLevel = BASE_ZOOM_LEVEL) {
+function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
+  if (!data || data.length === 0 || !visibleDomain) {
+    return data
+  }
+
+  // For 5-day range near full view, don't snap (use exact timestamps)
+  const visibleDurationDays = getVisibleDurationDays(visibleDomain)
+  const isNearFullFiveDayView = timeRange === FIVE_DAY_RANGE && visibleDurationDays >= FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD
+  if (isNearFullFiveDayView) {
+    return data
+  }
+
+  // Get the snap interval for the current time range
+  let snapIntervalMs = getTickSnapIntervalMs(timeRange)
+  if (!snapIntervalMs) {
+    return data
+  }
+
+  // When the visible window is 5 days or less, always show 15-minute detail.
+  if (visibleDurationDays <= FIVE_DAY_ZOOM_THRESHOLD) {
+    snapIntervalMs = FIFTEEN_MINUTES_MS
+  }
+
+  // Round each data point's timestamp to the nearest interval boundary
+  return data.map(item => {
+    let timestamp
+    const isDate = item.dateTime instanceof Date
+    
+    if (item.dateTime instanceof Date) {
+      timestamp = item.dateTime.getTime()
+    } else if (typeof item.dateTime === 'string') {
+      timestamp = new Date(item.dateTime).getTime()
+    } else {
+      return item
+    }
+
+    // Round to nearest interval (not ceil)
+    const roundedMs = Math.round(timestamp / snapIntervalMs) * snapIntervalMs
+
+    return {
+      ...item,
+      dateTime: isDate ? new Date(roundedMs) : new Date(roundedMs).toISOString()
+    }
+  })
+}
+
+
+
+export function processData(dataCache, visibleDomain, timeRange) {
   let observedPoints = []
   let forecastPoints = []
 
@@ -99,10 +172,15 @@ export function processData(dataCache, zoomLevel = BASE_ZOOM_LEVEL) {
     forecastPoints = processForecastData(dataCache.forecast, dataCache.type, dataCache.observed)
   }
 
-  const targetPoints = getTargetPointsForZoom(zoomLevel)
-  observedPoints = downsampleData(observedPoints, targetPoints)
-  forecastPoints = downsampleData(forecastPoints, Math.floor(targetPoints * FORECAST_POINTS_RATIO))
+  observedPoints = filterToVisibleWindow(observedPoints, visibleDomain)
+  observedPoints = downsampleByVisibleDomain(observedPoints, visibleDomain)
+  observedPoints = snapDataToNiceIntervals(observedPoints, timeRange, visibleDomain)
+
+  forecastPoints = filterToVisibleWindow(forecastPoints, visibleDomain)
+  forecastPoints = downsampleByVisibleDomain(forecastPoints, visibleDomain)
+  forecastPoints = snapDataToNiceIntervals(forecastPoints, timeRange, visibleDomain)
 
   const lines = observedPoints.concat(forecastPoints)
   return { lines, observedPoints, forecastPoints }
 }
+

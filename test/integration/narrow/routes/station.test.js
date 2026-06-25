@@ -236,4 +236,28 @@ describe('Station route', () => {
     expect(statusCode).toBe(200)
     expect(result).toContain('historicData')
   }, 10000)
+
+  test('Should redirect unauthenticated users requesting historic data endpoint', async () => {
+    const { statusCode, headers } = await server.inject({
+      method: 'GET',
+      url: '/station/historic-data?stationId=3089'
+    })
+
+    expect(statusCode).toBe(302)
+    expect(headers.location).toBe('/login')
+  })
+
+  test('Should return historic data payload for authenticated users', async () => {
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/station/historic-data?stationId=3089',
+      headers: {
+        cookie: authCookie
+      }
+    })
+
+    expect(statusCode).toBe(200)
+    expect(result.stationId).toBe('3089')
+    expect(Array.isArray(result.readings)).toBe(true)
+  }, 10000)
 })

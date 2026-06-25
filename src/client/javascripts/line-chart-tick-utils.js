@@ -106,6 +106,97 @@ export function generateEvenlySpacedTicks(xExtent) {
   return ticks
 }
 
+export function generateTimeAlignedTickValues(xExtent, tickCount = FIXED_X_TICK_COUNT) {
+  const start = xExtent[0].getTime()
+  const end = xExtent[1].getTime()
+  const durationMs = end - start
+  const durationHours = durationMs / (1000 * 60 * 60)
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || tickCount < 2 || end <= start) {
+    return generateEvenlySpacedTicks(xExtent)
+  }
+
+  const ticks = []
+  const approximateHoursPerTick = durationHours / (tickCount - 1)
+  
+  // Choose a nice interval: 15 min, 30 min, 1 hr, 3 hrs, 6 hrs, 12 hrs
+  const niceIntervals = [
+    15 * MS_PER_MINUTE,
+    30 * MS_PER_MINUTE,
+    1000 * 60 * 60,
+    3 * 1000 * 60 * 60,
+    6 * 1000 * 60 * 60,
+    12 * 1000 * 60 * 60
+  ]
+  
+  let intervalMs = 15 * MS_PER_MINUTE
+  for (const interval of niceIntervals) {
+    if (interval / (1000 * 60 * 60) >= approximateHoursPerTick) {
+      intervalMs = interval
+      break
+    }
+  }
+  
+  // Start at an interval boundary
+  const startRounded = Math.ceil(start / intervalMs) * intervalMs
+  
+  // Generate ticks at regular intervals
+  let current = startRounded
+  while (ticks.length < tickCount - 1 && current < end) {
+    ticks.push(new Date(current))
+    current += intervalMs
+  }
+  
+  // Always include the end point
+  ticks.push(new Date(end))
+  
+  return ticks
+}
+
+export function generateDayAlignedTickValues(xExtent, tickCount = FIXED_X_TICK_COUNT) {
+  const start = xExtent[0].getTime()
+  const end = xExtent[1].getTime()
+  const durationDays = (end - start) / MS_PER_DAY
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || tickCount < 2 || end <= start) {
+    return generateEvenlySpacedTicks(xExtent)
+  }
+
+  const ticks = []
+  const approximateDaysPerTick = durationDays / (tickCount - 1)
+  
+  // Calculate a nice round interval (1, 2, 3, 5, 7, 10, 14, 21, 30, etc.)
+  const niceIntervals = [1, 2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90]
+  let dayInterval = 1
+  for (const interval of niceIntervals) {
+    if (interval >= approximateDaysPerTick) {
+      dayInterval = interval
+      break
+    }
+  }
+  
+  // Start at a day boundary
+  let current = new Date(start)
+  current.setHours(0, 0, 0, 0)
+  
+  // If starting point is before range start, move to next interval boundary
+  const startDayNumber = Math.floor(start / MS_PER_DAY)
+  const currentDayNumber = Math.floor(current.getTime() / MS_PER_DAY)
+  const daysToAdd = ((startDayNumber - currentDayNumber) % dayInterval + dayInterval) % dayInterval
+  current = new Date(current.getTime() + (daysToAdd * MS_PER_DAY))
+  
+  // Generate ticks at day-aligned intervals
+  while (ticks.length < tickCount - 1 && current.getTime() < end) {
+    ticks.push(new Date(current.getTime()))
+    current = new Date(current.getTime() + (dayInterval * MS_PER_DAY))
+  }
+  
+  // Always include the end point
+  ticks.push(new Date(end))
+  
+  return ticks
+}
+
 export function generateFixedTickValues(xExtent, tickCount = FIXED_X_TICK_COUNT, useSixAmAlignment = false) {
   const ticks = []
   const start = xExtent[0].getTime()

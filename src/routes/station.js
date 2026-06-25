@@ -23,11 +23,10 @@ export const station = {
     try {
       request.logger.info(`Fetching station data for ID: ${stationId}, style: ${chartStyle}`)
 
-      // Fetch real data from Environment Agency API + load pre-fetched historic data
-      const [stationData, readings, historicData] = await Promise.all([
+      // Fetch only station + latest telemetry for initial chart render
+      const [stationData, readings] = await Promise.all([
         getStation(stationId),
-        getStationReadings(stationId),
-        loadHistoricData(stationId)
+        getStationReadings(stationId)
       ])
 
       if (!stationData) {
@@ -42,15 +41,11 @@ export const station = {
       const station = formatStationData(stationData, readings)
       const telemetry = formatTelemetryData(readings)
 
-      if (historicData.length > 0) {
-        request.logger.info(`Loaded ${historicData.length} pre-fetched historic readings for station ${stationId}`)
-      }
-
       return h.view('station.njk', {
         station,
         telemetry,
         chartStyle,
-        historicData
+        historicData: []
       })
     } catch (error) {
       request.logger.error('Error loading station data:', error)
@@ -58,6 +53,32 @@ export const station = {
       return h.view('error.njk', {
         error: 'Failed to load station data',
         message: error.message
+      }).code(500)
+    }
+  }
+}
+
+export const stationHistoricData = {
+  method: 'GET',
+  path: '/station/historic-data',
+  handler: async function (request, h) {
+    const { stationId = '3089' } = request.query
+
+    try {
+      const historicData = await loadHistoricData(stationId)
+      request.logger.info(`Loaded ${historicData.length} historic readings for station ${stationId}`)
+
+      return h.response({
+        stationId,
+        readings: historicData
+      }).code(200)
+    } catch (error) {
+      request.logger.error('Error loading historic station data:', error)
+
+      return h.response({
+        stationId,
+        readings: [],
+        error: 'Failed to load historic data'
       }).code(500)
     }
   }

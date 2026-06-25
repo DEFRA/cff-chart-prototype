@@ -6,12 +6,13 @@
 {% set webAppManifest = false %}
 {% set mainClasses = "app-main-wrapper" %}
 
-{% block icons %}
+{% block headIcons %}
   <link rel="shortcut icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
   <link rel="shortcut icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
   <link rel="icon" sizes="48x48" href="{{ getAssetPath('assets/images/favicon.ico') }}">
   <link rel="icon" sizes="any" href="{{ getAssetPath('assets/images/favicon.svg') }}" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ getAssetPath('assets/images/govuk-icon-180.png') }}">
+  <link rel="mask-icon" href="{{ getAssetPath('assets/images/govuk-icon-mask.svg') }}" color="#1d70b8">
   <link rel="manifest" href="{{ getAssetPath('assets/manifest.json') }}">
 {% endblock %}
 
@@ -181,7 +182,7 @@
 
       {% if chartStyle === 'styleC' %}
       {# Zoom control buttons aligned like service prototype #}
-      <div class="defra-line-chart__control-row">
+      <div class="defra-line-chart__control-row" style="display: none;">
         <div id="zoom-control-buttons">
           <button type="button" id="pan-left-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart left" aria-controls="line-chart-visualisation">
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -221,11 +222,7 @@
       {% endif %}
 
       <div class="defra-line-chart__actions govuk-!-margin-bottom-4">
-        <a href="/station-csv/{{ station.id }}" id="download-csv-btn" class="defra-button-secondary govuk-!-margin-bottom-0">
-          <span class="defra-button-secondary__icon"></span>
-          <span class="defra-button-secondary__text">Download data CSV (12KB)</span>
-        </a>
-
+        <a href="/station-csv/{{ station.id }}" id="download-csv-btn">Download latest 5 days of data (CSV 16KB)</a>
       </div>
 
       {% if chartStyle === 'styleC' %}
