@@ -8,7 +8,10 @@ const PAN_STEP_RATIO = 0.2
 const TOUCH_PAN_STEP_PX = 8
 const ZOOM_MIN_SCALE = 1
 const ZOOM_MAX_SCALE_SAFETY = 1000
-const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
+const FIVE_DAYS_SPAN = 5
+const FIVE_DAYS_MS = FIVE_DAYS_SPAN * 24 * 60 * 60 * 1000
+const SNAP_INTERVAL_MINUTES = 15
+const SNAP_INTERVAL_MS = SNAP_INTERVAL_MINUTES * 60 * 1000
 
 function getBoundedMaxZoomScale(maxScale) {
   if (!Number.isFinite(maxScale)) {
@@ -66,7 +69,7 @@ export function createZoomHandler(config) {
       const maxTime = Math.max(...snappedTimes)
       if (Number.isFinite(minTime) && Number.isFinite(maxTime) && minTime !== maxTime) {
         // Snap domain boundaries to nice intervals
-        const snapIntervalMs = 15 * 60 * 1000 // 15 minutes
+        const snapIntervalMs = SNAP_INTERVAL_MS
         
         // Round domain start down to nearest interval
         const domainStart = Math.floor(minTime / snapIntervalMs) * snapIntervalMs

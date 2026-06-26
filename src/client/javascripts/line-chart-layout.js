@@ -56,7 +56,7 @@ function getFiveDayTicksWithTodayEnd(xExtent) {
 
   const endTick = new Date(maxTime)
   const todaySixAm = new Date(maxTime)
-  todaySixAm.setHours(6, 0, 0, 0)
+  todaySixAm.setHours(DISPLAYED_HOUR_ON_X_AXIS, 0, 0, 0)
 
   if (todaySixAm.getTime() > maxTime) {
     todaySixAm.setTime(todaySixAm.getTime() - MS_PER_DAY)
@@ -71,8 +71,7 @@ function getFiveDayTicksWithTodayEnd(xExtent) {
   }
 
   const ticks = [...sixAmTicks]
-  const lastTick = ticks[ticks.length - 1]
-  if (!lastTick || lastTick.getTime() !== endTick.getTime()) {
+  if (ticks.at(-1)?.getTime() !== endTick.getTime()) {
     ticks.push(endTick)
   }
 

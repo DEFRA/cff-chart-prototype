@@ -6,14 +6,16 @@ import {
 import { getTickSnapIntervalMs, getVisibleDurationDays } from './line-chart-tick-utils.js'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
-const THIRTY_MINUTES_MS = 30 * 60 * 1000
+const THIRTY_MINUTES = 30
+const THIRTY_MINUTES_MS = THIRTY_MINUTES * 60 * 1000
 const DAYS_DAILY_TIER = 180
 const DAYS_THIRTY_MIN_TIER = 30
 const DOMAIN_BUFFER_RATIO = 0.1
 const FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD = 4.5
 const FIVE_DAY_RANGE = '5d'
 const FIVE_DAY_ZOOM_THRESHOLD = 5
-const FIFTEEN_MINUTES_MS = 15 * 60 * 1000
+const FIFTEEN_MINUTES = 15
+const FIFTEEN_MINUTES_MS = FIFTEEN_MINUTES * 60 * 1000
 
 function downsampleToDaily(data) {
   const dailyGroups = new Map()
@@ -44,7 +46,7 @@ function downsampleToThirtyMin(data) {
 }
 
 function filterToVisibleWindow(data, visibleDomain) {
-  if (!visibleDomain) return data
+  if (!visibleDomain) { return data }
 
   const [start, end] = visibleDomain
   const startMs = start.getTime()

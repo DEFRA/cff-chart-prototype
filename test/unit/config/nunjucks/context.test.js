@@ -23,7 +23,6 @@ describe('Context and cache', () => {
   beforeEach(() => {
     mockReadFileSync.mockReset()
     mockLoggerError.mockReset()
-    vi.resetModules()
   })
 
   describe('Context', () => {
@@ -41,6 +40,7 @@ describe('Context and cache', () => {
       let contextResult
 
       beforeAll(async () => {
+        vi.resetModules()
         contextImport = await import(
           '../../../../src/config/nunjucks/context.js'
         )
@@ -114,6 +114,7 @@ describe('Context and cache', () => {
       let contextImport
 
       beforeAll(async () => {
+        vi.resetModules()
         contextImport = await import(
           '../../../../src/config/nunjucks/context.js'
         )
@@ -147,6 +148,7 @@ describe('Context and cache', () => {
       let contextImport
 
       beforeAll(async () => {
+        vi.resetModules()
         contextImport = await import(
           '../../../../src/config/nunjucks/context.js'
         )

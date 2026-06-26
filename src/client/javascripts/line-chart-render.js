@@ -26,6 +26,9 @@ const FOCUSED_POINT_STROKE_WIDTH = '1'
 const FOCUS_RING_RADIUS = '7'
 const FOCUS_RING_STROKE_WIDTH = '4'
 const FOCUS_RING_STROKE = '#ffdd00'
+const SIGNIFICANT_VISIBLE_CLASS = 'significant--visible'
+const ARIA_LABEL = 'aria-label'
+const STROKE_WIDTH = 'stroke-width'
 
 function getEvenlySpacedObservedPoints(points, pointCount = DEFAULT_SIGNIFICANT_POINT_COUNT) {
   if (!Array.isArray(points) || points.length === 0) {
@@ -72,6 +75,88 @@ export function renderLines(svg, observedPoints, forecastPoints, xScale, yScale,
   }
 }
 
+function attachPointTargetEventHandlers(pointTargets, container) {
+  pointTargets.on('click', (event) => {
+    event.preventDefault()
+  })
+
+  pointTargets.on('focus', () => {
+    container.classed(SIGNIFICANT_VISIBLE_CLASS, true)
+  })
+
+  pointTargets.on('focus', function () {
+    const coreCircle = select(this).select('.point-core')
+    const focusRing = select(this).select('.point-focus-ring')
+    if (coreCircle.empty() || focusRing.empty()) {
+      return
+    }
+
+    coreCircle
+      .attr('r', FOCUSED_POINT_RADIUS)
+      .style('opacity', 1)
+      .style('fill', FOCUSED_POINT_FILL)
+      .style('stroke', FOCUSED_POINT_STROKE)
+      .style(STROKE_WIDTH, FOCUSED_POINT_STROKE_WIDTH)
+
+    focusRing
+      .style('opacity', 1)
+  })
+
+  pointTargets.on('blur', function () {
+    const coreCircle = select(this).select('.point-core')
+    const focusRing = select(this).select('.point-focus-ring')
+    if (coreCircle.empty() || focusRing.empty()) {
+      return
+    }
+
+    coreCircle
+      .attr('r', DEFAULT_POINT_RADIUS)
+      .style('opacity', null)
+      .style('fill', null)
+      .style('stroke', null)
+      .style(STROKE_WIDTH, null)
+
+    focusRing
+      .style('opacity', 0)
+  })
+}
+
+function appendPointGeometry(pointTargets, xScale, yScale, timeRange) {
+  pointTargets.append('circle')
+    .attr('class', 'point-core')
+    .attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+    .attr('r', DEFAULT_POINT_RADIUS)
+    .attr('fill', DEFAULT_POINT_FILL)
+    .attr('stroke', DEFAULT_POINT_STROKE)
+    .attr(STROKE_WIDTH, DEFAULT_POINT_STROKE_WIDTH)
+    .attr('cx', d => xScale(new Date(d.dateTime)))
+    .attr('cy', d => yScale(d.value))
+
+  pointTargets.append('circle')
+    .attr('class', 'point-focus-ring')
+    .attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
+    .attr('r', FOCUS_RING_RADIUS)
+    .attr('fill', 'none')
+    .attr('stroke', FOCUS_RING_STROKE)
+    .attr(STROKE_WIDTH, FOCUS_RING_STROKE_WIDTH)
+    .attr('opacity', 0)
+    .attr('cx', d => xScale(new Date(d.dateTime)))
+    .attr('cy', d => yScale(d.value))
+
+  pointTargets.append('text')
+    .attr('x', d => xScale(new Date(d.dateTime)))
+    .attr('y', d => yScale(d.value))
+    .each(function (d) {
+      const value = `${d.value.toFixed(2)}m`
+      const dateObj = new Date(d.dateTime)
+      const time = timeFormat('%-I:%M%p')(dateObj).toLowerCase()
+      const includeYear = timeRange === '1y' || timeRange === '5y'
+      const dateFormat = includeYear ? '%e %b %Y' : '%e %b'
+      const date = timeFormat(dateFormat)(dateObj)
+      select(this).text(`${value} at ${time}, ${date}`)
+    })
+}
+
 export function renderSignificantPoints(container, observedPoints, forecastPoints, xScale, yScale, timeRange) {
   container.selectAll('*').remove()
 
@@ -83,9 +168,8 @@ export function renderSignificantPoints(container, observedPoints, forecastPoint
   const significantObserved = observedSource.map(p => ({ ...p, type: 'observed' }))
   const significantForecast = forecastPoints.filter(x => x.isSignificant).map(p => ({ ...p, type: 'forecast' }))
   const significantPoints = significantObserved.concat(significantForecast)
-  container.classed('significant--visible', false)
+  container.classed(SIGNIFICANT_VISIBLE_CLASS, false)
 
-  // Find the index of the last observed point (rightmost/most recent)
   const lastObservedIndex = significantObserved.length > 0 ? significantObserved.length - 1 : significantPoints.length - 1
 
   container
@@ -106,7 +190,7 @@ export function renderSignificantPoints(container, observedPoints, forecastPoint
     .attr('role', 'gridcell')
     .attr('tabindex', (_d, i) => i === lastObservedIndex ? 0 : -1)
     .attr('data-point-focusable', '')
-    .attr('aria-label', d => {
+    .attr(ARIA_LABEL, d => {
       const value = `${d.value.toFixed(2)}m`
       const dateObj = new Date(d.dateTime)
       const time = timeFormat('%-I:%M%p')(dateObj).toLowerCase()
@@ -116,83 +200,8 @@ export function renderSignificantPoints(container, observedPoints, forecastPoint
       return `${value} at ${time}, ${date}`
     })
 
-  pointTargets.on('click', (event) => {
-    event.preventDefault()
-  })
-
-  pointTargets.on('focus', () => {
-    container.classed('significant--visible', true)
-  })
-
-  pointTargets.on('focus', function () {
-    const coreCircle = select(this).select('.point-core')
-    const focusRing = select(this).select('.point-focus-ring')
-    if (coreCircle.empty() || focusRing.empty()) {
-      return
-    }
-
-    coreCircle
-      .attr('r', FOCUSED_POINT_RADIUS)
-      .style('opacity', 1)
-      .style('fill', FOCUSED_POINT_FILL)
-      .style('stroke', FOCUSED_POINT_STROKE)
-      .style('stroke-width', FOCUSED_POINT_STROKE_WIDTH)
-
-    focusRing
-      .style('opacity', 1)
-  })
-
-  pointTargets.on('blur', function () {
-    const coreCircle = select(this).select('.point-core')
-    const focusRing = select(this).select('.point-focus-ring')
-    if (coreCircle.empty() || focusRing.empty()) {
-      return
-    }
-
-    coreCircle
-      .attr('r', DEFAULT_POINT_RADIUS)
-      .style('opacity', null)
-      .style('fill', null)
-      .style('stroke', null)
-      .style('stroke-width', null)
-
-    focusRing
-      .style('opacity', 0)
-  })
-
-  pointTargets.append('circle')
-    .attr('class', 'point-core')
-    .attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
-    .attr('r', DEFAULT_POINT_RADIUS)
-    .attr('fill', DEFAULT_POINT_FILL)
-    .attr('stroke', DEFAULT_POINT_STROKE)
-    .attr('stroke-width', DEFAULT_POINT_STROKE_WIDTH)
-    .attr('cx', d => xScale(new Date(d.dateTime)))
-    .attr('cy', d => yScale(d.value))
-
-  pointTargets.append('circle')
-    .attr('class', 'point-focus-ring')
-    .attr(ARIA_HIDDEN_STRING, ARIA_HIDDEN)
-    .attr('r', FOCUS_RING_RADIUS)
-    .attr('fill', 'none')
-    .attr('stroke', FOCUS_RING_STROKE)
-    .attr('stroke-width', FOCUS_RING_STROKE_WIDTH)
-    .attr('opacity', 0)
-    .attr('cx', d => xScale(new Date(d.dateTime)))
-    .attr('cy', d => yScale(d.value))
-
-  pointTargets.append('text')
-    .attr('x', d => xScale(new Date(d.dateTime)))
-    .attr('y', d => yScale(d.value))
-    .each(function (d) {
-      const value = `${d.value.toFixed(2)}m`
-      const dateObj = new Date(d.dateTime)
-      const time = timeFormat('%-I:%M%p')(dateObj).toLowerCase()
-      const includeYear = timeRange === '1y' || timeRange === '5y'
-      const dateFormat = includeYear ? '%e %b %Y' : '%e %b'
-      const date = timeFormat(dateFormat)(dateObj)
-      select(this).text(`${value} at ${time}, ${date}`)
-    })
+  attachPointTargetEventHandlers(pointTargets, container)
+  appendPointGeometry(pointTargets, xScale, yScale, timeRange)
 
   return significantPoints
 }
@@ -326,7 +335,7 @@ function renderCloseButton(group, threshold, y, onHover, onDismiss) {
     .attr('class', 'threshold-label__close')
     .attr('role', 'button')
     .attr('tabindex', 0)
-    .attr('aria-label', `Hide ${threshold.label}`)
+    .attr(ARIA_LABEL, `Hide ${threshold.label}`)
     .style('cursor', 'pointer')
 
   closeGroup.append('circle')
@@ -385,7 +394,7 @@ function renderCloseButton(group, threshold, y, onHover, onDismiss) {
       if (firstFocusablePoint) {
         event.preventDefault()
         const significantGroup = svgNode.querySelector('.significant')
-        significantGroup?.classList.add('significant--visible')
+        significantGroup?.classList.add(SIGNIFICANT_VISIBLE_CLASS)
         firstFocusablePoint.focus()
       }
       return
@@ -400,7 +409,7 @@ function renderCloseButton(group, threshold, y, onHover, onDismiss) {
   closeGroup.on('focus', () => {
     const significantGroup = group.node()?.ownerSVGElement?.querySelector('.significant')
     if (significantGroup) {
-      significantGroup.classList.add('significant--visible')
+      significantGroup.classList.add(SIGNIFICANT_VISIBLE_CLASS)
     }
   })
 }
@@ -479,7 +488,7 @@ export function initializeSVG(containerId) {
   const svg = select(`#${containerId}`)
     .append('svg')
     .attr('id', `${containerId}-visualisation`)
-    .attr('aria-label', 'Line chart')
+    .attr(ARIA_LABEL, 'Line chart')
     .attr('aria-describedby', 'line-chart-description')
 
   const mainGroup = svg.append('g').attr('class', 'chart-main')

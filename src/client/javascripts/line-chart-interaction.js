@@ -5,6 +5,7 @@ import { TOOLTIP_TEXT_HEIGHT_OFFSET, TOOLTIP_PATH_LENGTH, TOOLTIP_PATH_LENGTH_WI
 const THRESHOLD_DETECTION_TOLERANCE_PX = 12
 const TOUCH_EDGE_PAN_THRESHOLD_PX = 16
 const WIDE_TIME_RANGES = new Set(['6m', '1y', '3y', '5y'])
+const DATA_POINT_FOCUSABLE_SELECTOR = 'data-point-focusable'
 
 function getPathLength(timeRange) {
   return WIDE_TIME_RANGES.has(timeRange) ? TOOLTIP_PATH_LENGTH_WIDE : TOOLTIP_PATH_LENGTH
@@ -174,26 +175,41 @@ function handleTouchPan(touchX, touchWidth, container) {
   }
 }
 
-function attachEventListeners(svgNode, container, eventConfig) {
-  const { handleClick, handleMouseMove, handleTouchMove, handlePointFocus, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef } = eventConfig
+function hideSignificantPoints(svgNode) {
+  svgNode.querySelectorAll('.significant--visible').forEach(node => {
+    node.classList.remove('significant--visible')
+  })
+}
 
-  const hideSignificantPoints = () => {
-    svgNode.querySelectorAll('.significant--visible').forEach(node => {
-      node.classList.remove('significant--visible')
-    })
+function focusActivePointTarget(svgNode) {
+  const pointTargets = svgNode.querySelectorAll(`[${DATA_POINT_FOCUSABLE_SELECTOR}]`)
+  if (!pointTargets.length) {
+    return false
   }
 
-  const handlePointArrowNavigation = (event) => {
+  const activePoint = Array.from(pointTargets).find(node => node.getAttribute('tabindex') === '0')
+  const fallbackPoint = activePoint || pointTargets[pointTargets.length - 1]
+
+  if (!fallbackPoint) {
+    return false
+  }
+
+  fallbackPoint.focus()
+  return true
+}
+
+function createPointArrowNavigationHandler(svgNode) {
+  return (event) => {
     const { key, target } = event
     if (key !== 'ArrowLeft' && key !== 'ArrowRight') {
       return
     }
 
-    if (!target?.hasAttribute?.('data-point-focusable')) {
+    if (!target?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
       return
     }
 
-    const pointTargets = Array.from(svgNode.querySelectorAll('[data-point-focusable]'))
+    const pointTargets = Array.from(svgNode.querySelectorAll(`[${DATA_POINT_FOCUSABLE_SELECTOR}]`))
     if (!pointTargets.length) {
       return
     }
@@ -214,25 +230,10 @@ function attachEventListeners(svgNode, container, eventConfig) {
     nextTarget.setAttribute('tabindex', 0)
     nextTarget.focus()
   }
+}
 
-  const focusActivePointTarget = () => {
-    const pointTargets = svgNode.querySelectorAll('[data-point-focusable]')
-    if (!pointTargets.length) {
-      return false
-    }
-
-    const activePoint = Array.from(pointTargets).find(node => node.getAttribute('tabindex') === '0')
-    const fallbackPoint = activePoint || pointTargets[pointTargets.length - 1]
-
-    if (!fallbackPoint) {
-      return false
-    }
-
-    fallbackPoint.focus()
-    return true
-  }
-
-  const handleThresholdTabForward = (event) => {
+function createThresholdTabForwardHandler(svgNode) {
+  return (event) => {
     if (event.key !== 'Tab' || event.shiftKey) {
       return
     }
@@ -243,10 +244,17 @@ function attachEventListeners(svgNode, container, eventConfig) {
       return
     }
 
-    if (focusActivePointTarget()) {
+    if (focusActivePointTarget(svgNode)) {
       event.preventDefault()
     }
   }
+}
+
+function attachEventListeners(svgNode, container, eventConfig) {
+  const { handleClick, handleMouseMove, handleTouchMove, handlePointFocus, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef } = eventConfig
+
+  const handlePointArrowNavigation = createPointArrowNavigationHandler(svgNode)
+  const handleThresholdTabForward = createThresholdTabForwardHandler(svgNode)
 
   const handleDocumentFocusIn = (event) => {
     const nextFocused = event.target
@@ -254,7 +262,7 @@ function attachEventListeners(svgNode, container, eventConfig) {
       return
     }
 
-    hideSignificantPoints()
+    hideSignificantPoints(svgNode)
   }
 
   const handleSvgFocusOut = (event) => {
@@ -263,7 +271,7 @@ function attachEventListeners(svgNode, container, eventConfig) {
       return
     }
 
-    hideSignificantPoints()
+    hideSignificantPoints(svgNode)
   }
 
   const handleTabExitFromSvg = (event) => {
@@ -278,22 +286,20 @@ function attachEventListeners(svgNode, container, eventConfig) {
     setTimeout(() => {
       const activeElement = document.activeElement
       if (!activeElement || !svgNode.contains(activeElement)) {
-        hideSignificantPoints()
+        hideSignificantPoints(svgNode)
       }
     }, 0)
   }
 
   svgNode.addEventListener('click', handleClick)
-  svgNode.addEventListener('click', () => {
-    hideSignificantPoints()
-  })
+  svgNode.addEventListener('click', () => { hideSignificantPoints(svgNode) })
   svgNode.addEventListener('mousemove', (event) => {
-    hideSignificantPoints()
+    hideSignificantPoints(svgNode)
     handleMouseMove(event)
   })
   svgNode.addEventListener('touchstart', () => {
     interfaceTypeRef.value = 'touch'
-    hideSignificantPoints()
+    hideSignificantPoints(svgNode)
   })
   svgNode.addEventListener('touchmove', handleTouchMove, { passive: false })
   svgNode.addEventListener('touchend', () => { interfaceTypeRef.value = null })
@@ -301,16 +307,16 @@ function attachEventListeners(svgNode, container, eventConfig) {
   svgNode.addEventListener('focusout', handleSvgFocusOut)
   svgNode.addEventListener('focusout', (event) => {
     const focusTarget = event.target
-    if (!focusTarget?.hasAttribute?.('data-point-focusable')) {
+    if (!focusTarget?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
       return
     }
 
     const nextFocused = event.relatedTarget
-    if (nextFocused?.hasAttribute?.('data-point-focusable')) {
+    if (nextFocused?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
       return
     }
 
-    hideSignificantPoints()
+    hideSignificantPoints(svgNode)
   })
   svgNode.addEventListener('keydown', handlePointArrowNavigation)
   svgNode.addEventListener('keydown', handleThresholdTabForward, true)
@@ -331,6 +337,23 @@ function attachEventListeners(svgNode, container, eventConfig) {
 function getMousePosition(e, svgElement) {
   const rect = svgElement.getBoundingClientRect()
   return [e.clientX - rect.left, e.clientY - rect.top]
+}
+
+function createPointFocusHandler(getState, tooltipManager) {
+  return (event) => {
+    const focusTarget = event.target
+    if (!focusTarget?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
+      return
+    }
+
+    const dataPoint = select(focusTarget).datum()
+    const { yScale, xScale } = getState()
+    if (!dataPoint || !yScale || !xScale) {
+      return
+    }
+
+    tooltipManager.show(dataPoint, yScale(dataPoint.value), xScale, yScale)
+  }
 }
 
 export function setupEventHandlers(container, svg, getState, tooltipManager, onThresholdLineHover) {
@@ -399,20 +422,7 @@ export function setupEventHandlers(container, svg, getState, tooltipManager, onT
     tooltipManager.show(dataPoint, chartY, xScale, yScale)
   }
 
-  const handlePointFocus = (event) => {
-    const focusTarget = event.target
-    if (!focusTarget?.hasAttribute?.('data-point-focusable')) {
-      return
-    }
-
-    const dataPoint = select(focusTarget).datum()
-    const { yScale, xScale } = getState()
-    if (!dataPoint || !yScale || !xScale) {
-      return
-    }
-
-    tooltipManager.show(dataPoint, yScale(dataPoint.value), xScale, yScale)
-  }
+  const handlePointFocus = createPointFocusHandler(getState, tooltipManager)
 
   const svgNode = svg.node()
   attachEventListeners(svgNode, container, {

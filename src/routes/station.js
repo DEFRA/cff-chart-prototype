@@ -3,6 +3,9 @@ import path from 'node:path'
 import { getStation, getStationReadings, formatStationData, formatTelemetryData } from '../lib/flood-service.js'
 import { config } from '../config/config.js'
 
+const HTTP_OK = 200
+const HTTP_INTERNAL_SERVER_ERROR = 500
+
 async function loadHistoricData(stationId) {
   try {
     const historicPath = path.resolve(config.get('root'), 'data', 'historic', `${stationId}.json`)
@@ -71,7 +74,7 @@ export const stationHistoricData = {
       return h.response({
         stationId,
         readings: historicData
-      }).code(200)
+      }).code(HTTP_OK)
     } catch (error) {
       request.logger.error('Error loading historic station data:', error)
 
@@ -79,7 +82,7 @@ export const stationHistoricData = {
         stationId,
         readings: [],
         error: 'Failed to load historic data'
-      }).code(500)
+      }).code(HTTP_INTERNAL_SERVER_ERROR)
     }
   }
 }

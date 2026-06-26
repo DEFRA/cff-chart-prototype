@@ -221,6 +221,49 @@ function createActivateThresholdHandler(stateRef, rerender) {
   }
 }
 
+function calculateFinalExtent(visibleDomain, lines, xExtentNew) {
+  if (!visibleDomain || !lines || lines.length === 0) {
+    return xExtentNew
+  }
+
+  const snappedTimes = lines.map(d => new Date(d.dateTime).getTime())
+  if (snappedTimes.length === 0) {
+    return xExtentNew
+  }
+
+  const minTime = Math.min(...snappedTimes)
+  const maxTime = Math.max(...snappedTimes)
+
+  if (!Number.isFinite(minTime) || !Number.isFinite(maxTime) || minTime === maxTime) {
+    return xExtentNew
+  }
+
+  return [new Date(minTime), new Date(maxTime)]
+}
+
+function renderChartComponents(config) {
+  const { svg, svgElements, stateRef, dataCache, timeRange, isMobileRef } = config
+  const { activateThreshold, dismissThreshold } = config.handlers
+
+  renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange })
+  renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent, timeRange)
+  updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current, timeRange)
+  hideOverlappingTicks(svgElements.timeLabel, timeRange)
+  renderLines(svg, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, stateRef.height, dataCache.type)
+  renderThresholds(
+    svgElements.thresholdsContainer,
+    stateRef.width,
+    stateRef.yScale,
+    dismissThreshold,
+    activateThreshold,
+    stateRef.activeThresholdId,
+    stateRef.thresholds
+  )
+  renderSignificantPoints(svgElements.significantContainer, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, timeRange)
+
+  svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', stateRef.height)
+}
+
 function createChartRenderer(config) {
   const {
     container,
@@ -239,7 +282,6 @@ function createChartRenderer(config) {
     ensureActiveThreshold(stateRef, enabledThresholds)
 
     const activateThreshold = createActivateThresholdHandler(stateRef, () => render(visibleDomain))
-
     const dismissThreshold = createThresholdDismissHandler(stateRef)
     const processedData = processData(dataCache, visibleDomain, timeRange)
     assignProcessedDataToState(stateRef, processedData)
@@ -251,22 +293,8 @@ function createChartRenderer(config) {
 
     const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH)
     
-    // When zoomed in with snapped data, recalculate extent from actual snapped data
-    // to ensure axis aligns with data points
-    let finalExtent = xExtentNew
-    if (visibleDomain && stateRef.lines && stateRef.lines.length > 0) {
-      const snappedTimes = stateRef.lines.map(d => new Date(d.dateTime).getTime())
-      if (snappedTimes.length > 0) {
-        const minTime = Math.min(...snappedTimes)
-        const maxTime = Math.max(...snappedTimes)
-        if (Number.isFinite(minTime) && Number.isFinite(maxTime) && minTime !== maxTime) {
-          finalExtent = [new Date(minTime), new Date(maxTime)]
-        }
-      }
-    }
-    
     stateRef.xScale = xScaleNew
-    stateRef.xExtent = finalExtent
+    stateRef.xExtent = calculateFinalExtent(visibleDomain, stateRef.lines, xExtentNew)
     stateRef.yScale = createYScale(stateRef.lines, dataCache.type, stateRef.height || DEFAULT_HEIGHT)
 
     const longestYAxisLabelLength = getLongestYAxisLabelLength(stateRef.yScale)
@@ -284,23 +312,15 @@ function createChartRenderer(config) {
       .attr('width', stateRef.width)
       .attr('height', stateRef.height)
 
-    renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange })
-    renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent, timeRange)
-    updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current, timeRange)
-    hideOverlappingTicks(svgElements.timeLabel, timeRange)
-    renderLines(svg, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, stateRef.height, dataCache.type)
-    renderThresholds(
-      svgElements.thresholdsContainer,
-      stateRef.width,
-      stateRef.yScale,
-      dismissThreshold,
-      activateThreshold,
-      stateRef.activeThresholdId,
-      stateRef.thresholds
-    )
-    renderSignificantPoints(svgElements.significantContainer, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, timeRange)
-
-    svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', stateRef.height)
+    renderChartComponents({
+      svg,
+      svgElements,
+      stateRef,
+      dataCache,
+      timeRange,
+      isMobileRef,
+      handlers: { activateThreshold, dismissThreshold }
+    })
 
     updateZoomViewport(zoomRef, stateRef)
     syncZoomBaseScales(zoomRef, stateRef)

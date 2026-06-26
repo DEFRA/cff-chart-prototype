@@ -7,10 +7,26 @@ const THIRTY = 30
 const DAYS_PER_WEEK = 7
 const FIFTEEN_MINUTES_MS = FIFTEEN * MS_PER_MINUTE
 const THIRTY_MINUTES_MS = THIRTY * MS_PER_MINUTE
+const MS_PER_HOUR = MS_PER_MINUTE * 60
+const THREE_HOURS_MS = 3 * MS_PER_HOUR
+const SIX_HOURS_MS = 6 * MS_PER_HOUR
+const TWELVE_HOURS_MS = 12 * MS_PER_HOUR
 const WEEK_MS = DAYS_PER_WEEK * MS_PER_DAY
 const VERY_ZOOMED_DAY_THRESHOLD = 1
 const VERY_ZOOMED_TICK_COUNT = 3
 const REDUCED_TICK_COUNT = 4
+const DAY_INTERVAL_1 = 1
+const DAY_INTERVAL_2 = 2
+const DAY_INTERVAL_3 = 3
+const DAY_INTERVAL_5 = 5
+const DAY_INTERVAL_7 = 7
+const DAY_INTERVAL_10 = 10
+const DAY_INTERVAL_14 = 14
+const DAY_INTERVAL_21 = 21
+const DAY_INTERVAL_30 = 30
+const DAY_INTERVAL_45 = 45
+const DAY_INTERVAL_60 = 60
+const DAY_INTERVAL_90 = 90
 const FIVE_DAY_RANGE = '5d'
 const ONE_MONTH_RANGE = '1m'
 const SIX_MONTH_RANGE = '6m'
@@ -121,17 +137,17 @@ export function generateTimeAlignedTickValues(xExtent, tickCount = FIXED_X_TICK_
   
   // Choose a nice interval: 15 min, 30 min, 1 hr, 3 hrs, 6 hrs, 12 hrs
   const niceIntervals = [
-    15 * MS_PER_MINUTE,
-    30 * MS_PER_MINUTE,
-    1000 * 60 * 60,
-    3 * 1000 * 60 * 60,
-    6 * 1000 * 60 * 60,
-    12 * 1000 * 60 * 60
+    FIFTEEN_MINUTES_MS,
+    THIRTY_MINUTES_MS,
+    MS_PER_HOUR,
+    THREE_HOURS_MS,
+    SIX_HOURS_MS,
+    TWELVE_HOURS_MS
   ]
   
-  let intervalMs = 15 * MS_PER_MINUTE
+  let intervalMs = FIFTEEN_MINUTES_MS
   for (const interval of niceIntervals) {
-    if (interval / (1000 * 60 * 60) >= approximateHoursPerTick) {
+    if (interval / MS_PER_HOUR >= approximateHoursPerTick) {
       intervalMs = interval
       break
     }
@@ -166,8 +182,8 @@ export function generateDayAlignedTickValues(xExtent, tickCount = FIXED_X_TICK_C
   const approximateDaysPerTick = durationDays / (tickCount - 1)
   
   // Calculate a nice round interval (1, 2, 3, 5, 7, 10, 14, 21, 30, etc.)
-  const niceIntervals = [1, 2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90]
-  let dayInterval = 1
+  const niceIntervals = [DAY_INTERVAL_1, DAY_INTERVAL_2, DAY_INTERVAL_3, DAY_INTERVAL_5, DAY_INTERVAL_7, DAY_INTERVAL_10, DAY_INTERVAL_14, DAY_INTERVAL_21, DAY_INTERVAL_30, DAY_INTERVAL_45, DAY_INTERVAL_60, DAY_INTERVAL_90]
+  let dayInterval = DAY_INTERVAL_1
   for (const interval of niceIntervals) {
     if (interval >= approximateDaysPerTick) {
       dayInterval = interval
