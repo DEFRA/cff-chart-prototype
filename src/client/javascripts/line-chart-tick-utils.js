@@ -5,12 +5,31 @@ const MS_PER_MINUTE = 1000 * 60
 const FIFTEEN = 15
 const THIRTY = 30
 const DAYS_PER_WEEK = 7
+const THREE_HOURS = 3
+const SIX_HOURS = 6
+const TWELVE_HOURS = 12
 const FIFTEEN_MINUTES_MS = FIFTEEN * MS_PER_MINUTE
 const THIRTY_MINUTES_MS = THIRTY * MS_PER_MINUTE
+const MS_PER_HOUR = MS_PER_MINUTE * 60
+const THREE_HOURS_MS = THREE_HOURS * MS_PER_HOUR
+const SIX_HOURS_MS = SIX_HOURS * MS_PER_HOUR
+const TWELVE_HOURS_MS = TWELVE_HOURS * MS_PER_HOUR
 const WEEK_MS = DAYS_PER_WEEK * MS_PER_DAY
 const VERY_ZOOMED_DAY_THRESHOLD = 1
 const VERY_ZOOMED_TICK_COUNT = 3
 const REDUCED_TICK_COUNT = 4
+const DAY_INTERVAL_1 = 1
+const DAY_INTERVAL_2 = 2
+const DAY_INTERVAL_3 = 3
+const DAY_INTERVAL_5 = 5
+const DAY_INTERVAL_7 = 7
+const DAY_INTERVAL_10 = 10
+const DAY_INTERVAL_14 = 14
+const DAY_INTERVAL_21 = 21
+const DAY_INTERVAL_30 = 30
+const DAY_INTERVAL_45 = 45
+const DAY_INTERVAL_60 = 60
+const DAY_INTERVAL_90 = 90
 const FIVE_DAY_RANGE = '5d'
 const ONE_MONTH_RANGE = '1m'
 const SIX_MONTH_RANGE = '6m'
@@ -103,6 +122,97 @@ export function generateEvenlySpacedTicks(xExtent) {
     ticks.push(new Date(start + (step * i)))
   }
 
+  return ticks
+}
+
+export function generateTimeAlignedTickValues(xExtent, tickCount = FIXED_X_TICK_COUNT) {
+  const start = xExtent[0].getTime()
+  const end = xExtent[1].getTime()
+  const durationMs = end - start
+  const durationHours = durationMs / (1000 * 60 * 60)
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || tickCount < 2 || end <= start) {
+    return generateEvenlySpacedTicks(xExtent)
+  }
+
+  const ticks = []
+  const approximateHoursPerTick = durationHours / (tickCount - 1)
+  
+  // Choose a nice interval: 15 min, 30 min, 1 hr, 3 hrs, 6 hrs, 12 hrs
+  const niceIntervals = [
+    FIFTEEN_MINUTES_MS,
+    THIRTY_MINUTES_MS,
+    MS_PER_HOUR,
+    THREE_HOURS_MS,
+    SIX_HOURS_MS,
+    TWELVE_HOURS_MS
+  ]
+  
+  let intervalMs = FIFTEEN_MINUTES_MS
+  for (const interval of niceIntervals) {
+    if (interval / MS_PER_HOUR >= approximateHoursPerTick) {
+      intervalMs = interval
+      break
+    }
+  }
+  
+  // Start at an interval boundary
+  const startRounded = Math.ceil(start / intervalMs) * intervalMs
+  
+  // Generate ticks at regular intervals
+  let current = startRounded
+  while (ticks.length < tickCount - 1 && current < end) {
+    ticks.push(new Date(current))
+    current += intervalMs
+  }
+  
+  // Always include the end point
+  ticks.push(new Date(end))
+  
+  return ticks
+}
+
+export function generateDayAlignedTickValues(xExtent, tickCount = FIXED_X_TICK_COUNT) {
+  const start = xExtent[0].getTime()
+  const end = xExtent[1].getTime()
+  const durationDays = (end - start) / MS_PER_DAY
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || tickCount < 2 || end <= start) {
+    return generateEvenlySpacedTicks(xExtent)
+  }
+
+  const ticks = []
+  const approximateDaysPerTick = durationDays / (tickCount - 1)
+  
+  // Calculate a nice round interval (1, 2, 3, 5, 7, 10, 14, 21, 30, etc.)
+  const niceIntervals = [DAY_INTERVAL_1, DAY_INTERVAL_2, DAY_INTERVAL_3, DAY_INTERVAL_5, DAY_INTERVAL_7, DAY_INTERVAL_10, DAY_INTERVAL_14, DAY_INTERVAL_21, DAY_INTERVAL_30, DAY_INTERVAL_45, DAY_INTERVAL_60, DAY_INTERVAL_90]
+  let dayInterval = DAY_INTERVAL_1
+  for (const interval of niceIntervals) {
+    if (interval >= approximateDaysPerTick) {
+      dayInterval = interval
+      break
+    }
+  }
+  
+  // Start at a day boundary
+  let current = new Date(start)
+  current.setHours(0, 0, 0, 0)
+  
+  // If starting point is before range start, move to next interval boundary
+  const startDayNumber = Math.floor(start / MS_PER_DAY)
+  const currentDayNumber = Math.floor(current.getTime() / MS_PER_DAY)
+  const daysToAdd = ((startDayNumber - currentDayNumber) % dayInterval + dayInterval) % dayInterval
+  current = new Date(current.getTime() + (daysToAdd * MS_PER_DAY))
+  
+  // Generate ticks at day-aligned intervals
+  while (ticks.length < tickCount - 1 && current.getTime() < end) {
+    ticks.push(new Date(current.getTime()))
+    current = new Date(current.getTime() + (dayInterval * MS_PER_DAY))
+  }
+  
+  // Always include the end point
+  ticks.push(new Date(end))
+  
   return ticks
 }
 

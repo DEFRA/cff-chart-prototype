@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
 import { select } from 'd3-selection'
-import { renderThresholds } from '../../../../src/client/javascripts/line-chart-render.js'
+import { renderThresholds, renderSignificantPoints } from '../../../../src/client/javascripts/line-chart-render.js'
 
 function mockYScale(maxValue = 1) {
   const scale = (v) => 100 - (v * 50) // Simple mock scale
@@ -143,5 +143,47 @@ describe('renderThresholds - Multi-Threshold Behavior', () => {
 
     const closeButton = thresholdsContainer.select('.threshold-label__close')
     expect(closeButton.empty()).toBe(true)
+  })
+})
+
+describe('renderSignificantPoints', () => {
+  let dom
+  let previousDocument
+  let previousWindow
+
+  beforeEach(() => {
+    dom = new JSDOM(`
+      <svg>
+        <g class="significant" role="grid"><g role="row"></g></g>
+      </svg>
+    `)
+
+    previousDocument = globalThis.document
+    previousWindow = globalThis.window
+
+    globalThis.window = dom.window
+    globalThis.document = dom.window.document
+  })
+
+  afterEach(() => {
+    globalThis.document = previousDocument
+    globalThis.window = previousWindow
+  })
+
+  test('renders fallback 8 observed points when isSignificant is absent', () => {
+    const significantRow = select(document.querySelector('.significant [role="row"]'))
+
+    const observedPoints = Array.from({ length: 40 }, (_unused, index) => ({
+      dateTime: new Date(Date.UTC(2026, 0, 1, 0, index * 15)).toISOString(),
+      value: 0.15 + (index * 0.001)
+    }))
+
+    const xScale = (date) => new Date(date).getTime()
+    const yScale = (value) => value
+
+    renderSignificantPoints(significantRow, observedPoints, [], xScale, yScale, '5d')
+
+    const points = significantRow.selectAll('.point').nodes()
+    expect(points).toHaveLength(8)
   })
 })

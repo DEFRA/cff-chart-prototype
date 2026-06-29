@@ -20,6 +20,7 @@ const ARIA_DISABLED = 'aria-disabled'
 const ARIA_CURRENT = 'aria-current'
 const CHART_STYLE_C = 'styleC'
 const CHART_STYLE_B = 'styleB'
+const HISTORIC_DATA_ENDPOINT = '/station/historic-data'
 const DOWNLOAD_CSV_BTN_ID = 'download-csv-btn'
 const DEFAULT_CURRENT_LEVEL = 0.28
 const DEFAULT_HIGHEST_LEVEL = 0.64
@@ -147,6 +148,16 @@ function setupThresholdControlHandlers(thresholdState, activeThresholdRef, rende
     }
 
     checkbox.dataset.listenersBound = 'true'
+
+    checkbox.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter') {
+        return
+      }
+
+      event.preventDefault()
+      this.click()
+    })
+
     checkbox.addEventListener('change', function () {
       thresholdState[thresholdId] = this.checked
 
@@ -163,8 +174,38 @@ function setupThresholdControlHandlers(thresholdState, activeThresholdRef, rende
   }
 }
 
+function setupDownloadCsvReverseTabHandler() {
+  const downloadBtn = document.getElementById(DOWNLOAD_CSV_BTN_ID)
+
+  if (!downloadBtn || downloadBtn.dataset.reverseTabBound === 'true') {
+    return
+  }
+
+  downloadBtn.dataset.reverseTabBound = 'true'
+
+  downloadBtn.addEventListener('keydown', function (event) {
+    if (event.key !== 'Tab' || !event.shiftKey) {
+      return
+    }
+
+    const activePoint = document.querySelector(`#${LINE_CHART_ID} [data-point-focusable][tabindex="0"]`)
+    const fallbackPoint = document.querySelector(`#${LINE_CHART_ID} [data-point-focusable]`)
+    const pointTarget = activePoint || fallbackPoint
+
+    if (!pointTarget) {
+      return
+    }
+
+    event.preventDefault()
+    const significantRow = document.querySelector(`#${LINE_CHART_ID} .significant [role="row"]`)
+    significantRow?.classList.add('significant--visible')
+    pointTarget.focus()
+  })
+}
+
 /**
- * Enable or disable the download CSV button based on the current time filter
+ * Show or hide the download CSV link based on the current time filter
+ * Only show for 5 day range, hide for 6 month, 1 year, and 3 year
  */
 function updateDownloadCsvState(currentFilter) {
   const downloadBtn = document.getElementById(DOWNLOAD_CSV_BTN_ID)
@@ -174,40 +215,67 @@ function updateDownloadCsvState(currentFilter) {
   }
 
   if (currentFilter === DEFAULT_FILTER) {
-    downloadBtn.classList.remove('defra-button-secondary--disabled')
-    downloadBtn.removeAttribute(ARIA_DISABLED)
-    downloadBtn.removeAttribute('tabindex')
+    downloadBtn.style.display = ''
   } else {
-    downloadBtn.classList.add('defra-button-secondary--disabled')
-    downloadBtn.setAttribute(ARIA_DISABLED, 'true')
-    downloadBtn.setAttribute('tabindex', '-1')
+    downloadBtn.style.display = 'none'
   }
 }
 
 /**
  * Update filter link states based on historic data availability
  */
-function updateFilterButtonStates(hasHistoricData) {
+function updateFilterButtonStates() {
   document.querySelectorAll(TIME_FILTER_LINK_SELECTOR).forEach(link => {
-    const filter = link.dataset.filter
-    // Mark all filters except 5d as disabled if no historic data
-    if (filter !== DEFAULT_FILTER) {
-      if (hasHistoricData) {
-        link.removeAttribute(ARIA_DISABLED)
-        link.classList.remove(TIME_FILTER_LINK_DISABLED_CLASS)
-        link.removeAttribute('tabindex')
-      } else {
-        link.setAttribute(ARIA_DISABLED, 'true')
-        link.classList.add(TIME_FILTER_LINK_DISABLED_CLASS)
-        link.setAttribute('tabindex', '-1')
-      }
-    } else {
-      // Default filter (5d) is always enabled
+    // All ranges are now always selectable and trigger lazy historic loading when needed.
+    link.removeAttribute(ARIA_DISABLED)
+    link.classList.remove(TIME_FILTER_LINK_DISABLED_CLASS)
+    link.removeAttribute('tabindex')
+  })
+}
+
+function setTimeFilterLinksTemporarilyDisabled(isDisabled) {
+  document.querySelectorAll(TIME_FILTER_LINK_SELECTOR).forEach(link => {
+    if (isDisabled) {
+      link.dataset.tempDisabled = 'true'
+      link.setAttribute(ARIA_DISABLED, 'true')
+      link.classList.add(TIME_FILTER_LINK_DISABLED_CLASS)
+      link.setAttribute('tabindex', '-1')
+      return
+    }
+
+    if (link.dataset.tempDisabled === 'true') {
+      delete link.dataset.tempDisabled
       link.removeAttribute(ARIA_DISABLED)
       link.classList.remove(TIME_FILTER_LINK_DISABLED_CLASS)
       link.removeAttribute('tabindex')
     }
   })
+}
+
+async function fetchHistoricData(stationId) {
+  const response = await fetch(`${HISTORIC_DATA_ENDPOINT}?stationId=${encodeURIComponent(stationId)}`, {
+    headers: {
+      Accept: 'application/json'
+    }
+  })
+
+  if (!response.ok) {
+    throw new Error(`Historic data request failed with status ${response.status}`)
+  }
+
+  const payload = await response.json()
+  return Array.isArray(payload?.readings) ? payload.readings : []
+}
+
+function updateZoomControlsVisibility(currentFilter) {
+  const controlsRow = document.querySelector('.defra-line-chart__control-row')
+
+  if (!controlsRow) {
+    return
+  }
+
+  const isFiveDayRange = currentFilter === DEFAULT_FILTER
+  controlsRow.style.display = isFiveDayRange ? 'none' : ''
 }
 
 /**
@@ -254,9 +322,13 @@ function setupZoomControls() {
       return
     }
 
+    const maxZoomScale = typeof chartContainer?.getMaxZoomScale === 'function'
+      ? chartContainer.getMaxZoomScale()
+      : 100
+
     panLeftBtn.disabled = scale <= 1
     panRightBtn.disabled = scale <= 1
-    zoomInBtn.disabled = scale >= 100
+    zoomInBtn.disabled = scale >= maxZoomScale
     zoomOutBtn.disabled = scale <= 1
     zoomResetBtn.disabled = scale <= 1
   }
@@ -312,13 +384,10 @@ function setupZoomControls() {
  */
 function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholds, onThresholdDismiss, activeThresholdRef) {
   const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
-  const processedObserved = currentFilter === '3y'
-    ? downsampleForStyleB(filteredObserved, currentFilter)
-    : filteredObserved
 
   const fullTelemetry = {
     ...realtimeTelemetry,
-    observed: processedObserved
+    observed: filteredObserved
   }
 
   updateTimeRangeLabel(currentFilter)
@@ -327,7 +396,7 @@ function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, current
 
   lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
     timeRange: currentFilter,
-    enableZoom: true,
+    enableZoom: currentFilter !== DEFAULT_FILTER,
     thresholds,
     activeThresholdId: activeThresholdRef.value,
     onThresholdDismiss,
@@ -337,6 +406,7 @@ function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, current
   })
 
   setupZoomControls()
+  updateZoomControlsVisibility(currentFilter)
 }
 
 /**
@@ -402,33 +472,36 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
 }
 
 /**
- * Prevent click on disabled download CSV button
- */
-function setupDownloadCsvHandler() {
-  const downloadBtn = document.getElementById(DOWNLOAD_CSV_BTN_ID)
-
-  if (downloadBtn) {
-    downloadBtn.addEventListener('click', function (e) {
-      if (this.getAttribute(ARIA_DISABLED) === 'true') {
-        e.preventDefault()
-      }
-    })
-  }
-}
-
-/**
  * Setup time filter link handlers
  */
-function setupTimeFilterHandlers(currentFilter, renderChart) {
+function setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart) {
   document.querySelectorAll(TIME_FILTER_LINK_SELECTOR).forEach(link => {
-    link.addEventListener('click', function (e) {
+    link.addEventListener('click', async function (e) {
       e.preventDefault()
 
       if (this.getAttribute(ARIA_DISABLED) === 'true') {
         return
       }
 
-      currentFilter.value = this.dataset.filter
+      const nextFilter = this.dataset.filter
+
+      if (nextFilter !== DEFAULT_FILTER && !historicDataRef.loaded) {
+        setTimeFilterLinksTemporarilyDisabled(true)
+
+        try {
+          const historicData = await fetchHistoricData(stationId)
+          historicDataRef.data = historicData
+          historicDataRef.loaded = true
+        } catch (error) {
+          console.error('Failed to fetch historic data:', error)
+          setTimeFilterLinksTemporarilyDisabled(false)
+          return
+        }
+
+        setTimeFilterLinksTemporarilyDisabled(false)
+      }
+
+      currentFilter.value = nextFilter
       renderChart()
     })
   })
@@ -456,7 +529,11 @@ function initializeChartApp() {
   }
   const activeThresholdRef = { value: THRESHOLD_TOP_NORMAL_ID }
 
-  const historicDataRef = { data: globalThis.flood?.model?.historicData || [] }
+  const initialHistoricData = globalThis.flood?.model?.historicData || []
+  const historicDataRef = {
+    data: initialHistoricData,
+    loaded: initialHistoricData.length > 0
+  }
 
   // Create render function
   const renderChart = createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter, thresholdState, activeThresholdRef)
@@ -465,13 +542,12 @@ function initializeChartApp() {
   renderChart()
 
   // Set initial button states based on historic data availability
-  const hasHistoricData = historicDataRef.data && historicDataRef.data.length > 0
-  updateFilterButtonStates(hasHistoricData)
+  updateFilterButtonStates()
 
   // Setup event handlers
-  setupTimeFilterHandlers(currentFilter, renderChart)
+  setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart)
   setupThresholdControlHandlers(thresholdState, activeThresholdRef, renderChart)
-  setupDownloadCsvHandler()
+  setupDownloadCsvReverseTabHandler()
 }
 
 // Initialize chart with historic data support

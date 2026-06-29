@@ -8,6 +8,7 @@ export default defineConfig({
     testTimeout: 10000,
     hookTimeout: 10000,
     env: {
+      NODE_ENV: 'test',
       REQUIRE_AUTH: 'true'
     },
     coverage: {

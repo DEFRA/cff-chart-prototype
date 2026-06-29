@@ -360,7 +360,7 @@
     .thresholds--hovering {
       .threshold {
         .threshold__line {
-          stroke: #9fa4aa;
+          stroke: #9fa4aa !important;
         }
 
         .threshold-label {
@@ -372,7 +372,6 @@
           pointer-events: none;
         }
 
-        &.threshold--active,
         &.threshold--line-hover {
           .threshold__line {
             stroke: #0b0c0c !important;
@@ -434,6 +433,23 @@
 
       &__close {
         transition: opacity 0.14s ease;
+
+        &:focus {
+          outline: none;
+        }
+
+        &:focus-visible {
+          outline: none;
+
+          .threshold-label__close-bg {
+            stroke: #1d70b8;
+            stroke-width: 2;
+          }
+
+          .threshold-label__close-x {
+            stroke: #1d70b8;
+          }
+        }
       }
 
       @media (max-width: 640px) {
@@ -444,16 +460,27 @@
     }
 
     .point {
-      circle {
-        fill: #fff;
-        stroke-width: 2;
+      a {
+        &:focus {
+          outline: none;
+        }
+
+        &:focus-visible {
+          outline: none;
+        }
       }
 
-      &--observed circle {
+      .point-core {
+        fill: #fff;
+        stroke-width: 2;
+        opacity: 0;
+      }
+
+      &--observed .point-core {
         stroke: #1d70b8;
       }
 
-      &--forecast circle {
+      &--forecast .point-core {
         stroke: #1d70b8;
       }
 
@@ -464,11 +491,17 @@
 
     .significant--visible {
       .point {
+        .point-core {
+          opacity: 1;
+          fill: #1d70b8;
+          stroke: #1d70b8;
+          r: 6;
+        }
 
         &:hover,
         &:focus {
-          circle {
-            r: 7;
+          .point-core {
+            r: 8;
           }
         }
       }

@@ -12,15 +12,25 @@ const manifestPath = path.join(
 
 let webpackManifest
 
+function loadWebpackManifest(forceReload = false) {
+  if (webpackManifest && !forceReload) {
+    return webpackManifest
+  }
+
+  try {
+    webpackManifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+  } catch (_err) {
+    logger.error(`Webpack ${path.basename(manifestPath)} not found`)
+    webpackManifest = undefined
+  }
+
+  return webpackManifest
+}
+
 export function context(request) {
   const ctx = request.response.source?.context || {}
-  if (!webpackManifest) {
-    try {
-      webpackManifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
-    } catch (err) {
-      logger.error(`Webpack ${path.basename(manifestPath)} not found`)
-    }
-  }
+  const isDev = config.get('isDevelopment')
+  const manifest = loadWebpackManifest(isDev)
 
   return {
     ...ctx,
@@ -29,7 +39,7 @@ export function context(request) {
     serviceUrl: '/',
     breadcrumbs: [],
     getAssetPath(asset) {
-      const webpackAssetPath = webpackManifest?.[asset]
+      const webpackAssetPath = manifest?.[asset]
       return `${assetPath}/${webpackAssetPath ?? asset}`
     }
   }
