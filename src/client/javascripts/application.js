@@ -16,10 +16,12 @@ const LINE_CHART_ID = 'line-chart'
 const DEFAULT_FILTER = '5d'
 const TIME_FILTER_LINK_SELECTOR = '.time-filter-link'
 const TIME_FILTER_LINK_DISABLED_CLASS = 'time-filter-link--disabled'
+const HISTORIC_DATA_REQUIRED_FILTERS = new Set(['6m', '1y', '3y'])
 const ARIA_DISABLED = 'aria-disabled'
 const ARIA_CURRENT = 'aria-current'
 const CHART_STYLE_C = 'styleC'
 const CHART_STYLE_B = 'styleB'
+const LONG_RANGE_FILTERS = new Set(['6m', '1y', '3y'])
 const HISTORIC_DATA_ENDPOINT = '/station/historic-data'
 const DOWNLOAD_CSV_BTN_ID = 'download-csv-btn'
 const DEFAULT_CURRENT_LEVEL = 0.28
@@ -86,8 +88,8 @@ function buildThresholds(metrics, thresholdState) {
   return [
     {
       id: THRESHOLD_CURRENT_LEVEL_ID,
-      label: `current level (${formatMetres(metrics.currentLevel)})`,
-      shortLabel: `${formatMetres(metrics.currentLevel)} Current level`,
+      label: `latest level (${formatMetres(metrics.currentLevel)})`,
+      shortLabel: `${formatMetres(metrics.currentLevel)} Latest level`,
       value: metrics.currentLevel,
       enabled: thresholdState[THRESHOLD_CURRENT_LEVEL_ID],
       showLabel: thresholdState[THRESHOLD_CURRENT_LEVEL_ID],
@@ -120,7 +122,7 @@ function updateThresholdControls(metrics, thresholdState) {
   const topNormalLabel = document.getElementById(THRESHOLD_CONTROL_CONFIG[THRESHOLD_TOP_NORMAL_ID].labelId)
 
   if (currentLabel) {
-    currentLabel.textContent = `Show current level (${formatMetres(metrics.currentLevel)})`
+    currentLabel.textContent = `Show latest level (${formatMetres(metrics.currentLevel)})`
   }
 
   if (highestLabel) {
@@ -203,6 +205,40 @@ function setupDownloadCsvReverseTabHandler() {
   })
 }
 
+function setupChartStyleRadioKeyboardSupport() {
+  const chartStyleRadios = Array.from(document.querySelectorAll('input[type="radio"][name="chartStyle"]'))
+
+  if (chartStyleRadios.length === 0) {
+    return
+  }
+
+  chartStyleRadios.forEach(radio => {
+    if (!radio.disabled) {
+      // Make each option reachable with Tab on the splash page.
+      radio.setAttribute('tabindex', '0')
+    }
+
+    if (radio.dataset.enterSelectBound === 'true') {
+      return
+    }
+
+    radio.dataset.enterSelectBound = 'true'
+
+    radio.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter') {
+        return
+      }
+
+      event.preventDefault()
+      this.checked = true
+        const EventConstructor = this.ownerDocument?.defaultView?.Event
+        if (typeof EventConstructor === 'function') {
+          this.dispatchEvent(new EventConstructor('change', { bubbles: true }))
+      }
+    })
+  })
+}
+
 /**
  * Show or hide the download CSV link based on the current time filter
  * Only show for 5 day range, hide for 6 month, 1 year, and 3 year
@@ -224,9 +260,20 @@ function updateDownloadCsvState(currentFilter) {
 /**
  * Update filter link states based on historic data availability
  */
-function updateFilterButtonStates() {
+function updateFilterButtonStates(historicDataRef) {
+  const hasHistoricData = Boolean(historicDataRef?.available)
+    || (Array.isArray(historicDataRef?.data) && historicDataRef.data.length > 0)
+
   document.querySelectorAll(TIME_FILTER_LINK_SELECTOR).forEach(link => {
-    // All ranges are now always selectable and trigger lazy historic loading when needed.
+    const requiresHistoricData = HISTORIC_DATA_REQUIRED_FILTERS.has(link.dataset.filter)
+
+    if (requiresHistoricData && !hasHistoricData) {
+      link.setAttribute(ARIA_DISABLED, 'true')
+      link.classList.add(TIME_FILTER_LINK_DISABLED_CLASS)
+      link.setAttribute('tabindex', '-1')
+      return
+    }
+
     link.removeAttribute(ARIA_DISABLED)
     link.classList.remove(TIME_FILTER_LINK_DISABLED_CLASS)
     link.removeAttribute('tabindex')
@@ -250,6 +297,27 @@ function setTimeFilterLinksTemporarilyDisabled(isDisabled) {
       link.removeAttribute('tabindex')
     }
   })
+}
+
+function applyThresholdDefaultsForFilter(nextFilter, thresholdState, activeThresholdRef) {
+  if (!thresholdState || !activeThresholdRef) {
+    return
+  }
+
+  if (nextFilter === DEFAULT_FILTER) {
+    thresholdState[THRESHOLD_CURRENT_LEVEL_ID] = false
+    thresholdState[THRESHOLD_HIGHEST_LEVEL_ID] = false
+    thresholdState[THRESHOLD_TOP_NORMAL_ID] = true
+    activeThresholdRef.value = THRESHOLD_TOP_NORMAL_ID
+    return
+  }
+
+  if (LONG_RANGE_FILTERS.has(nextFilter)) {
+    thresholdState[THRESHOLD_CURRENT_LEVEL_ID] = true
+    thresholdState[THRESHOLD_HIGHEST_LEVEL_ID] = false
+    thresholdState[THRESHOLD_TOP_NORMAL_ID] = false
+    activeThresholdRef.value = THRESHOLD_CURRENT_LEVEL_ID
+  }
 }
 
 async function fetchHistoricData(stationId) {
@@ -474,7 +542,7 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
 /**
  * Setup time filter link handlers
  */
-function setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart) {
+function setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart, thresholdState, activeThresholdRef) {
   document.querySelectorAll(TIME_FILTER_LINK_SELECTOR).forEach(link => {
     link.addEventListener('click', async function (e) {
       e.preventDefault()
@@ -492,16 +560,24 @@ function setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, rend
           const historicData = await fetchHistoricData(stationId)
           historicDataRef.data = historicData
           historicDataRef.loaded = true
+          historicDataRef.available = historicData.length > 0
         } catch (error) {
           console.error('Failed to fetch historic data:', error)
           setTimeFilterLinksTemporarilyDisabled(false)
+          updateFilterButtonStates(historicDataRef)
           return
         }
 
         setTimeFilterLinksTemporarilyDisabled(false)
+        updateFilterButtonStates(historicDataRef)
       }
 
       currentFilter.value = nextFilter
+
+      if (globalThis.flood?.model?.chartStyle === CHART_STYLE_C) {
+        applyThresholdDefaultsForFilter(nextFilter, thresholdState, activeThresholdRef)
+      }
+
       renderChart()
     })
   })
@@ -532,7 +608,8 @@ function initializeChartApp() {
   const initialHistoricData = globalThis.flood?.model?.historicData || []
   const historicDataRef = {
     data: initialHistoricData,
-    loaded: initialHistoricData.length > 0
+    loaded: initialHistoricData.length > 0,
+    available: Boolean(globalThis.flood?.model?.historicDataAvailable) || initialHistoricData.length > 0
   }
 
   // Create render function
@@ -542,16 +619,18 @@ function initializeChartApp() {
   renderChart()
 
   // Set initial button states based on historic data availability
-  updateFilterButtonStates()
+  updateFilterButtonStates(historicDataRef)
 
   // Setup event handlers
-  setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart)
+  setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart, thresholdState, activeThresholdRef)
   setupThresholdControlHandlers(thresholdState, activeThresholdRef, renderChart)
   setupDownloadCsvReverseTabHandler()
 }
 
 // Initialize chart with historic data support
 if (typeof document !== 'undefined' && typeof globalThis !== 'undefined') {
+  setupChartStyleRadioKeyboardSupport()
+
   const chartElement = document.getElementById(LINE_CHART_ID)
   if (chartElement && globalThis.flood?.model) {
     initializeChartApp()
