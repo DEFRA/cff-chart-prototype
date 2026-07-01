@@ -181,6 +181,25 @@ function hideSignificantPoints(svgNode) {
   })
 }
 
+function focusElementAndReveal(target) {
+  if (!target) {
+    return false
+  }
+
+  try {
+    target.focus({ preventScroll: false })
+  } catch {
+    target.focus()
+  }
+
+  // Programmatic tab routing can bypass native scroll-follow in some browsers.
+  if (typeof target.scrollIntoView === 'function') {
+    target.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }
+
+  return true
+}
+
 function focusActivePointTarget(svgNode) {
   const pointTargets = svgNode.querySelectorAll(`[${DATA_POINT_FOCUSABLE_SELECTOR}]`)
   if (!pointTargets.length) {
@@ -194,8 +213,7 @@ function focusActivePointTarget(svgNode) {
     return false
   }
 
-  fallbackPoint.focus()
-  return true
+  return focusElementAndReveal(fallbackPoint)
 }
 
 function createPointArrowNavigationHandler(svgNode) {
@@ -228,7 +246,7 @@ function createPointArrowNavigationHandler(svgNode) {
     const nextTarget = pointTargets[nextIndex]
     target.setAttribute('tabindex', -1)
     nextTarget.setAttribute('tabindex', 0)
-    nextTarget.focus()
+    focusElementAndReveal(nextTarget)
   }
 }
 
@@ -345,6 +363,8 @@ function createPointFocusHandler(getState, tooltipManager) {
     if (!focusTarget?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
       return
     }
+
+    focusElementAndReveal(focusTarget)
 
     const dataPoint = select(focusTarget).datum()
     const { yScale, xScale } = getState()

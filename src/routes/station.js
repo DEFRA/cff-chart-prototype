@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, access } from 'node:fs/promises'
 import path from 'node:path'
 import { getStation, getStationReadings, formatStationData, formatTelemetryData } from '../lib/flood-service.js'
 import { config } from '../config/config.js'
@@ -14,6 +14,16 @@ async function loadHistoricData(stationId) {
     return parsed.readings || []
   } catch {
     return []
+  }
+}
+
+async function hasHistoricData(stationId) {
+  try {
+    const historicPath = path.resolve(config.get('root'), 'data', 'historic', `${stationId}.json`)
+    await access(historicPath)
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -40,6 +50,8 @@ export const station = {
         }).code(404)
       }
 
+      const historicDataAvailable = await hasHistoricData(stationId)
+
       // Format data for the template
       const station = formatStationData(stationData, readings)
       const telemetry = formatTelemetryData(readings)
@@ -48,7 +60,8 @@ export const station = {
         station,
         telemetry,
         chartStyle,
-        historicData: []
+        historicData: [],
+        historicDataAvailable
       })
     } catch (error) {
       request.logger.error('Error loading station data:', error)

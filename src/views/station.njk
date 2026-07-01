@@ -231,7 +231,7 @@
           <div class="govuk-checkboxes__item">
             <input class="govuk-checkboxes__input" id="threshold-current-level" type="checkbox" data-threshold-id="current-level">
             <label class="govuk-label govuk-checkboxes__label" id="threshold-current-level-label" for="threshold-current-level">
-              Show current level (0.28m)
+              Show latest level (0.28m)
             </label>
           </div>
           <div class="govuk-checkboxes__item">
@@ -357,6 +357,7 @@
       chartThreshold: [],
       chartStyle: '{{ chartStyle }}',
       historicData: {{ historicData | dump | safe }},
+      historicDataAvailable: {{ historicDataAvailable | dump | safe }},
       typicalRangeHigh: {{ station.typicalRangeHigh | dump | safe }}
     };
   </script>

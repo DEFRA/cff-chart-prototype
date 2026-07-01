@@ -214,11 +214,11 @@ describe('application - Threshold Control Handlers', () => {
       const highestLevel = 0.93
       const topNormal = 0.50
 
-      const currentLabel = `${formatMetres(currentLevel)} Current level`
+      const currentLabel = `${formatMetres(currentLevel)} Latest level`
       const highestLabel = `${formatMetres(highestLevel)} Highest level`
       const topLabel = `${formatMetres(topNormal)} Top of normal range`
 
-      expect(currentLabel).toBe('0.19m Current level')
+      expect(currentLabel).toBe('0.19m Latest level')
       expect(highestLabel).toBe('0.93m Highest level')
       expect(topLabel).toBe('0.50m Top of normal range')
     })
