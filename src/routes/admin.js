@@ -24,7 +24,7 @@ async function getStoredStations() {
         stations.push({
           rloiId,
           name: data.meta?.name || 'Unknown',
-          pointCount: data.meta?.hourlyPointCount || data.readings?.length || 0,
+          pointCount: data.meta?.pointCount || data.meta?.thirtyMinPointCount || data.meta?.hourlyPointCount || data.readings?.length || 0,
           startDate: data.meta?.startDate || '?',
           endDate: data.meta?.endDate || '?',
           fetchedAt: data.meta?.fetchedAt || '?',
@@ -75,8 +75,9 @@ export const admin = [
 
         request.logger.info(`Admin: fetching 3 years of historic data for ${stationInfo.name} (${cleanId})`)
         const result = await fetchHistoricReadings(cleanId, stationInfo)
+        const pointCount = result.meta.pointCount || result.meta.hourlyPointCount || result.readings?.length || 0
 
-        return h.redirect(`/admin?message=Fetched ${result.meta.hourlyPointCount} hourly readings for ${stationInfo.name} (${cleanId})`)
+        return h.redirect(`/admin?message=Fetched ${pointCount} historic readings for ${stationInfo.name} (${cleanId})`)
       } catch (error) {
         request.logger.error(`Admin: fetch failed for ${cleanId}:`, error)
         return h.redirect(`/admin?error=Fetch failed for RLOI ID ${cleanId}: ${error.message}`)

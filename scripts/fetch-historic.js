@@ -41,20 +41,10 @@ function getDateRange() {
   }
 }
 
-function downsampleToThirtyMinutes(readings) {
-  const bucketMap = new Map()
-
-  for (const reading of readings) {
-    const date = new Date(reading.dateTime)
-    const minutes = date.getMinutes() < 30 ? '00' : '30'
-    const bucketKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${minutes}:00`
-
-    if (!bucketMap.has(bucketKey)) {
-      bucketMap.set(bucketKey, { dateTime: reading.dateTime, value: reading.value })
-    }
-  }
-
-  return Array.from(bucketMap.values())
+function normalizeReadings(readings) {
+  return (Array.isArray(readings) ? readings : [])
+    .filter(reading => reading?.dateTime != null && reading?.value != null)
+    .map(reading => ({ dateTime: reading.dateTime, value: reading.value }))
     .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
 }
 
@@ -78,8 +68,8 @@ async function fetchStationData(rloiId, stationConfig) {
   const rawReadings = data.items || []
   console.log(`  Raw readings: ${rawReadings.length}`)
 
-  const thirtyMinReadings = downsampleToThirtyMinutes(rawReadings)
-  console.log(`  30-minute readings: ${thirtyMinReadings.length}`)
+  const normalizedReadings = normalizeReadings(rawReadings)
+  console.log(`  Stored readings: ${normalizedReadings.length}`)
 
   return {
     meta: {
@@ -90,9 +80,9 @@ async function fetchStationData(rloiId, stationConfig) {
       startDate,
       endDate,
       rawPointCount: rawReadings.length,
-      thirtyMinPointCount: thirtyMinReadings.length
+      pointCount: normalizedReadings.length
     },
-    readings: thirtyMinReadings
+    readings: normalizedReadings
   }
 }
 

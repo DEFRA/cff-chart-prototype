@@ -151,7 +151,7 @@ describe('hydrology-service', () => {
       measureId: 'test-measure-i-900-m-qualified'
     }
 
-    it('should fetch readings, downsample to hourly, and write to disk', async () => {
+    it('should fetch readings, keep full resolution, and write to disk', async () => {
       const rawReadings = [
         { dateTime: '2025-01-01T00:00:00', value: 1.0 },
         { dateTime: '2025-01-01T00:15:00', value: 1.1 },
@@ -172,14 +172,15 @@ describe('hydrology-service', () => {
       expect(result.meta.rloiId).toBe('3089')
       expect(result.meta.name).toBe('Test Station')
       expect(result.meta.rawPointCount).toBe(7)
-      expect(result.meta.hourlyPointCount).toBe(3)
-      expect(result.readings).toHaveLength(3)
+      expect(result.meta.pointCount).toBe(7)
+      expect(result.meta.hourlyPointCount).toBe(7)
+      expect(result.readings).toHaveLength(7)
       expect(result.readings[0].dateTime).toBe('2025-01-01T00:00:00')
-      expect(result.readings[1].dateTime).toBe('2025-01-01T01:00:00')
-      expect(result.readings[2].dateTime).toBe('2025-01-01T02:00:00')
+      expect(result.readings[1].dateTime).toBe('2025-01-01T00:15:00')
+      expect(result.readings[6].dateTime).toBe('2025-01-01T02:00:00')
     })
 
-    it('should keep first reading per hour when downsampling', async () => {
+    it('should preserve multiple readings in the same hour', async () => {
       const rawReadings = [
         { dateTime: '2025-06-15T10:00:00', value: 2.0 },
         { dateTime: '2025-06-15T10:15:00', value: 2.5 },
@@ -194,8 +195,9 @@ describe('hydrology-service', () => {
 
       const result = await fetchHistoricReadings('1234', stationInfo)
 
-      expect(result.readings).toHaveLength(1)
+      expect(result.readings).toHaveLength(4)
       expect(result.readings[0].value).toBe(2.0)
+      expect(result.readings[1].value).toBe(2.5)
     })
 
     it('should sort readings chronologically', async () => {
@@ -255,6 +257,7 @@ describe('hydrology-service', () => {
 
       expect(result.readings).toHaveLength(0)
       expect(result.meta.rawPointCount).toBe(0)
+      expect(result.meta.pointCount).toBe(0)
       expect(result.meta.hourlyPointCount).toBe(0)
     })
 

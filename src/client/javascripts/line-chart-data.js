@@ -16,6 +16,7 @@ const FIVE_DAY_RANGE = '5d'
 const FIVE_DAY_ZOOM_THRESHOLD = 5
 const FIFTEEN_MINUTES = 15
 const FIFTEEN_MINUTES_MS = FIFTEEN_MINUTES * 60 * 1000
+const FULL_ZOOM_INTERVAL_TOLERANCE_DAYS = FIFTEEN_MINUTES_MS / MS_PER_DAY
 
 function downsampleToDaily(data) {
   const dailyGroups = new Map()
@@ -132,8 +133,8 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
     return data
   }
 
-  // When the visible window is 5 days or less, always show 15-minute detail.
-  if (visibleDurationDays <= FIVE_DAY_ZOOM_THRESHOLD) {
+  // Treat effective full zoom as <= 5 days with one-interval tolerance for floating-point drift.
+  if (visibleDurationDays <= FIVE_DAY_ZOOM_THRESHOLD + FULL_ZOOM_INTERVAL_TOLERANCE_DAYS) {
     snapIntervalMs = FIFTEEN_MINUTES_MS
   }
 
