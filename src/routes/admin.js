@@ -5,40 +5,51 @@ import { lookupStationByRLOI, fetchHistoricReadings } from '../lib/hydrology-ser
 
 const PROTECTED_STATION = '3089'
 
+function getPointCount(data) {
+  return data.meta?.pointCount || data.meta?.thirtyMinPointCount || data.meta?.hourlyPointCount || data.readings?.length || 0
+}
+
+function createStoredStationEntry(rloiId, data) {
+  return {
+    rloiId,
+    name: data.meta?.name || 'Unknown',
+    pointCount: getPointCount(data),
+    startDate: data.meta?.startDate || '?',
+    endDate: data.meta?.endDate || '?',
+    fetchedAt: data.meta?.fetchedAt || '?',
+    isProtected: rloiId === PROTECTED_STATION
+  }
+}
+
+async function readStoredStation(dataDir, file) {
+  if (!file.endsWith('.json')) {
+    return null
+  }
+
+  const rloiId = file.replace('.json', '')
+
+  try {
+    const raw = await readFile(path.resolve(dataDir, file), 'utf8')
+    const data = JSON.parse(raw)
+    return createStoredStationEntry(rloiId, data)
+  } catch {
+    return { rloiId, name: 'Error reading file', pointCount: 0, isProtected: rloiId === PROTECTED_STATION }
+  }
+}
+
 async function getStoredStations() {
   const dataDir = path.resolve(config.get('root'), 'data', 'historic')
-  const stations = []
 
   try {
     const files = await readdir(dataDir)
+    const parsedStations = await Promise.all(files.map((file) => readStoredStation(dataDir, file)))
+    const stations = parsedStations.filter(Boolean)
 
-    for (const file of files) {
-      if (!file.endsWith('.json')) {
-        continue
-      }
-
-      const rloiId = file.replace('.json', '')
-      try {
-        const raw = await readFile(path.resolve(dataDir, file), 'utf8')
-        const data = JSON.parse(raw)
-        stations.push({
-          rloiId,
-          name: data.meta?.name || 'Unknown',
-          pointCount: data.meta?.pointCount || data.meta?.thirtyMinPointCount || data.meta?.hourlyPointCount || data.readings?.length || 0,
-          startDate: data.meta?.startDate || '?',
-          endDate: data.meta?.endDate || '?',
-          fetchedAt: data.meta?.fetchedAt || '?',
-          isProtected: rloiId === PROTECTED_STATION
-        })
-      } catch {
-        stations.push({ rloiId, name: 'Error reading file', pointCount: 0, isProtected: rloiId === PROTECTED_STATION })
-      }
-    }
+    return stations.sort((a, b) => (a.isProtected ? -1 : 0) - (b.isProtected ? -1 : 0))
   } catch {
     // data/historic directory doesn't exist yet
+    return []
   }
-
-  return stations.sort((a, b) => (a.isProtected ? -1 : 0) - (b.isProtected ? -1 : 0))
 }
 
 export const admin = [
