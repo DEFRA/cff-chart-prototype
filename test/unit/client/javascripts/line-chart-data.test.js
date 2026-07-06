@@ -51,4 +51,21 @@ describe('line-chart-data processData zoom snapping', () => {
     const hasQuarterHours = hasQuarterHourPoints(result.observedPoints)
     expect(hasQuarterHours).toBe(false)
   })
+
+  test.each(['6m', '1y', '3y'])('uses 15-minute snapping at effective full zoom for %s range despite tiny precision drift', (timeRange) => {
+    const observed = createQuarterHourlyPoints('2026-06-01T00:15:00.000Z', 16)
+    const visibleDomain = [
+      new Date('2026-05-31T00:00:00.000Z'),
+      new Date('2026-06-05T00:15:00.000Z')
+    ]
+
+    const result = processData({
+      observed,
+      forecast: [],
+      type: 'river'
+    }, visibleDomain, timeRange)
+
+    expect(result.observedPoints.length).toBeGreaterThan(0)
+    expect(hasQuarterHourPoints(result.observedPoints)).toBe(true)
+  })
 })

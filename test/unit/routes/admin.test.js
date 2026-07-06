@@ -152,7 +152,7 @@ describe('admin routes', () => {
         measureId: 'test-measure'
       })
       fetchHistoricReadings.mockResolvedValue({
-        meta: { hourlyPointCount: 26000 },
+        meta: { pointCount: 26000 },
         readings: []
       })
 
@@ -210,7 +210,7 @@ describe('admin routes', () => {
         guid: 'g', name: 'S', measureId: 'm'
       })
       fetchHistoricReadings.mockResolvedValue({
-        meta: { hourlyPointCount: 100 }, readings: []
+        meta: { pointCount: 100 }, readings: []
       })
 
       const request = createMockRequest({ rloiId: '  7041  ' })

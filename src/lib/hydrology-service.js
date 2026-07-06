@@ -50,19 +50,10 @@ export async function lookupStationByRLOI(rloiId) {
   }
 }
 
-function downsampleToHourly(readings) {
-  const hourlyMap = new Map()
-
-  for (const reading of readings) {
-    const date = new Date(reading.dateTime)
-    const hourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:00:00`
-
-    if (!hourlyMap.has(hourKey)) {
-      hourlyMap.set(hourKey, { dateTime: reading.dateTime, value: reading.value })
-    }
-  }
-
-  return Array.from(hourlyMap.values())
+function normalizeReadings(readings) {
+  return (Array.isArray(readings) ? readings : [])
+    .filter(reading => reading?.dateTime != null && reading?.value != null)
+    .map(reading => ({ dateTime: reading.dateTime, value: reading.value }))
     .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
 }
 
@@ -85,7 +76,7 @@ export async function fetchHistoricReadings(rloiId, stationInfo) {
 
   const data = await response.json()
   const rawReadings = data.items || []
-  const hourlyReadings = downsampleToHourly(rawReadings)
+  const normalizedReadings = normalizeReadings(rawReadings)
 
   const result = {
     meta: {
@@ -97,9 +88,10 @@ export async function fetchHistoricReadings(rloiId, stationInfo) {
       startDate,
       endDate,
       rawPointCount: rawReadings.length,
-      hourlyPointCount: hourlyReadings.length
+      pointCount: normalizedReadings.length,
+      hourlyPointCount: normalizedReadings.length
     },
-    readings: hourlyReadings
+    readings: normalizedReadings
   }
 
   const outputDir = path.resolve(config.get('root'), 'data', 'historic')

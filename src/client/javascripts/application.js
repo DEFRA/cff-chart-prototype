@@ -93,7 +93,7 @@ function buildThresholds(metrics, thresholdState) {
       value: metrics.currentLevel,
       enabled: thresholdState[THRESHOLD_CURRENT_LEVEL_ID],
       showLabel: thresholdState[THRESHOLD_CURRENT_LEVEL_ID],
-      dismissible: false
+      dismissible: true
     },
     {
       id: THRESHOLD_HIGHEST_LEVEL_ID,
@@ -102,7 +102,7 @@ function buildThresholds(metrics, thresholdState) {
       value: metrics.highestLevel,
       enabled: thresholdState[THRESHOLD_HIGHEST_LEVEL_ID],
       showLabel: thresholdState[THRESHOLD_HIGHEST_LEVEL_ID],
-      dismissible: false
+      dismissible: true
     },
     {
       id: THRESHOLD_TOP_NORMAL_ID,
