@@ -307,7 +307,7 @@ export function renderAxes(svg, config) {
   svg.selectAll(`${Y_AXIS_CLASS} .tick text`).attr('x', yTickTextOffset)
 }
 
-export function renderGridLines(svg, xScale, yScale, height, width, xExtent, timeRange) {
+export function renderGridLines(svg, xScale, yScale, height, width, _xExtent, timeRange) {
   const visibleExtent = xScale.domain()
   const tickConfig = calculateTickInterval(visibleExtent, timeRange, width)
 
@@ -321,7 +321,7 @@ export function renderGridLines(svg, xScale, yScale, height, width, xExtent, tim
     .call(xGrid)
 
   svg.select('.x.grid').selectAll('.tick').each(function (d) {
-    if (d > xExtent[1]) {
+    if (d > visibleExtent[1]) {
       select(this).remove()
     }
   })
