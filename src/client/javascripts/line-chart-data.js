@@ -18,6 +18,65 @@ const FIFTEEN_MINUTES = 15
 const FIFTEEN_MINUTES_MS = FIFTEEN_MINUTES * 60 * 1000
 const FULL_ZOOM_INTERVAL_TOLERANCE_DAYS = FIFTEEN_MINUTES_MS / MS_PER_DAY
 
+function getTimestamp(value) {
+  if (value instanceof Date) {
+    return value.getTime()
+  }
+
+  if (typeof value === 'string') {
+    return new Date(value).getTime()
+  }
+
+  return null
+}
+
+function snapPointToInterval(point, snapIntervalMs) {
+  const timestamp = getTimestamp(point.dateTime)
+  if (timestamp === null) {
+    return point
+  }
+
+  const roundedMs = Math.round(timestamp / snapIntervalMs) * snapIntervalMs
+  const asDate = point.dateTime instanceof Date
+
+  return {
+    ...point,
+    dateTime: asDate ? new Date(roundedMs) : new Date(roundedMs).toISOString()
+  }
+}
+
+function toCollapsedBucketPoints(points) {
+  const buckets = new Map()
+
+  for (const point of points) {
+    const bucketMs = new Date(point.dateTime).getTime()
+    const existing = buckets.get(bucketMs)
+
+    if (!existing) {
+      buckets.set(bucketMs, {
+        point,
+        total: point.value,
+        count: 1,
+        isSignificant: !!point.isSignificant
+      })
+      continue
+    }
+
+    existing.total += point.value
+    existing.count += 1
+    existing.isSignificant = existing.isSignificant || !!point.isSignificant
+    existing.point = point
+  }
+
+  return [...buckets.values()]
+    .map(({ point, total, count, isSignificant }) => ({
+      ...point,
+      value: total / count,
+      isSignificant
+    }))
+    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
+}
+
 function downsampleToDaily(data) {
   const dailyGroups = new Map()
   for (const item of data) {
@@ -138,59 +197,8 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
     snapIntervalMs = FIFTEEN_MINUTES_MS
   }
 
-  // Round each data point's timestamp to the nearest interval boundary
-  const snapped = data.map(item => {
-    let timestamp
-    const isDate = item.dateTime instanceof Date
-    
-    if (item.dateTime instanceof Date) {
-      timestamp = item.dateTime.getTime()
-    } else if (typeof item.dateTime === 'string') {
-      timestamp = new Date(item.dateTime).getTime()
-    } else {
-      return item
-    }
-
-    // Round to nearest interval (not ceil)
-    const roundedMs = Math.round(timestamp / snapIntervalMs) * snapIntervalMs
-
-    return {
-      ...item,
-      dateTime: isDate ? new Date(roundedMs) : new Date(roundedMs).toISOString()
-    }
-  })
-
-  // Snapping can place many points onto the same timestamp, which creates
-  // vertical jumps and a blocky line. Collapse each timestamp bucket to one point.
-  const buckets = new Map()
-
-  for (const point of snapped) {
-    const bucketMs = new Date(point.dateTime).getTime()
-    const existing = buckets.get(bucketMs)
-
-    if (!existing) {
-      buckets.set(bucketMs, {
-        point,
-        total: point.value,
-        count: 1,
-        isSignificant: !!point.isSignificant
-      })
-      continue
-    }
-
-    existing.total += point.value
-    existing.count += 1
-    existing.isSignificant = existing.isSignificant || !!point.isSignificant
-    existing.point = point
-  }
-
-  return [...buckets.values()]
-    .map(({ point, total, count, isSignificant }) => ({
-      ...point,
-      value: total / count,
-      isSignificant
-    }))
-    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
+  const snapped = data.map(item => snapPointToInterval(item, snapIntervalMs))
+  return toCollapsedBucketPoints(snapped)
 }
 
 

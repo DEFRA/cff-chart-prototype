@@ -441,7 +441,8 @@ function setupZoomControls() {
 /**
  * Render chart for Style C (zoom/pan)
  */
-function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholds, onThresholdDismiss, activeThresholdRef, renderOptions = {}) {
+function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdContext, renderOptions = {}) {
+  const { thresholds, onThresholdDismiss, activeThresholdRef } = thresholdContext
   const preserveZoom = renderOptions.preserveZoom === true
 
   const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
@@ -553,7 +554,14 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
         }
       }
 
-      renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter.value, thresholds, onThresholdDismiss, activeThresholdRef, renderOptions)
+      renderStyleCChart(
+        stationId,
+        realtimeTelemetry,
+        mergedObserved,
+        currentFilter.value,
+        { thresholds, onThresholdDismiss, activeThresholdRef },
+        renderOptions
+      )
       return
     }
 
