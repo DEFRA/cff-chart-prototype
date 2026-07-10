@@ -49,6 +49,18 @@ const FIRST_TICK_OFFSET_DESKTOP = '12'
 const FIRST_TICK_OFFSET_MOBILE = '0'
 const TIME_INDICATOR_RANGES = [FIVE_DAY_RANGE, ONE_MONTH_RANGE, SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE, FIVE_YEAR_RANGE]
 
+function isNowVisibleInExtent(xExtent, timeRange) {
+  if (!TIME_INDICATOR_RANGES.includes(timeRange)) {
+    return false
+  }
+
+  const minTime = xExtent[0].getTime()
+  const maxTime = xExtent[1].getTime()
+  const nowTime = Date.now()
+
+  return nowTime >= minTime && nowTime <= maxTime
+}
+
 function getFiveDayTicksWithTodayEnd(xExtent) {
   const now = new Date()
   const maxTime = Math.min(xExtent[1].getTime(), now.getTime())
@@ -130,6 +142,11 @@ function calculateTickInterval(xExtent, timeRange, _width) {
     removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
     hideFirstTickLabel: true
   })))()
+
+  // Only remove the rightmost tick label while the live "now" indicator is visible.
+  // If users pan/zoom so "now" is out of view, keep a normal rightmost date label.
+  const shouldHideRightmostTick = config.removeLastNTicks > 0 && isNowVisibleInExtent(xExtent, timeRange)
+  config.removeLastNTicks = shouldHideRightmostTick ? config.removeLastNTicks : DEFAULT_REMOVE_LAST_N_TICKS
 
   return config
 }
