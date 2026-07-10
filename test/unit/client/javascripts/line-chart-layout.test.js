@@ -1,9 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { JSDOM } from 'jsdom'
 import { select } from 'd3-selection'
-import { hideOverlappingTicks } from '../../../../src/client/javascripts/line-chart-layout.js'
+import { hideOverlappingTicks, renderAxes } from '../../../../src/client/javascripts/line-chart-layout.js'
 import { scaleTime, scaleLinear } from 'd3-scale'
-import { renderAxes } from '../../../../src/client/javascripts/line-chart-layout.js'
 
 function createRect(left, width) {
   return {
