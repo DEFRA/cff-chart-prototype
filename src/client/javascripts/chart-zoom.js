@@ -1,10 +1,10 @@
-import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom'
+import { zoom as d3Zoom, zoomIdentity, zoomTransform } from 'd3-zoom'
 
 // Constants
 const ZOOM_TRANSITION_DURATION = 300
 const ZOOM_IN_FACTOR = 1.5
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR
-const PAN_STEP_RATIO = 0.2
+const PAN_STEP_RATIO = 0.1
 const TOUCH_PAN_STEP_PX = 8
 const ZOOM_MIN_SCALE = 1
 const ZOOM_MAX_SCALE_SAFETY = 1000
@@ -170,6 +170,14 @@ export function setupZoomBehavior(config) {
 export function setupZoomControls(container, mainGroup, zoomBehavior, maxZoomScale = ZOOM_MIN_SCALE) {
   const boundedMaxZoomScale = getBoundedMaxZoomScale(maxZoomScale)
 
+  const getPanStep = () => {
+    const chartWidth = container.getBoundingClientRect().width
+    const currentScale = zoomTransform(mainGroup.node()).k || ZOOM_MIN_SCALE
+    const visibleWindowWidth = chartWidth / currentScale
+
+    return Math.max(1, visibleWindowWidth * PAN_STEP_RATIO)
+  }
+
   container.panBy = (deltaX) => {
     if (!Number.isFinite(deltaX) || deltaX === 0) {
       return
@@ -180,6 +188,22 @@ export function setupZoomControls(container, mainGroup, zoomBehavior, maxZoomSca
 
   container.getTouchPanStep = () => TOUCH_PAN_STEP_PX
   container.getMaxZoomScale = () => boundedMaxZoomScale
+
+  container.applyZoomTransform = (transform) => {
+    if (!transform || !Number.isFinite(transform.k)) {
+      return
+    }
+
+    const scale = getBoundedMaxZoomScale(transform.k)
+    const x = Number.isFinite(transform.x) ? transform.x : 0
+    const y = Number.isFinite(transform.y) ? transform.y : 0
+
+    mainGroup.call(zoomBehavior.transform, zoomIdentity.translate(x, y).scale(scale))
+
+    if (container.updateZoomControls) {
+      container.updateZoomControls(scale)
+    }
+  }
 
   container.resetZoom = () => {
     mainGroup.transition()
@@ -210,8 +234,7 @@ export function setupZoomControls(container, mainGroup, zoomBehavior, maxZoomSca
   }
 
   container.panLeft = () => {
-    const chartWidth = container.getBoundingClientRect().width
-    const panStep = Math.max(1, chartWidth * PAN_STEP_RATIO)
+    const panStep = getPanStep()
 
     mainGroup.transition()
       .duration(ZOOM_TRANSITION_DURATION)
@@ -219,8 +242,7 @@ export function setupZoomControls(container, mainGroup, zoomBehavior, maxZoomSca
   }
 
   container.panRight = () => {
-    const chartWidth = container.getBoundingClientRect().width
-    const panStep = Math.max(1, chartWidth * PAN_STEP_RATIO)
+    const panStep = getPanStep()
 
     mainGroup.transition()
       .duration(ZOOM_TRANSITION_DURATION)

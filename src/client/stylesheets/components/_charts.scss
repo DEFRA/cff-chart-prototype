@@ -113,9 +113,8 @@
   }
 
   &__threshold-controls {
-    border-top: 1px solid #b1b4b6;
     border-bottom: 1px solid #b1b4b6;
-    padding: 16px 0;
+    padding: 0 0 16px;
     margin-bottom: 12px;
 
     .govuk-checkboxes__label {
@@ -154,6 +153,8 @@
   svg {
     width: 100%;
     height: 100%;
+    border: 0;
+    outline: none;
     font-family: "GDS Transport", arial, sans-serif;
     font-size: 14px;
 
@@ -206,8 +207,13 @@
       }
 
       path {
-        stroke: govuk.$govuk-border-colour;
+        stroke: none;
+        stroke-width: 0;
       }
+    }
+
+    .zoom-capture {
+      stroke: none;
     }
 
     .observed-area {
@@ -219,6 +225,8 @@
       fill: none;
       stroke: #1d70b8;
       stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     .forecast-area {
