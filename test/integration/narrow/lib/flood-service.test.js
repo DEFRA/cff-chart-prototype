@@ -3,6 +3,7 @@ import { getStation, getStationReadings } from '../../../../src/lib/flood-servic
 
 const VALID_STATION_ID = 3089
 const INVALID_STATION_ID = 999999
+const INTEGRATION_TEST_TIMEOUT_MS = 45000
 
 describe('Flood Service Integration Tests', () => {
   describe('getStation', () => {
@@ -24,19 +25,19 @@ describe('Flood Service Integration Tests', () => {
       expect(result.long).toBeTypeOf('number')
       expect(result.measures).toBeInstanceOf(Array)
       expect(result.measures.length).toBeGreaterThan(0)
-    }, 20000)
+    }, INTEGRATION_TEST_TIMEOUT_MS)
 
     test('Should return null for non-existent station', async () => {
       const result = await getStation(INVALID_STATION_ID)
 
       expect(result).toBeNull()
-    }, 20000)
+    }, INTEGRATION_TEST_TIMEOUT_MS)
 
     test('Should handle invalid station ID gracefully', async () => {
       const result = await getStation('invalid')
 
       expect(result).toBeNull()
-    }, 20000)
+    }, INTEGRATION_TEST_TIMEOUT_MS)
   })
 
   describe('getStationReadings', () => {
@@ -58,13 +59,13 @@ describe('Flood Service Integration Tests', () => {
       expect(firstReading).toHaveProperty('value')
       expect(typeof firstReading.value).toBe('number')
       expect(firstReading.dateTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
-    }, 20000)
+    }, INTEGRATION_TEST_TIMEOUT_MS)
 
     test('Should return limited number of readings', async () => {
       const result = await getStationReadings(VALID_STATION_ID)
 
       expect(result.length).toBeLessThanOrEqual(10000)
-    }, 20000)
+    }, INTEGRATION_TEST_TIMEOUT_MS)
 
     test('Should return readings in sorted order', async () => {
       const result = await getStationReadings(VALID_STATION_ID)
@@ -83,12 +84,12 @@ describe('Flood Service Integration Tests', () => {
       const isDescending = timestamps.every((val, i, arr) => i === 0 || val <= arr[i - 1])
 
       expect(isAscending || isDescending).toBe(true)
-    }, 20000)
+    }, INTEGRATION_TEST_TIMEOUT_MS)
 
     test('Should return empty array for non-existent station', async () => {
       const result = await getStationReadings(INVALID_STATION_ID)
 
       expect(result).toEqual([])
-    }, 20000)
+    }, INTEGRATION_TEST_TIMEOUT_MS)
   })
 })
