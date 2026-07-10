@@ -139,7 +139,7 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
   }
 
   // Round each data point's timestamp to the nearest interval boundary
-  return data.map(item => {
+  const snapped = data.map(item => {
     let timestamp
     const isDate = item.dateTime instanceof Date
     
@@ -159,6 +159,38 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
       dateTime: isDate ? new Date(roundedMs) : new Date(roundedMs).toISOString()
     }
   })
+
+  // Snapping can place many points onto the same timestamp, which creates
+  // vertical jumps and a blocky line. Collapse each timestamp bucket to one point.
+  const buckets = new Map()
+
+  for (const point of snapped) {
+    const bucketMs = new Date(point.dateTime).getTime()
+    const existing = buckets.get(bucketMs)
+
+    if (!existing) {
+      buckets.set(bucketMs, {
+        point,
+        total: point.value,
+        count: 1,
+        isSignificant: !!point.isSignificant
+      })
+      continue
+    }
+
+    existing.total += point.value
+    existing.count += 1
+    existing.isSignificant = existing.isSignificant || !!point.isSignificant
+    existing.point = point
+  }
+
+  return [...buckets.values()]
+    .map(({ point, total, count, isSignificant }) => ({
+      ...point,
+      value: total / count,
+      isSignificant
+    }))
+    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
 }
 
 

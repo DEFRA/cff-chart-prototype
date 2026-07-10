@@ -21,7 +21,6 @@ const ARIA_DISABLED = 'aria-disabled'
 const ARIA_CURRENT = 'aria-current'
 const CHART_STYLE_C = 'styleC'
 const CHART_STYLE_B = 'styleB'
-const LONG_RANGE_FILTERS = new Set(['6m', '1y', '3y'])
 const HISTORIC_DATA_ENDPOINT = '/station/historic-data'
 const DOWNLOAD_CSV_BTN_ID = 'download-csv-btn'
 const DEFAULT_CURRENT_LEVEL = 0.28
@@ -171,7 +170,7 @@ function setupThresholdControlHandlers(thresholdState, activeThresholdRef, rende
         // Unchecked but not the active threshold, no state change needed
       }
 
-      renderChart()
+      renderChart({ thresholdsOnly: true })
     })
   }
 }
@@ -309,14 +308,6 @@ function applyThresholdDefaultsForFilter(nextFilter, thresholdState, activeThres
     thresholdState[THRESHOLD_HIGHEST_LEVEL_ID] = false
     thresholdState[THRESHOLD_TOP_NORMAL_ID] = true
     activeThresholdRef.value = THRESHOLD_TOP_NORMAL_ID
-    return
-  }
-
-  if (LONG_RANGE_FILTERS.has(nextFilter)) {
-    thresholdState[THRESHOLD_CURRENT_LEVEL_ID] = true
-    thresholdState[THRESHOLD_HIGHEST_LEVEL_ID] = false
-    thresholdState[THRESHOLD_TOP_NORMAL_ID] = false
-    activeThresholdRef.value = THRESHOLD_CURRENT_LEVEL_ID
   }
 }
 
@@ -450,7 +441,9 @@ function setupZoomControls() {
 /**
  * Render chart for Style C (zoom/pan)
  */
-function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholds, onThresholdDismiss, activeThresholdRef) {
+function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholds, onThresholdDismiss, activeThresholdRef, renderOptions = {}) {
+  const preserveZoom = renderOptions.preserveZoom === true
+
   const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
 
   const fullTelemetry = {
@@ -462,7 +455,17 @@ function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, current
   updateActiveButtonState(currentFilter)
   updateDownloadCsvState(currentFilter)
 
-  lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
+  const previousChartMain = document.querySelector(`#${LINE_CHART_ID} .chart-main`)
+  const previousZoom = previousChartMain?.__zoom
+  const preservedZoomTransform = (preserveZoom && currentFilter !== DEFAULT_FILTER && previousZoom)
+    ? {
+        k: previousZoom.k,
+        x: previousZoom.x,
+        y: previousZoom.y
+      }
+    : null
+
+  const chartContainer = lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
     timeRange: currentFilter,
     enableZoom: currentFilter !== DEFAULT_FILTER,
     thresholds,
@@ -472,6 +475,10 @@ function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, current
       activeThresholdRef.value = thresholdId
     }
   })
+
+  if (preservedZoomTransform && typeof chartContainer?.applyZoomTransform === 'function') {
+    chartContainer.applyZoomTransform(preservedZoomTransform)
+  }
 
   setupZoomControls()
   updateZoomControlsVisibility(currentFilter)
@@ -507,7 +514,7 @@ function renderFilteredChart(stationId, realtimeTelemetry, mergedObserved, curre
  * Render the chart with current filter and data
  */
 function createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter, thresholdState, activeThresholdRef) {
-  return () => {
+  return (renderOptions = {}) => {
     // Get the observed data array from telemetry
     const realtimeObserved = realtimeTelemetry?.observed || []
 
@@ -530,7 +537,23 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
       }
 
       updateThresholdControls(thresholdMetrics, thresholdState)
-      renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter.value, thresholds, onThresholdDismiss, activeThresholdRef)
+
+      if (renderOptions.thresholdsOnly === true) {
+        const chartContainer = document.getElementById(LINE_CHART_ID)
+        if (typeof chartContainer?.updateThresholds === 'function') {
+          chartContainer.updateThresholds({
+            thresholds,
+            activeThresholdId: activeThresholdRef.value,
+            onThresholdDismiss,
+            onThresholdActivate: (thresholdId) => {
+              activeThresholdRef.value = thresholdId
+            }
+          })
+          return
+        }
+      }
+
+      renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter.value, thresholds, onThresholdDismiss, activeThresholdRef, renderOptions)
       return
     }
 

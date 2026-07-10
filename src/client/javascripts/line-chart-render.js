@@ -1,4 +1,4 @@
-import { area as d3Area, line as d3Line, curveMonotoneX } from 'd3-shape'
+import { area as d3Area, line as d3Line, curveCatmullRom } from 'd3-shape'
 import { select } from 'd3-selection'
 import { timeFormat } from 'd3-time-format'
 import {
@@ -53,14 +53,16 @@ function getEvenlySpacedObservedPoints(points, pointCount = DEFAULT_SIGNIFICANT_
 }
 
 export function renderLines(svg, observedPoints, forecastPoints, xScale, yScale, height, dataType) {
+  const smoothCurve = curveCatmullRom.alpha(0.5)
+
   const area = d3Area()
-    .curve(curveMonotoneX)
+    .curve(smoothCurve)
     .x(d => xScale(new Date(d.dateTime)))
     .y0(height)
     .y1(d => yScale(dataType === 'river' && d.value < 0 ? 0 : d.value))
 
   const line = d3Line()
-    .curve(curveMonotoneX)
+    .curve(smoothCurve)
     .x(d => xScale(new Date(d.dateTime)))
     .y(d => yScale(dataType === 'river' && d.value < 0 ? 0 : d.value))
 

@@ -344,6 +344,40 @@ function createStateRef() {
   }
 }
 
+function renderThresholdLayerOnly(thresholdsContainer, stateRef) {
+  if (!thresholdsContainer || !stateRef?.yScale || !Number.isFinite(stateRef?.width)) {
+    return
+  }
+
+  const dismissThreshold = (thresholdId) => {
+    createThresholdDismissHandler(stateRef)(thresholdId)
+    renderThresholdLayerOnly(thresholdsContainer, stateRef)
+  }
+
+  const activateThreshold = (thresholdId) => {
+    if (stateRef.activeThresholdId === thresholdId) {
+      return
+    }
+
+    stateRef.activeThresholdId = thresholdId
+    if (typeof stateRef.onThresholdActivate === 'function') {
+      stateRef.onThresholdActivate(thresholdId)
+    }
+
+    renderThresholdLayerOnly(thresholdsContainer, stateRef)
+  }
+
+  renderThresholds(
+    thresholdsContainer,
+    stateRef.width,
+    stateRef.yScale,
+    dismissThreshold,
+    activateThreshold,
+    stateRef.activeThresholdId,
+    stateRef.thresholds
+  )
+}
+
 function setupChartContext(containerId, data, options) {
   const dataCache = data
   const timeRange = options.timeRange || '5d'
@@ -429,6 +463,7 @@ function initializeZoomIfEnabled(context, container, tooltipManager) {
     container.panBy = undefined
     container.getTouchPanStep = undefined
     container.getMaxZoomScale = undefined
+    container.applyZoomTransform = undefined
     container.resetZoom = undefined
     container.zoomIn = undefined
     container.zoomOut = undefined
@@ -485,6 +520,33 @@ export function lineChart(containerId, _stationId, data, _options = {}) {
   })
 
   const tooltipManager = setupTooltipManager(context)
+
+  container.updateThresholds = ({
+    thresholds,
+    activeThresholdId,
+    onThresholdDismiss,
+    onThresholdActivate
+  } = {}) => {
+    if (Array.isArray(thresholds)) {
+      context.stateRef.thresholds = thresholds
+    }
+
+    if (typeof activeThresholdId === 'string' || activeThresholdId === null) {
+      context.stateRef.activeThresholdId = activeThresholdId
+    }
+
+    if (typeof onThresholdDismiss === 'function') {
+      context.stateRef.onThresholdDismiss = onThresholdDismiss
+    }
+
+    if (typeof onThresholdActivate === 'function') {
+      context.stateRef.onThresholdActivate = onThresholdActivate
+    }
+
+    const enabledThresholds = getEnabledThresholds(context.stateRef.thresholds)
+    ensureActiveThreshold(context.stateRef, enabledThresholds)
+    renderThresholdLayerOnly(context.thresholdsContainer, context.stateRef)
+  }
 
   renderChart()
 
