@@ -130,6 +130,8 @@ export function setupThresholdControlHandlers(thresholdState, activeThresholdRef
         activeThresholdRef.value = thresholdId
       } else if (activeThresholdRef.value === thresholdId) {
         activeThresholdRef.value = getDefaultActiveThresholdId(thresholdState)
+      } else {
+        // Not active and now unchecked; no active-threshold update required.
       }
 
       renderChart({ thresholdsOnly: true })
