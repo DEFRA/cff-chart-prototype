@@ -8,10 +8,8 @@ const PAN_STEP_RATIO = 0.1
 const TOUCH_PAN_STEP_PX = 8
 const ZOOM_MIN_SCALE = 1
 const ZOOM_MAX_SCALE_SAFETY = 1000
-const FIVE_DAYS_SPAN = 5
-const FIVE_DAYS_MS = FIVE_DAYS_SPAN * 24 * 60 * 60 * 1000
-const SNAP_INTERVAL_MINUTES = 15
-const SNAP_INTERVAL_MS = SNAP_INTERVAL_MINUTES * 60 * 1000
+const MIN_ZOOM_WINDOW_DAYS = 5
+const MIN_ZOOM_WINDOW_MS = MIN_ZOOM_WINDOW_DAYS * 24 * 60 * 60 * 1000
 
 function getBoundedMaxZoomScale(maxScale) {
   if (!Number.isFinite(maxScale)) {
@@ -31,7 +29,7 @@ function calculateMaxZoomScaleFromDomain(baseXScale) {
     return ZOOM_MIN_SCALE
   }
 
-  return getBoundedMaxZoomScale(spanMs / FIVE_DAYS_MS)
+  return getBoundedMaxZoomScale(spanMs / MIN_ZOOM_WINDOW_MS)
 }
 
 /**
@@ -41,6 +39,7 @@ export function createZoomHandler(config) {
   const { svg, baseXScale, baseYScale, width, height, timeRange, dataCache,
     significantContainer, timeLine, timeLabel, isMobile, tooltipManager, container,
     processData, renderAxes, renderGridLines, renderLines, renderSignificantPoints,
+    getTickConfigForRender, createYScaleForRange,
     renderThresholds, updateTimeIndicator, hideOverlappingTicks,
     thresholds, onThresholdDismiss, onThresholdActivate, getActiveThresholdId } = config
 
@@ -53,37 +52,22 @@ export function createZoomHandler(config) {
     // Only zoom/pan on X-axis (time dimension)
     const newXScale = transform.rescaleX(baseXScale)
 
-    const newYScale = baseYScale.copy().range([height, 0])
-
     // Re-render with appropriate level of detail based on visible time window
     const visibleDomain = newXScale.domain()
     const processedData = processData(dataCache, visibleDomain, timeRange)
     const newObservedPoints = processedData.observedPoints
     const newForecastPoints = processedData.forecastPoints
     const newLines = processedData.lines
-
-    // Adjust scale domain to match snapped data extent and align to nice intervals
-    if (newLines && newLines.length > 0) {
-      const snappedTimes = newLines.map(d => new Date(d.dateTime).getTime())
-      const minTime = Math.min(...snappedTimes)
-      const maxTime = Math.max(...snappedTimes)
-      if (Number.isFinite(minTime) && Number.isFinite(maxTime) && minTime !== maxTime) {
-        // Snap domain boundaries to nice intervals
-        const snapIntervalMs = SNAP_INTERVAL_MS
-        
-        // Round domain start down to nearest interval
-        const domainStart = Math.floor(minTime / snapIntervalMs) * snapIntervalMs
-        // Round domain end up to nearest interval
-        const domainEnd = Math.ceil(maxTime / snapIntervalMs) * snapIntervalMs
-        
-        newXScale.domain([new Date(domainStart), new Date(domainEnd)])
-      }
-    }
-
+    const newYScale = typeof createYScaleForRange === 'function'
+      ? createYScaleForRange(newLines, dataCache.type, height, timeRange)
+      : baseYScale.copy().range([height, 0])
+    const tickConfig = typeof getTickConfigForRender === 'function'
+      ? getTickConfigForRender(newXScale, timeRange, width)
+      : null
 
     // Re-render axes and chart elements
-    renderAxes(svg, { xScale: newXScale, yScale: newYScale, width, height, timeRange })
-    renderGridLines(svg, newXScale, newYScale, height, width, baseXScale.domain(), timeRange)
+    renderAxes(svg, { xScale: newXScale, yScale: newYScale, width, height, timeRange, tickConfig })
+    renderGridLines(svg, newXScale, newYScale, height, width, timeRange, tickConfig)
     renderLines(svg, newObservedPoints, newForecastPoints, newXScale, newYScale, height, dataCache.type)
     renderThresholds(
       svg.select('.thresholds'),
@@ -222,15 +206,11 @@ export function setupZoomControls(container, mainGroup, zoomBehavior, maxZoomSca
   }
 
   container.zoomIn = () => {
-    mainGroup.transition()
-      .duration(ZOOM_TRANSITION_DURATION)
-      .call(zoomBehavior.scaleBy, ZOOM_IN_FACTOR)
+    mainGroup.call(zoomBehavior.scaleBy, ZOOM_IN_FACTOR)
   }
 
   container.zoomOut = () => {
-    mainGroup.transition()
-      .duration(ZOOM_TRANSITION_DURATION)
-      .call(zoomBehavior.scaleBy, ZOOM_OUT_FACTOR)
+    mainGroup.call(zoomBehavior.scaleBy, ZOOM_OUT_FACTOR)
   }
 
   container.panLeft = () => {

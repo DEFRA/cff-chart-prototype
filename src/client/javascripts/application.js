@@ -24,8 +24,7 @@ import {
   getThresholdMetrics,
   buildThresholds,
   updateThresholdControls,
-  setupThresholdControlHandlers,
-  applyThresholdDefaultsForFilter
+  setupThresholdControlHandlers
 } from './application-thresholds.js'
 import {
   setupDownloadCsvReverseTabHandler,
@@ -166,7 +165,7 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
   }
 }
 
-function setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart, thresholdState, activeThresholdRef) {
+function setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart) {
   document.querySelectorAll(TIME_FILTER_LINK_SELECTOR).forEach(link => {
     link.addEventListener('click', async function (event) {
       event.preventDefault()
@@ -197,10 +196,6 @@ function setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, rend
       }
 
       currentFilter.value = nextFilter
-
-      if (globalThis.flood?.model?.chartStyle === CHART_STYLE_C) {
-        applyThresholdDefaultsForFilter(nextFilter, thresholdState, activeThresholdRef)
-      }
 
       renderChart()
     })
@@ -236,7 +231,7 @@ function initializeChartApp() {
   renderChart()
   updateFilterButtonStates(historicDataRef)
 
-  setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart, thresholdState, activeThresholdRef)
+  setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart)
   setupThresholdControlHandlers(thresholdState, activeThresholdRef, renderChart)
   setupDownloadCsvReverseTabHandler()
 }

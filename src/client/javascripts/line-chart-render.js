@@ -1,4 +1,4 @@
-import { area as d3Area, line as d3Line, curveCatmullRom } from 'd3-shape'
+import { area as d3Area, line as d3Line, curveMonotoneX } from 'd3-shape'
 import { select } from 'd3-selection'
 import { timeFormat } from 'd3-time-format'
 import {
@@ -30,6 +30,10 @@ const SIGNIFICANT_VISIBLE_CLASS = 'significant--visible'
 const ARIA_LABEL = 'aria-label'
 const STROKE_WIDTH = 'stroke-width'
 
+function isCoarsePointerDevice() {
+  return globalThis.matchMedia?.('(any-pointer: coarse)')?.matches === true
+}
+
 function getEvenlySpacedObservedPoints(points, pointCount = DEFAULT_SIGNIFICANT_POINT_COUNT) {
   if (!Array.isArray(points) || points.length === 0) {
     return []
@@ -53,7 +57,7 @@ function getEvenlySpacedObservedPoints(points, pointCount = DEFAULT_SIGNIFICANT_
 }
 
 export function renderLines(svg, observedPoints, forecastPoints, xScale, yScale, height, dataType) {
-  const smoothCurve = curveCatmullRom.alpha(0.5)
+  const smoothCurve = curveMonotoneX
 
   const area = d3Area()
     .curve(smoothCurve)
@@ -161,6 +165,14 @@ function appendPointGeometry(pointTargets, xScale, yScale, timeRange) {
 
 export function renderSignificantPoints(container, observedPoints, forecastPoints, xScale, yScale, timeRange) {
   container.selectAll('*').remove()
+
+  if (isCoarsePointerDevice()) {
+    container
+      .attr('aria-rowcount', 0)
+      .attr('aria-colcount', 0)
+      .classed(SIGNIFICANT_VISIBLE_CLASS, false)
+    return []
+  }
 
   const explicitSignificantObserved = observedPoints.filter(x => x.isSignificant)
   const observedSource = explicitSignificantObserved.length > 0
