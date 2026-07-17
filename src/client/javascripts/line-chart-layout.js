@@ -136,9 +136,9 @@ function getFixedHourCadenceTicks(xExtent, targetTickCount = FIXED_X_TICK_COUNT,
     })
 
     if (filtered.length > 0) {
-      const lastTick = dailyTicks.at(-1)
-      if (lastTick && filtered.at(-1)?.getTime() !== lastTick.getTime()) {
-        return [...filtered, lastTick]
+      const finalDailyTick = dailyTicks.at(-1)
+      if (finalDailyTick && filtered.at(-1)?.getTime() !== finalDailyTick.getTime()) {
+        return [...filtered, finalDailyTick]
       }
 
       return filtered
@@ -230,11 +230,15 @@ function calculateTickInterval(xExtent, timeRange, _width, nowMs = Date.now()) {
   if (useDayAlignedTicks) {
     // In zoomed historic views, keep stable midnight cadence and match 5-day tick density.
     const dailyTicks = getFixedHourDailyTicks(xExtent, MIDNIGHT_HOUR)
-    config.tickValues = visibleDurationDays <= FINAL_HISTORIC_ZOOM_THRESHOLD_DAYS
-      ? generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT)
-      : (dailyTicks.length < FIXED_X_TICK_COUNT
-          ? generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT)
-          : getFixedHourCadenceTicks(xExtent, FIXED_X_TICK_COUNT, MIDNIGHT_HOUR))
+    const useFixedTickValues =
+      visibleDurationDays <= FINAL_HISTORIC_ZOOM_THRESHOLD_DAYS ||
+      dailyTicks.length < FIXED_X_TICK_COUNT
+
+    if (useFixedTickValues) {
+      config.tickValues = generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT)
+    } else {
+      config.tickValues = getFixedHourCadenceTicks(xExtent, FIXED_X_TICK_COUNT, MIDNIGHT_HOUR)
+    }
     config.hideFirstTickLabel = true
     config.removeLastNTicks = DEFAULT_REMOVE_LAST_N_TICKS
   }
@@ -420,7 +424,7 @@ export function renderAxes(svg, config) {
   svg.selectAll(`${Y_AXIS_CLASS} .tick text`).attr('x', yTickTextOffset)
 }
 
-export function renderGridLines(svg, xScale, yScale, height, width, _xExtent, timeRange, tickConfigArg = null) {
+export function renderGridLines(svg, xScale, yScale, height, width, timeRange, tickConfigArg = null) {
   const tickConfig = tickConfigArg || getTickConfigForRender(xScale, timeRange, width)
   const visibleExtent = xScale.domain()
 

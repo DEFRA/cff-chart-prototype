@@ -67,7 +67,7 @@ export function createZoomHandler(config) {
 
     // Re-render axes and chart elements
     renderAxes(svg, { xScale: newXScale, yScale: newYScale, width, height, timeRange, tickConfig })
-    renderGridLines(svg, newXScale, newYScale, height, width, baseXScale.domain(), timeRange, tickConfig)
+    renderGridLines(svg, newXScale, newYScale, height, width, timeRange, tickConfig)
     renderLines(svg, newObservedPoints, newForecastPoints, newXScale, newYScale, height, dataCache.type)
     renderThresholds(
       svg.select('.thresholds'),

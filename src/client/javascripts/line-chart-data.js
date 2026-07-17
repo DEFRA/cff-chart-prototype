@@ -15,12 +15,15 @@ const DOMAIN_BUFFER_RATIO = 0.1
 const FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD = 4.5
 const FIVE_DAY_RANGE = '5d'
 const HISTORIC_RANGES = new Set(['6m', '1y', '3y'])
+const HISTORIC_INTERVAL_HOURS_TWELVE = 12
+const HISTORIC_INTERVAL_HOURS_SIX = 6
+const HISTORIC_INTERVAL_HOURS_THREE = 3
 
 const HISTORIC_SNAP_TIERS = [
   { minDaysExclusive: 180, intervalMs: MS_PER_DAY },
-  { minDaysExclusive: 90, intervalMs: 12 * MS_PER_HOUR },
-  { minDaysExclusive: 45, intervalMs: 6 * MS_PER_HOUR },
-  { minDaysExclusive: 21, intervalMs: 3 * MS_PER_HOUR },
+  { minDaysExclusive: 90, intervalMs: HISTORIC_INTERVAL_HOURS_TWELVE * MS_PER_HOUR },
+  { minDaysExclusive: 45, intervalMs: HISTORIC_INTERVAL_HOURS_SIX * MS_PER_HOUR },
+  { minDaysExclusive: 21, intervalMs: HISTORIC_INTERVAL_HOURS_THREE * MS_PER_HOUR },
   { minDaysExclusive: 10, intervalMs: MS_PER_HOUR },
   { minDaysExclusive: 0, intervalMs: THIRTY_MINUTES_MS }
 ]

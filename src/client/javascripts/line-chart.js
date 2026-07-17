@@ -249,7 +249,7 @@ function renderChartComponents(config) {
   const tickConfig = getTickConfigForRender(stateRef.xScale, timeRange, stateRef.width)
 
   renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange, tickConfig })
-  renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent, timeRange, tickConfig)
+  renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, timeRange, tickConfig)
   updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current, timeRange)
   hideOverlappingTicks(svgElements.timeLabel, timeRange)
   renderLines(svg, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, stateRef.height, dataCache.type)
