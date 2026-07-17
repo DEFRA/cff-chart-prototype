@@ -3,7 +3,9 @@ import { config } from '../config/config.js'
 
 const API_BASE_URL = config.get('api.floodMonitoring.baseUrl')
 
-const DEFAULT_TIMEOUT_MS = 15000
+const DEFAULT_TIMEOUT_MS = 30000
+const STATION_FETCH_TIMEOUT_MS = 30000
+const READINGS_FETCH_TIMEOUT_MS = 30000
 
 const DEFAULT_HEADERS = {
   'User-Agent': 'cff-chart-prototype/1.0 (https://github.com/DEFRA/cff-chart-prototype)'
@@ -86,7 +88,7 @@ export async function getStation(stationId) {
   const url = `${API_BASE_URL}/id/stations?RLOIid=${stationId}`
   try {
     console.log(`Fetching station from: ${url}`)
-    const response = await proxyFetch(url)
+    const response = await proxyFetch(url, { timeout: STATION_FETCH_TIMEOUT_MS })
     console.log(`Station API response status: ${response.status} ${response.statusText}`)
 
     if (!response.ok) {
@@ -141,7 +143,7 @@ export async function getStationReadings(stationId, since = null) {
   const stationUrl = `${API_BASE_URL}/id/stations?RLOIid=${stationId}`
   try {
     console.log(`Fetching station for readings from: ${stationUrl}`)
-    const stationResponse = await proxyFetch(stationUrl)
+    const stationResponse = await proxyFetch(stationUrl, { timeout: STATION_FETCH_TIMEOUT_MS })
     if (!stationResponse.ok) {
       console.error(`Station fetch for readings failed: ${stationResponse.status} ${stationResponse.statusText}`)
       throw new Error('Station not found')
@@ -161,7 +163,7 @@ export async function getStationReadings(stationId, since = null) {
     const measureId = levelMeasure['@id'].split('/').pop()
     const url = `${API_BASE_URL}/data/readings?measure=${measureId}&_sorted&_limit=500`
     console.log('Fetching readings from:', url)
-    const response = await proxyFetch(url)
+    const response = await proxyFetch(url, { timeout: READINGS_FETCH_TIMEOUT_MS })
 
     if (!response.ok) {
       console.error('Readings API error:', response.status, response.statusText)

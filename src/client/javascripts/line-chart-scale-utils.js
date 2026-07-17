@@ -9,6 +9,12 @@ import {
 } from './line-chart-constants.js'
 
 const FIVE_DAY_RANGE = '5d'
+const SIX_MONTH_RANGE = '6m'
+const ONE_YEAR_RANGE = '1y'
+const THREE_YEAR_RANGE = '3y'
+const FIVE_YEAR_RANGE = '5y'
+const HISTORIC_BUFFER_DIVISOR = 5
+const HISTORIC_TIME_RANGES = new Set([SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE, FIVE_YEAR_RANGE])
 const Y_FORMAT_THREE_DP_THRESHOLD = 0.1
 const Y_FORMAT_TWO_DP_THRESHOLD = 1
 const Y_FORMAT_THREE_DP = 3
@@ -35,7 +41,7 @@ export function getLabelModeForExtent(timeRange, xExtent) {
   return MONTH_YEAR_LABEL_MODE
 }
 
-export function calculateYScaleDomain(lines, dataType) {
+export function calculateYScaleDomain(lines, dataType, rangeBufferDivisor = RANGE_BUFFER_DIVISOR) {
   const yExtent = extent(lines, (d) => d.value)
   const yExtentDataMin = yExtent[0]
   const yExtentDataMax = yExtent[1]
@@ -43,8 +49,8 @@ export function calculateYScaleDomain(lines, dataType) {
   let range = yExtentDataMax - yExtentDataMin
   range = Math.max(range, MIN_RANGE_VALUE)
 
-  const yRangeUpperBuffered = yExtentDataMax + (range / RANGE_BUFFER_DIVISOR)
-  const yRangeLowerBuffered = yExtentDataMin - (range / RANGE_BUFFER_DIVISOR)
+  const yRangeUpperBuffered = yExtentDataMax + (range / rangeBufferDivisor)
+  const yRangeLowerBuffered = yExtentDataMin - (range / rangeBufferDivisor)
 
   const upperBound = Math.max(yExtentDataMax, yRangeUpperBuffered)
   const lowerBound = dataType === 'river' ? Math.max(yRangeLowerBuffered, 0) : yRangeLowerBuffered
@@ -69,6 +75,18 @@ export function createXScale(observed, forecast, width) {
 
 export function createYScale(lines, dataType, height) {
   const domain = calculateYScaleDomain(lines, dataType)
+  return scaleLinear()
+    .domain([domain.min, domain.max])
+    .range([height, 0])
+    .nice(Y_AXIS_NICE_TICKS)
+}
+
+export function createYScaleForRange(lines, dataType, height, timeRange) {
+  const bufferDivisor = HISTORIC_TIME_RANGES.has(timeRange)
+    ? HISTORIC_BUFFER_DIVISOR
+    : RANGE_BUFFER_DIVISOR
+
+  const domain = calculateYScaleDomain(lines, dataType, bufferDivisor)
   return scaleLinear()
     .domain([domain.min, domain.max])
     .range([height, 0])

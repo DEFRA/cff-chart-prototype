@@ -6,6 +6,7 @@ import {
 import { getTickSnapIntervalMs, getVisibleDurationDays } from './line-chart-tick-utils.js'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
+const MS_PER_HOUR = 60 * 60 * 1000
 const THIRTY_MINUTES = 30
 const THIRTY_MINUTES_MS = THIRTY_MINUTES * 60 * 1000
 const DAYS_DAILY_TIER = 180
@@ -13,10 +14,16 @@ const DAYS_THIRTY_MIN_TIER = 30
 const DOMAIN_BUFFER_RATIO = 0.1
 const FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD = 4.5
 const FIVE_DAY_RANGE = '5d'
-const FIVE_DAY_ZOOM_THRESHOLD = 5
-const FIFTEEN_MINUTES = 15
-const FIFTEEN_MINUTES_MS = FIFTEEN_MINUTES * 60 * 1000
-const FULL_ZOOM_INTERVAL_TOLERANCE_DAYS = FIFTEEN_MINUTES_MS / MS_PER_DAY
+const HISTORIC_RANGES = new Set(['6m', '1y', '3y'])
+
+const HISTORIC_SNAP_TIERS = [
+  { minDaysExclusive: 180, intervalMs: MS_PER_DAY },
+  { minDaysExclusive: 90, intervalMs: 12 * MS_PER_HOUR },
+  { minDaysExclusive: 45, intervalMs: 6 * MS_PER_HOUR },
+  { minDaysExclusive: 21, intervalMs: 3 * MS_PER_HOUR },
+  { minDaysExclusive: 10, intervalMs: MS_PER_HOUR },
+  { minDaysExclusive: 0, intervalMs: THIRTY_MINUTES_MS }
+]
 
 function getTimestamp(value) {
   if (value instanceof Date) {
@@ -45,33 +52,40 @@ function snapPointToInterval(point, snapIntervalMs) {
   }
 }
 
-function toCollapsedBucketPoints(points) {
+function toCollapsedBucketPoints(points, aggregate = 'mean') {
   const buckets = new Map()
 
   for (const point of points) {
     const bucketMs = new Date(point.dateTime).getTime()
+    const numericValue = Number(point.value)
+    const safeValue = Number.isFinite(numericValue) ? numericValue : 0
     const existing = buckets.get(bucketMs)
 
     if (!existing) {
       buckets.set(bucketMs, {
         point,
-        total: point.value,
+        total: safeValue,
+        max: safeValue,
         count: 1,
         isSignificant: !!point.isSignificant
       })
       continue
     }
 
-    existing.total += point.value
+    existing.total += safeValue
+    const isNewMax = safeValue >= existing.max
+    existing.max = Math.max(existing.max, safeValue)
     existing.count += 1
     existing.isSignificant = existing.isSignificant || !!point.isSignificant
-    existing.point = point
+    if (isNewMax) {
+      existing.point = point
+    }
   }
 
   return [...buckets.values()]
-    .map(({ point, total, count, isSignificant }) => ({
+    .map(({ point, total, max, count, isSignificant }) => ({
       ...point,
-      value: total / count,
+      value: aggregate === 'max' ? max : (total / count),
       isSignificant
     }))
     .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
@@ -92,17 +106,35 @@ function downsampleToDaily(data) {
 }
 
 function downsampleToThirtyMin(data) {
-  const result = []
-  let lastInterval = null
+  const intervalGroups = new Map()
+
   for (const item of data) {
     const timestamp = new Date(item.dateTime).getTime()
     const interval = Math.floor(timestamp / THIRTY_MINUTES_MS) * THIRTY_MINUTES_MS
-    if (lastInterval !== interval) {
-      result.push(item)
-      lastInterval = interval
+    const itemValue = Number(item.value)
+    const safeItemValue = Number.isFinite(itemValue) ? itemValue : Number.NEGATIVE_INFINITY
+    const existing = intervalGroups.get(interval)
+
+    if (!existing) {
+      intervalGroups.set(interval, {
+        point: item,
+        maxValue: safeItemValue,
+        isSignificant: !!item.isSignificant
+      })
+      continue
     }
+
+    if (safeItemValue > existing.maxValue) {
+      existing.point = item
+      existing.maxValue = safeItemValue
+    }
+
+    existing.isSignificant = existing.isSignificant || !!item.isSignificant
   }
-  return result
+
+  return [...intervalGroups.values()]
+    .map(({ point, isSignificant }) => ({ ...point, isSignificant }))
+    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
 }
 
 function filterToVisibleWindow(data, visibleDomain) {
@@ -174,6 +206,11 @@ function processForecastData(forecast, dataType, observed) {
   return processed.map(l => ({ ...l, type: 'forecast' }))
 }
 
+function getHistoricSnapIntervalMs(visibleDurationDays) {
+  const tier = HISTORIC_SNAP_TIERS.find(({ minDaysExclusive }) => visibleDurationDays > minDaysExclusive)
+  return tier ? tier.intervalMs : THIRTY_MINUTES_MS
+}
+
 function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
   if (!data || data.length === 0 || !visibleDomain) {
     return data
@@ -192,13 +229,13 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
     return data
   }
 
-  // Treat effective full zoom as <= 5 days with one-interval tolerance for floating-point drift.
-  if (visibleDurationDays <= FIVE_DAY_ZOOM_THRESHOLD + FULL_ZOOM_INTERVAL_TOLERANCE_DAYS) {
-    snapIntervalMs = FIFTEEN_MINUTES_MS
+  if (HISTORIC_RANGES.has(timeRange)) {
+    snapIntervalMs = getHistoricSnapIntervalMs(visibleDurationDays)
   }
 
   const snapped = data.map(item => snapPointToInterval(item, snapIntervalMs))
-  return toCollapsedBucketPoints(snapped)
+  const aggregate = timeRange === '3y' ? 'max' : 'mean'
+  return toCollapsedBucketPoints(snapped, aggregate)
 }
 
 

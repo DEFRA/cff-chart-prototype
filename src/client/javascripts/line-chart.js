@@ -10,7 +10,7 @@ import {
   DEFAULT_HEIGHT
 } from './line-chart-constants.js'
 import { processData } from './line-chart-data.js'
-import { createXScale, createYScale, renderAxes, renderGridLines, updateTimeIndicator, hideOverlappingTicks, getYAxisLabelFormatter } from './line-chart-layout.js'
+import { createXScale, createYScaleForRange, renderAxes, renderGridLines, updateTimeIndicator, hideOverlappingTicks, getYAxisLabelFormatter, getTickConfigForRender } from './line-chart-layout.js'
 import { renderLines, renderSignificantPoints, renderThresholds, initializeSVG } from './line-chart-render.js'
 import { createTooltipManager, setupResponsiveHandlers } from './line-chart-interaction.js'
 
@@ -87,9 +87,11 @@ function initializeZoom(config) {
       processData,
       renderAxes,
       renderGridLines,
+      getTickConfigForRender,
       renderLines,
       renderThresholds,
       renderSignificantPoints,
+      createYScaleForRange,
       updateTimeIndicator,
       hideOverlappingTicks,
       thresholds: stateRef.thresholds,
@@ -244,9 +246,10 @@ function calculateFinalExtent(visibleDomain, lines, xExtentNew) {
 function renderChartComponents(config) {
   const { svg, svgElements, stateRef, dataCache, timeRange, isMobileRef } = config
   const { activateThreshold, dismissThreshold } = config.handlers
+  const tickConfig = getTickConfigForRender(stateRef.xScale, timeRange, stateRef.width)
 
-  renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange })
-  renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent, timeRange)
+  renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange, tickConfig })
+  renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, stateRef.xExtent, timeRange, tickConfig)
   updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current, timeRange)
   hideOverlappingTicks(svgElements.timeLabel, timeRange)
   renderLines(svg, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, stateRef.height, dataCache.type)
@@ -283,19 +286,21 @@ function createChartRenderer(config) {
 
     const activateThreshold = createActivateThresholdHandler(stateRef, () => render(visibleDomain))
     const dismissThreshold = createThresholdDismissHandler(stateRef)
-    const processedData = processData(dataCache, visibleDomain, timeRange)
+
+    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH)
+    const effectiveVisibleDomain = visibleDomain || xExtentNew
+
+    const processedData = processData(dataCache, effectiveVisibleDomain, timeRange)
     assignProcessedDataToState(stateRef, processedData)
 
     if (!stateRef.lines || stateRef.lines.length === 0) {
       console.warn('No data to render')
       return
     }
-
-    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH)
     
     stateRef.xScale = xScaleNew
     stateRef.xExtent = calculateFinalExtent(visibleDomain, stateRef.lines, xExtentNew)
-    stateRef.yScale = createYScale(stateRef.lines, dataCache.type, stateRef.height || DEFAULT_HEIGHT)
+    stateRef.yScale = createYScaleForRange(stateRef.lines, dataCache.type, stateRef.height || DEFAULT_HEIGHT, timeRange)
 
     const longestYAxisLabelLength = getLongestYAxisLabelLength(stateRef.yScale)
     setChartMargins(stateRef, isMobileRef.current, longestYAxisLabelLength)
