@@ -182,7 +182,7 @@ describe('Auth plugin', () => {
         url: '/favicon.ico'
       })
 
-      expect(statusCode).toBe(204)
+      expect(statusCode).toBe(200)
     })
   })
 

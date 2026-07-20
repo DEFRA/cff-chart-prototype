@@ -24,7 +24,8 @@ FROM development AS production_build
 
 ENV NODE_ENV=production
 
-RUN npm run build:frontend
+# Build frontend assets for production
+RUN npm run build:frontend && test -d .public || (echo "ERROR: .public directory was not created by webpack build" && exit 1)
 
 FROM defradigital/node:${PARENT_VERSION} AS production
 ARG PARENT_VERSION
@@ -40,9 +41,12 @@ USER node
 
 COPY --from=production_build /home/node/package*.json ./
 COPY --from=production_build /home/node/src ./src/
-COPY --from=production_build /home/node/.public/ ./.public/
+COPY --chown=node:node --from=production_build /home/node/.public/ ./.public/
 
 RUN npm ci --omit=dev
+
+# Ensure .public directory exists and has correct permissions
+RUN chown -R node:node .public && chmod -R 755 .public
 
 ARG PORT
 ENV PORT=${PORT}

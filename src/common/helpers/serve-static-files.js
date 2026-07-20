@@ -1,8 +1,5 @@
-import http2 from 'node:http2'
 import path from 'node:path'
 import { config } from '../../config/config.js'
-
-const { constants: httpConstants } = http2
 
 export const serveStaticFiles = {
   plugin: {
@@ -20,7 +17,8 @@ export const serveStaticFiles = {
           method: 'GET',
           path: '/favicon.ico',
           handler(_request, h) {
-            return h.response().code(httpConstants.HTTP_STATUS_NO_CONTENT).type('image/x-icon')
+            // Serve actual favicon.ico from assets instead of returning 204
+            return h.file(path.join(config.get('root'), '.public/assets/images/favicon.ico'))
           }
         },
         {
