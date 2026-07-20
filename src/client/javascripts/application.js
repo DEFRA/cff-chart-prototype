@@ -250,11 +250,13 @@ async function initializeChartApp() {
   setupDownloadCsvReverseTabHandler()
 }
 
-if (typeof document !== 'undefined' && typeof globalThis !== 'undefined') {
-  setupChartStyleRadioKeyboardSupport()
+(async () => {
+  if (typeof document !== 'undefined' && typeof globalThis !== 'undefined') {
+    setupChartStyleRadioKeyboardSupport()
 
-  const chartElement = document.getElementById(LINE_CHART_ID)
-  if (chartElement && globalThis.flood?.model) {
-    initializeChartApp()
+    const chartElement = document.getElementById(LINE_CHART_ID)
+    if (chartElement && globalThis.flood?.model) {
+      await initializeChartApp()
+    }
   }
-}
+})()
