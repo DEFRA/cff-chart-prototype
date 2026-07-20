@@ -202,7 +202,7 @@ function setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, rend
   })
 }
 
-function initializeChartApp() {
+async function initializeChartApp() {
   const stationId = globalThis.flood?.model?.id
   const realtimeTelemetry = globalThis.flood?.model?.telemetry
 
@@ -226,6 +226,20 @@ function initializeChartApp() {
     available: Boolean(globalThis.flood?.model?.historicDataAvailable) || initialHistoricData.length > 0
   }
 
+  // If realtime data is empty but historic data is available, eagerly fetch it
+  // so the initial 5-day chart can render using the most recent historic readings
+  const hasNoRealtimeData = !realtimeTelemetry?.observed?.length
+  if (hasNoRealtimeData && historicDataRef.available && !historicDataRef.loaded) {
+    try {
+      const historicData = await fetchHistoricData(stationId)
+      historicDataRef.data = historicData
+      historicDataRef.loaded = true
+      historicDataRef.available = historicData.length > 0
+    } catch (error) {
+      console.error('Failed to fetch historic data for initial render:', error)
+    }
+  }
+
   const renderChart = createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter, thresholdState, activeThresholdRef)
 
   renderChart()
@@ -241,6 +255,6 @@ if (typeof document !== 'undefined' && typeof globalThis !== 'undefined') {
 
   const chartElement = document.getElementById(LINE_CHART_ID)
   if (chartElement && globalThis.flood?.model) {
-    initializeChartApp()
+    await initializeChartApp()
   }
 }

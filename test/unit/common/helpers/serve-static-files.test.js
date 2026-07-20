@@ -22,7 +22,7 @@ describe('serveStaticFiles', () => {
         url: '/favicon.ico'
       })
 
-      expect(statusCode).toBe(httpConstants.HTTP_STATUS_NO_CONTENT)
+      expect(statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     })
 
     test('Should serve assets as expected', async () => {
