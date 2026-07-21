@@ -121,12 +121,12 @@ function downsampleToDaily(data) {
   return result
 }
 
-function downsampleToFifteenMin(data) {
+function downsampleToInterval(data, intervalMs) {
   const intervalGroups = new Map()
 
   for (const item of data) {
     const timestamp = new Date(item.dateTime).getTime()
-    const interval = Math.floor(timestamp / FIFTEEN_MINUTES_MS) * FIFTEEN_MINUTES_MS
+    const interval = Math.floor(timestamp / intervalMs) * intervalMs
     const itemValue = Number(item.value)
     const safeItemValue = Number.isFinite(itemValue) ? itemValue : Number.NEGATIVE_INFINITY
     const existing = intervalGroups.get(interval)
@@ -153,36 +153,12 @@ function downsampleToFifteenMin(data) {
     .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
 }
 
+function downsampleToFifteenMin(data) {
+  return downsampleToInterval(data, FIFTEEN_MINUTES_MS)
+}
+
 function downsampleToThirtyMin(data) {
-  const intervalGroups = new Map()
-
-  for (const item of data) {
-    const timestamp = new Date(item.dateTime).getTime()
-    const interval = Math.floor(timestamp / THIRTY_MINUTES_MS) * THIRTY_MINUTES_MS
-    const itemValue = Number(item.value)
-    const safeItemValue = Number.isFinite(itemValue) ? itemValue : Number.NEGATIVE_INFINITY
-    const existing = intervalGroups.get(interval)
-
-    if (!existing) {
-      intervalGroups.set(interval, {
-        point: item,
-        maxValue: safeItemValue,
-        isSignificant: !!item.isSignificant
-      })
-      continue
-    }
-
-    if (safeItemValue > existing.maxValue) {
-      existing.point = item
-      existing.maxValue = safeItemValue
-    }
-
-    existing.isSignificant = existing.isSignificant || !!item.isSignificant
-  }
-
-  return [...intervalGroups.values()]
-    .map(({ point, isSignificant }) => ({ ...point, isSignificant }))
-    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
+  return downsampleToInterval(data, THIRTY_MINUTES_MS)
 }
 
 function filterToVisibleWindow(data, visibleDomain) {
@@ -255,6 +231,18 @@ function toAscendingChronological(points) {
   return first > last ? [...points].reverse() : points
 }
 
+function calculateValueRange(data) {
+  const values = data.map(d => Number(d.value)).filter(v => Number.isFinite(v))
+  if (values.length === 0) {
+    return null
+  }
+  return {
+    min: Math.min(...values),
+    max: Math.max(...values),
+    mean: values.reduce((a, b) => a + b, 0) / values.length
+  }
+}
+
 function markFirstForecastSignificance(observed, forecast) {
   if (!observed || observed.length === 0) {
     return
@@ -291,10 +279,7 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
   }
 
   // Log range before snapping
-  const valuesBefore = data.map(d => Number(d.value)).filter(v => Number.isFinite(v))
-  const minBefore = Math.min(...valuesBefore)
-  const maxBefore = Math.max(...valuesBefore)
-  const meanBefore = valuesBefore.reduce((a, b) => a + b, 0) / valuesBefore.length
+  const rangeBefore = calculateValueRange(data)
 
   // For 5-day range near full view, don't snap (use exact timestamps)
   const visibleDurationDays = getVisibleDurationDays(visibleDomain)
@@ -318,12 +303,11 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
   const result = toCollapsedBucketPoints(snapped, aggregate)
 
   // Log range after snapping
-  const valuesAfter = result.map(d => Number(d.value)).filter(v => Number.isFinite(v))
-  const minAfter = Math.min(...valuesAfter)
-  const maxAfter = Math.max(...valuesAfter)
-  const meanAfter = valuesAfter.reduce((a, b) => a + b, 0) / valuesAfter.length
+  const rangeAfter = calculateValueRange(result)
   
-  console.log(`[snapDataToNiceIntervals] ${timeRange}: ${data.length}→${result.length} points, aggregate=${aggregate}, values before=[${minBefore.toFixed(2)}, ${maxBefore.toFixed(2)}, mean=${meanBefore.toFixed(2)}], after=[${minAfter.toFixed(2)}, ${maxAfter.toFixed(2)}, mean=${meanAfter.toFixed(2)}]`)
+  if (rangeBefore && rangeAfter) {
+    console.log(`[snapDataToNiceIntervals] ${timeRange}: ${data.length}→${result.length} points, aggregate=${aggregate}, values before=[${rangeBefore.min.toFixed(2)}, ${rangeBefore.max.toFixed(2)}, mean=${rangeBefore.mean.toFixed(2)}], after=[${rangeAfter.min.toFixed(2)}, ${rangeAfter.max.toFixed(2)}, mean=${rangeAfter.mean.toFixed(2)}]`)
+  }
   
   return result
 }
