@@ -150,6 +150,7 @@ describe('renderSignificantPoints', () => {
   let dom
   let previousDocument
   let previousWindow
+  let previousMatchMedia
 
   beforeEach(() => {
     dom = new JSDOM(`
@@ -160,6 +161,7 @@ describe('renderSignificantPoints', () => {
 
     previousDocument = globalThis.document
     previousWindow = globalThis.window
+    previousMatchMedia = globalThis.matchMedia
 
     globalThis.window = dom.window
     globalThis.document = dom.window.document
@@ -168,6 +170,7 @@ describe('renderSignificantPoints', () => {
   afterEach(() => {
     globalThis.document = previousDocument
     globalThis.window = previousWindow
+    globalThis.matchMedia = previousMatchMedia
   })
 
   test('renders fallback 8 observed points when isSignificant is absent', () => {
@@ -185,5 +188,43 @@ describe('renderSignificantPoints', () => {
 
     const points = significantRow.selectAll('.point').nodes()
     expect(points).toHaveLength(8)
+  })
+
+  test('keeps focusable points on hybrid devices with hover support', () => {
+    globalThis.matchMedia = vi.fn((query) => ({
+      matches: false
+    }))
+
+    const significantRow = select(document.querySelector('.significant [role="row"]'))
+    const observedPoints = Array.from({ length: 10 }, (_unused, index) => ({
+      dateTime: new Date(Date.UTC(2026, 0, 1, 0, index * 15)).toISOString(),
+      value: 0.2 + (index * 0.01)
+    }))
+    const xScale = (date) => new Date(date).getTime()
+    const yScale = (value) => value
+
+    renderSignificantPoints(significantRow, observedPoints, [], xScale, yScale, '5d')
+
+    const pointTargets = significantRow.selectAll('[data-point-focusable]').nodes()
+    expect(pointTargets.length).toBeGreaterThan(0)
+  })
+
+  test('removes focusable points on touch-first devices', () => {
+    globalThis.matchMedia = vi.fn((query) => ({
+      matches: query === '(pointer: coarse)' || query === '(hover: none)'
+    }))
+
+    const significantRow = select(document.querySelector('.significant [role="row"]'))
+    const observedPoints = Array.from({ length: 10 }, (_unused, index) => ({
+      dateTime: new Date(Date.UTC(2026, 0, 1, 0, index * 15)).toISOString(),
+      value: 0.2 + (index * 0.01)
+    }))
+    const xScale = (date) => new Date(date).getTime()
+    const yScale = (value) => value
+
+    renderSignificantPoints(significantRow, observedPoints, [], xScale, yScale, '5d')
+
+    const pointTargets = significantRow.selectAll('[data-point-focusable]').nodes()
+    expect(pointTargets).toHaveLength(0)
   })
 })

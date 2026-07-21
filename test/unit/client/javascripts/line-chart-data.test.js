@@ -18,6 +18,29 @@ function hasQuarterHourPoints(points) {
 }
 
 describe('line-chart-data processData zoom snapping', () => {
+  test('keeps observed points in ascending order when input is already ascending', () => {
+    const observed = [
+      { dateTime: '2026-07-20T00:00:00.000Z', value: 0.2 },
+      { dateTime: '2026-07-20T00:15:00.000Z', value: 0.22 },
+      { dateTime: '2026-07-20T00:30:00.000Z', value: 0.24 }
+    ]
+
+    const visibleDomain = [
+      new Date('2026-07-19T00:00:00.000Z'),
+      new Date('2026-07-21T00:00:00.000Z')
+    ]
+
+    const result = processData({
+      observed,
+      forecast: [],
+      type: 'river'
+    }, visibleDomain, '5d')
+
+    const timestamps = result.observedPoints.map(point => new Date(point.dateTime).getTime())
+    const sortedTimestamps = [...timestamps].sort((a, b) => a - b)
+    expect(timestamps).toEqual(sortedTimestamps)
+  })
+
   test.each(['6m', '1y', '3y'])('uses 30-minute snapping at tight zoom for %s range', (timeRange) => {
     const observed = createQuarterHourlyPoints('2026-06-01T00:15:00.000Z', 16)
     const visibleDomain = [
