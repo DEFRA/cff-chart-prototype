@@ -255,6 +255,8 @@ if (typeof document !== 'undefined' && typeof globalThis !== 'undefined') {
 
   const chartElement = document.getElementById(LINE_CHART_ID)
   if (chartElement && globalThis.flood?.model) {
-    await initializeChartApp()
+    initializeChartApp().catch(error => {
+      console.error('Failed to initialize chart application:', error)
+    })
   }
 }

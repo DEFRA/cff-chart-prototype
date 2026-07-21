@@ -185,6 +185,16 @@ function simplifyByType(data, dataType) {
   return simplify(data, tolerance)
 }
 
+function toAscendingChronological(points) {
+  if (!Array.isArray(points) || points.length < 2) {
+    return points || []
+  }
+
+  const first = new Date(points[0].dateTime).getTime()
+  const last = new Date(points[points.length - 1].dateTime).getTime()
+  return first > last ? [...points].reverse() : points
+}
+
 function markFirstForecastSignificance(observed, forecast) {
   if (!observed || observed.length === 0) {
     return
@@ -200,7 +210,8 @@ function markFirstForecastSignificance(observed, forecast) {
 function processObservedData(observed, dataType) {
   const processed = simplifyByType(observed, dataType)
   const filtered = processed.filter(l => !l.err)
-  return filtered.map(l => ({ ...l, type: 'observed' })).reverse()
+  const ordered = toAscendingChronological(filtered)
+  return ordered.map(l => ({ ...l, type: 'observed' }))
 }
 
 function processForecastData(forecast, dataType, observed) {

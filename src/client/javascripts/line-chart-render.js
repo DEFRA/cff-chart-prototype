@@ -30,8 +30,19 @@ const SIGNIFICANT_VISIBLE_CLASS = 'significant--visible'
 const ARIA_LABEL = 'aria-label'
 const STROKE_WIDTH = 'stroke-width'
 
+function matchesMediaQuery(query) {
+  const matchMedia = globalThis.matchMedia
+  if (typeof matchMedia !== 'function') {
+    return false
+  }
+
+  return matchMedia(query).matches === true
+}
+
 function isCoarsePointerDevice() {
-  return globalThis.matchMedia?.('(any-pointer: coarse)')?.matches === true
+  // Treat as touch-first only when the primary pointer is coarse and lacks hover.
+  // This avoids disabling keyboard focus targets on hybrid/touchscreen laptops.
+  return matchesMediaQuery('(pointer: coarse)') && matchesMediaQuery('(hover: none)')
 }
 
 function getEvenlySpacedObservedPoints(points, pointCount = DEFAULT_SIGNIFICANT_POINT_COUNT) {
