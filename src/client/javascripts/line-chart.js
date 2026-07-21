@@ -1,51 +1,30 @@
 import { createZoomHandler, setupZoomBehavior, setupZoomControls } from './chart-zoom.js'
 import {
-  MARGIN_TOP,
-  MARGIN_BOTTOM,
-  MARGIN_LEFT,
-  DESKTOP_MARGIN_RIGHT_BASE,
-  MARGIN_CHAR_MULTIPLIER,
   MOBILE_BREAKPOINT,
   DEFAULT_WIDTH,
   DEFAULT_HEIGHT
 } from './line-chart-constants.js'
 import { processData } from './line-chart-data.js'
-import { createXScale, createYScaleForRange, renderAxes, renderGridLines, updateTimeIndicator, hideOverlappingTicks, getYAxisLabelFormatter, getTickConfigForRender } from './line-chart-layout.js'
+import { createXScale, createYScaleForRange, renderAxes, renderGridLines, updateTimeIndicator, hideOverlappingTicks, getTickConfigForRender } from './line-chart-layout.js'
 import { renderLines, renderSignificantPoints, renderThresholds, initializeSVG } from './line-chart-render.js'
 import { createTooltipManager, setupResponsiveHandlers } from './line-chart-interaction.js'
-
-const Y_AXIS_SAMPLE_TICK_COUNT = 6
-const MIN_Y_AXIS_LABEL_LENGTH = 3
-const MOBILE_MARGIN_LEFT = 8
-const MOBILE_MARGIN_RIGHT_BASE = 14
-const MOBILE_Y_LABEL_CHAR_WIDTH = 6
-
-function createThresholdDismissHandler(stateRef) {
-  return (thresholdId) => {
-    if (Array.isArray(stateRef.thresholds)) {
-      stateRef.thresholds = stateRef.thresholds.map(threshold => {
-        if (threshold.id !== thresholdId) {
-          return threshold
-        }
-
-        return {
-          ...threshold,
-          enabled: false,
-          showLabel: false
-        }
-      })
-
-      const enabledThresholds = stateRef.thresholds.filter(threshold => threshold.enabled)
-      if (!enabledThresholds.some(threshold => threshold.id === stateRef.activeThresholdId)) {
-        stateRef.activeThresholdId = enabledThresholds.length ? enabledThresholds[enabledThresholds.length - 1].id : null
-      }
-    }
-
-    if (typeof stateRef.onThresholdDismiss === 'function') {
-      stateRef.onThresholdDismiss(thresholdId)
-    }
-  }
-}
+import {
+  createThresholdDismissHandler,
+  getEnabledThresholds,
+  ensureActiveThreshold,
+  createActivateThresholdHandler,
+  renderThresholdLayerOnly
+} from './line-chart-threshold.js'
+import {
+  assignProcessedDataToState,
+  getLongestYAxisLabelLength,
+  setChartMargins,
+  setChartDimensionsFromContainer,
+  updateZoomViewport,
+  syncZoomBaseScales,
+  calculateFinalExtent,
+  createStateRef
+} from './line-chart-utils.js'
 
 function initializeZoom(config) {
   const {
@@ -126,121 +105,6 @@ function initializeZoom(config) {
   zoomRef.rect = zoomSetup.zoomRect
 
   setupZoomControls(container, mainGroup, zoomRef.behavior, zoomSetup.maxScale)
-}
-
-function assignProcessedDataToState(stateRef, processedData) {
-  stateRef.lines = processedData.lines
-  stateRef.observedPoints = processedData.observedPoints
-  stateRef.forecastPoints = processedData.forecastPoints
-}
-
-function getLongestYAxisLabelLength(yScale) {
-  const yDomain = yScale.domain()
-  const yRange = yDomain[1] - yDomain[0]
-  const yAxisFormatter = getYAxisLabelFormatter(yRange)
-  const yLabelSamples = yScale.ticks(Y_AXIS_SAMPLE_TICK_COUNT).map(tick => yAxisFormatter(tick))
-
-  return yLabelSamples.reduce((max, label) => Math.max(max, label.length), MIN_Y_AXIS_LABEL_LENGTH)
-}
-
-function setChartMargins(stateRef, isMobile, longestYAxisLabelLength) {
-  const rightBase = isMobile ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE
-  const yLabelCharWidth = isMobile ? MOBILE_Y_LABEL_CHAR_WIDTH : MARGIN_CHAR_MULTIPLIER
-
-  stateRef.margin = {
-    top: MARGIN_TOP,
-    bottom: MARGIN_BOTTOM,
-    left: isMobile ? MOBILE_MARGIN_LEFT : MARGIN_LEFT,
-    right: rightBase + (longestYAxisLabelLength * yLabelCharWidth)
-  }
-}
-
-function setChartDimensionsFromContainer(container, stateRef) {
-  const containerRect = container.getBoundingClientRect()
-  stateRef.width = Math.floor(containerRect.width) - stateRef.margin.left - stateRef.margin.right
-  stateRef.height = Math.floor(containerRect.height) - stateRef.margin.top - stateRef.margin.bottom
-}
-
-function updateZoomViewport(zoomRef, stateRef) {
-  if (!zoomRef.rect || !zoomRef.behavior) {
-    return
-  }
-
-  zoomRef.rect
-    .attr('x', -stateRef.margin.left)
-    .attr('y', -stateRef.margin.top)
-    .attr('width', stateRef.width + stateRef.margin.left + stateRef.margin.right)
-    .attr('height', stateRef.height + stateRef.margin.top + stateRef.margin.bottom)
-
-  zoomRef.behavior
-    .translateExtent([[0, 0], [stateRef.width, stateRef.height]])
-    .extent([[0, 0], [stateRef.width, stateRef.height]])
-}
-
-function syncZoomBaseScales(zoomRef, stateRef) {
-  if (zoomRef.baseXScaleRef) {
-    zoomRef.baseXScaleRef.current = stateRef.xScale.copy()
-  }
-
-  if (zoomRef.baseYScaleRef) {
-    zoomRef.baseYScaleRef.current = stateRef.yScale.copy()
-  }
-}
-
-function getEnabledThresholds(thresholds) {
-  return Array.isArray(thresholds)
-    ? thresholds.filter(threshold => threshold.enabled)
-    : []
-}
-
-function ensureActiveThreshold(stateRef, enabledThresholds) {
-  if (enabledThresholds.some(threshold => threshold.id === stateRef.activeThresholdId)) {
-    return
-  }
-
-  const labelPreferred = enabledThresholds.filter(threshold => threshold.showLabel)
-
-  if (labelPreferred.length) {
-    stateRef.activeThresholdId = labelPreferred[labelPreferred.length - 1].id
-  } else if (enabledThresholds.length) {
-    stateRef.activeThresholdId = enabledThresholds[enabledThresholds.length - 1].id
-  } else {
-    stateRef.activeThresholdId = null
-  }
-}
-
-function createActivateThresholdHandler(stateRef, rerender) {
-  return (thresholdId) => {
-    if (stateRef.activeThresholdId === thresholdId) {
-      return
-    }
-
-    stateRef.activeThresholdId = thresholdId
-    if (typeof stateRef.onThresholdActivate === 'function') {
-      stateRef.onThresholdActivate(thresholdId)
-    }
-    rerender()
-  }
-}
-
-function calculateFinalExtent(visibleDomain, lines, xExtentNew) {
-  if (!visibleDomain || !lines || lines.length === 0) {
-    return xExtentNew
-  }
-
-  const snappedTimes = lines.map(d => new Date(d.dateTime).getTime())
-  if (snappedTimes.length === 0) {
-    return xExtentNew
-  }
-
-  const minTime = Math.min(...snappedTimes)
-  const maxTime = Math.max(...snappedTimes)
-
-  if (!Number.isFinite(minTime) || !Number.isFinite(maxTime) || minTime === maxTime) {
-    return xExtentNew
-  }
-
-  return [new Date(minTime), new Date(maxTime)]
 }
 
 function renderChartComponents(config) {
@@ -338,55 +202,6 @@ function createChartRenderer(config) {
   }
 
   return render
-}
-
-function createStateRef() {
-  return {
-    width: null,
-    height: null,
-    margin: null,
-    xScale: null,
-    yScale: null,
-    xExtent: null,
-    lines: null,
-    observedPoints: null,
-    forecastPoints: null,
-    activeThresholdId: null
-  }
-}
-
-function renderThresholdLayerOnly(thresholdsContainer, stateRef) {
-  if (!thresholdsContainer || !stateRef?.yScale || !Number.isFinite(stateRef?.width)) {
-    return
-  }
-
-  const dismissThreshold = (thresholdId) => {
-    createThresholdDismissHandler(stateRef)(thresholdId)
-    renderThresholdLayerOnly(thresholdsContainer, stateRef)
-  }
-
-  const activateThreshold = (thresholdId) => {
-    if (stateRef.activeThresholdId === thresholdId) {
-      return
-    }
-
-    stateRef.activeThresholdId = thresholdId
-    if (typeof stateRef.onThresholdActivate === 'function') {
-      stateRef.onThresholdActivate(thresholdId)
-    }
-
-    renderThresholdLayerOnly(thresholdsContainer, stateRef)
-  }
-
-  renderThresholds(
-    thresholdsContainer,
-    stateRef.width,
-    stateRef.yScale,
-    dismissThreshold,
-    activateThreshold,
-    stateRef.activeThresholdId,
-    stateRef.thresholds
-  )
 }
 
 function setupChartContext(containerId, data, options) {

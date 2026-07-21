@@ -25,15 +25,37 @@ function removeFutureData(data) {
 }
 
 /**
+ * Validate that data is a non-empty array
+ */
+function isValidDataArray(data) {
+  return data && Array.isArray(data) && data.length > 0
+}
+
+/**
+ * Log merge operation results
+ */
+function logMergeResult(filtered, merged, realtimeLength, historicLength) {
+  if (filtered.length === 0) {
+    return
+  }
+
+  const first = filtered[0]
+  const last = filtered[filtered.length - 1]
+  const removedCount = merged.length - filtered.length
+  const removedMsg = removedCount > 0 ? ` (removed ${removedCount} future points)` : ''
+  console.log(`[mergeData] merged ${realtimeLength} realtime + ${historicLength} historic = ${merged.length} total, filtered to ${filtered.length}${removedMsg}, range ${first.value}@${first.dateTime} to ${last.value}@${last.dateTime}`)
+}
+
+/**
  * Merge historic data with real-time telemetry data
  * Removes duplicates, keeping real-time data when timestamps match
  */
 export function mergeData(historicData, realtimeData) {
-  if (!historicData || !Array.isArray(historicData) || historicData.length === 0) {
+  if (!isValidDataArray(historicData)) {
     return Array.isArray(realtimeData) ? realtimeData : []
   }
 
-  if (!realtimeData || !Array.isArray(realtimeData) || realtimeData.length === 0) {
+  if (!isValidDataArray(realtimeData)) {
     return Array.isArray(historicData) ? historicData : []
   }
 
@@ -57,15 +79,54 @@ export function mergeData(historicData, realtimeData) {
   // Remove any future-dated points
   const filtered = removeFutureData(merged)
 
-  if (filtered.length > 0) {
-    const first = filtered[0]
-    const last = filtered[filtered.length - 1]
-    const removedCount = merged.length - filtered.length
-    const removedMsg = removedCount > 0 ? ` (removed ${removedCount} future points)` : ''
-    console.log(`[mergeData] merged ${realtimeData.length} realtime + ${historicData.length} historic = ${merged.length} total, filtered to ${filtered.length}${removedMsg}, range ${first.value}@${first.dateTime} to ${last.value}@${last.dateTime}`)
-  }
+  logMergeResult(filtered, merged, realtimeData.length, historicData.length)
 
   return filtered
+}
+
+/**
+ * Calculate cutoff date based on time range
+ */
+function getCutoffDateForRange(range, now) {
+  const MS_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
+
+  switch (range) {
+    case '5d':
+      return new Date(now.getTime() - (FIVE_DAYS * MS_PER_DAY))
+    case '1m':
+      return new Date(now.getTime() - (THIRTY_DAYS * MS_PER_DAY))
+    case '6m':
+      return new Date(now.getTime() - (SIX_MONTHS * THIRTY_DAYS * MS_PER_DAY))
+    case '1y':
+      return new Date(now.getTime() - (DAYS_PER_YEAR * MS_PER_DAY))
+    case '3y':
+      return new Date(now.getTime() - (THREE_YEARS * DAYS_PER_YEAR * MS_PER_DAY))
+    case '5y':
+      return new Date(now.getTime() - FIVE_YEARS_MS)
+    default:
+      return null
+  }
+}
+
+/**
+ * Log filter operation results
+ */
+function logFilterResult(filtered, data, range, futureCount) {
+  if (filtered.length === 0) {
+    return
+  }
+
+  const first = filtered[0]
+  const last = filtered[filtered.length - 1]
+  const futureMsg = futureCount > 0 ? ` (removed ${futureCount} future)` : ''
+  
+  // Log value distribution for diagnostics
+  const values = filtered.map(d => Number(d.value)).filter(v => Number.isFinite(v))
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const mean = values.reduce((a, b) => a + b, 0) / values.length
+  
+  console.log(`[filterDataByTimeRange] ${range}: ${data.length} → ${filtered.length} points${futureMsg}, value range=[${min.toFixed(2)}, ${max.toFixed(2)}], mean=${mean.toFixed(2)}, first=${first.value}@${first.dateTime}, last=${last.value}@${last.dateTime}`)
 }
 
 /**
@@ -77,58 +138,25 @@ export function filterDataByTimeRange(data, range) {
   }
 
   const now = new Date()
-  let cutoffDate
+  const cutoffDate = getCutoffDateForRange(range, now)
 
-  const MS_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
-
-  switch (range) {
-    case '5d':
-      cutoffDate = new Date(now.getTime() - (FIVE_DAYS * MS_PER_DAY))
-      break
-    case '1m':
-      cutoffDate = new Date(now.getTime() - (THIRTY_DAYS * MS_PER_DAY))
-      break
-    case '6m':
-      cutoffDate = new Date(now.getTime() - (SIX_MONTHS * THIRTY_DAYS * MS_PER_DAY))
-      break
-    case '1y':
-      cutoffDate = new Date(now.getTime() - (DAYS_PER_YEAR * MS_PER_DAY))
-      break
-    case '3y':
-      cutoffDate = new Date(now.getTime() - (THREE_YEARS * DAYS_PER_YEAR * MS_PER_DAY))
-      break
-    case '5y':
-      cutoffDate = new Date(now.getTime() - FIVE_YEARS_MS)
-      break
-    default:
-      return data
+  if (!cutoffDate) {
+    return data
   }
 
   // Filter by time range AND exclude future data
   let futureCount = 0
   const filtered = data.filter(item => {
     const itemTime = new Date(item.dateTime)
-    const isInRange = itemTime >= cutoffDate
-    const isNotFuture = itemTime <= now
-    if (isInRange && !isNotFuture) {
+    const inRange = itemTime >= cutoffDate
+    const notFuture = itemTime <= now
+    if (inRange && !notFuture) {
       futureCount++
     }
-    return isInRange && isNotFuture
+    return inRange && notFuture
   })
   
-  if (filtered.length > 0) {
-    const first = filtered[0]
-    const last = filtered[filtered.length - 1]
-    const futureMsg = futureCount > 0 ? ` (removed ${futureCount} future)` : ''
-    
-    // Log value distribution for diagnostics
-    const values = filtered.map(d => Number(d.value)).filter(v => Number.isFinite(v))
-    const min = Math.min(...values)
-    const max = Math.max(...values)
-    const mean = values.reduce((a, b) => a + b, 0) / values.length
-    
-    console.log(`[filterDataByTimeRange] ${range}: ${data.length} → ${filtered.length} points${futureMsg}, value range=[${min.toFixed(2)}, ${max.toFixed(2)}], mean=${mean.toFixed(2)}, first=${first.value}@${first.dateTime}, last=${last.value}@${last.dateTime}`)
-  }
+  logFilterResult(filtered, data, range, futureCount)
   return filtered
 }
 

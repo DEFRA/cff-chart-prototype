@@ -99,6 +99,53 @@ function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, current
   updateZoomControlsVisibility(currentFilter)
 }
 
+function updateThresholdsOnly(chartContainer, thresholds, activeThresholdId, onThresholdDismiss) {
+  if (typeof chartContainer?.updateThresholds !== 'function') {
+    return false
+  }
+
+  chartContainer.updateThresholds({
+    thresholds,
+    activeThresholdId,
+    onThresholdDismiss,
+    onThresholdActivate: (thresholdId) => {
+      activeThresholdId = thresholdId
+    }
+  })
+
+  return true
+}
+
+function renderStyleCChartFlow(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdState, activeThresholdRef, renderOptions) {
+  const thresholdMetrics = getThresholdMetrics(mergedObserved)
+  const thresholds = buildThresholds(thresholdMetrics, thresholdState)
+  
+  const onThresholdDismiss = (thresholdId) => {
+    thresholdState[thresholdId] = false
+    if (activeThresholdRef.value === thresholdId) {
+      activeThresholdRef.value = getDefaultActiveThresholdId(thresholdState)
+    }
+    updateThresholdControls(thresholdMetrics, thresholdState)
+  }
+
+  updateThresholdControls(thresholdMetrics, thresholdState)
+
+  if (renderOptions.thresholdsOnly !== true) {
+    renderStyleCChart(
+      stationId,
+      realtimeTelemetry,
+      mergedObserved,
+      currentFilter.value,
+      { thresholds, onThresholdDismiss, activeThresholdRef },
+      renderOptions
+    )
+    return
+  }
+
+  const chartContainer = document.getElementById(LINE_CHART_ID)
+  updateThresholdsOnly(chartContainer, thresholds, activeThresholdRef.value, onThresholdDismiss)
+}
+
 function renderFilteredChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, chartStyle) {
   const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
   const processedObserved = chartStyle === CHART_STYLE_B
@@ -141,41 +188,7 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
       const chartStyle = globalThis.flood?.model?.chartStyle
 
       if (chartStyle === CHART_STYLE_C) {
-        const thresholdMetrics = getThresholdMetrics(mergedObserved)
-        const thresholds = buildThresholds(thresholdMetrics, thresholdState)
-        const onThresholdDismiss = (thresholdId) => {
-          thresholdState[thresholdId] = false
-          if (activeThresholdRef.value === thresholdId) {
-            activeThresholdRef.value = getDefaultActiveThresholdId(thresholdState)
-          }
-          updateThresholdControls(thresholdMetrics, thresholdState)
-        }
-
-        updateThresholdControls(thresholdMetrics, thresholdState)
-
-        if (renderOptions.thresholdsOnly === true) {
-          const chartContainer = document.getElementById(LINE_CHART_ID)
-          if (typeof chartContainer?.updateThresholds === 'function') {
-            chartContainer.updateThresholds({
-              thresholds,
-              activeThresholdId: activeThresholdRef.value,
-              onThresholdDismiss,
-              onThresholdActivate: (thresholdId) => {
-                activeThresholdRef.value = thresholdId
-              }
-            })
-            return
-          }
-        }
-
-        renderStyleCChart(
-          stationId,
-          realtimeTelemetry,
-          mergedObserved,
-          currentFilter.value,
-          { thresholds, onThresholdDismiss, activeThresholdRef },
-          renderOptions
-        )
+        renderStyleCChartFlow(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdState, activeThresholdRef, renderOptions)
         return
       }
 
@@ -186,39 +199,58 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
   }
 }
 
+async function loadHistoricDataIfNeeded(stationId, historicDataRef) {
+  if (historicDataRef.loaded) {
+    return true
+  }
+
+  setTimeFilterLinksTemporarilyDisabled(true)
+
+  try {
+    const historicData = await fetchHistoricData(stationId)
+    historicDataRef.data = historicData
+    historicDataRef.loaded = true
+    historicDataRef.available = historicData.length > 0
+    return true
+  } catch (error) {
+    console.error('Failed to fetch historic data:', error)
+    setTimeFilterLinksTemporarilyDisabled(false)
+    updateFilterButtonStates(historicDataRef)
+    return false
+  }
+}
+
+function handleTimeFilterClick(link, stationId, currentFilter, historicDataRef, renderChart) {
+  const isDisabled = link.getAttribute(ARIA_DISABLED) === 'true'
+  if (isDisabled) {
+    return
+  }
+
+  const nextFilter = link.dataset.filter
+  const needsHistoricData = nextFilter !== DEFAULT_FILTER && !historicDataRef.loaded
+
+  if (!needsHistoricData) {
+    currentFilter.value = nextFilter
+    renderChart()
+    return
+  }
+
+  // Historic data needed - handle async load
+  loadHistoricDataIfNeeded(stationId, historicDataRef).then(success => {
+    if (success) {
+      setTimeFilterLinksTemporarilyDisabled(false)
+      updateFilterButtonStates(historicDataRef)
+      currentFilter.value = nextFilter
+      renderChart()
+    }
+  })
+}
+
 function setupTimeFilterHandlers(stationId, currentFilter, historicDataRef, renderChart) {
   document.querySelectorAll(TIME_FILTER_LINK_SELECTOR).forEach(link => {
-    link.addEventListener('click', async function (event) {
+    link.addEventListener('click', function (event) {
       event.preventDefault()
-
-      if (this.getAttribute(ARIA_DISABLED) === 'true') {
-        return
-      }
-
-      const nextFilter = this.dataset.filter
-
-      if (nextFilter !== DEFAULT_FILTER && !historicDataRef.loaded) {
-        setTimeFilterLinksTemporarilyDisabled(true)
-
-        try {
-          const historicData = await fetchHistoricData(stationId)
-          historicDataRef.data = historicData
-          historicDataRef.loaded = true
-          historicDataRef.available = historicData.length > 0
-        } catch (error) {
-          console.error('Failed to fetch historic data:', error)
-          setTimeFilterLinksTemporarilyDisabled(false)
-          updateFilterButtonStates(historicDataRef)
-          return
-        }
-
-        setTimeFilterLinksTemporarilyDisabled(false)
-        updateFilterButtonStates(historicDataRef)
-      }
-
-      currentFilter.value = nextFilter
-
-      renderChart()
+      handleTimeFilterClick(this, stationId, currentFilter, historicDataRef, renderChart)
     })
   })
 }
