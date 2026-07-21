@@ -273,12 +273,22 @@ function getHistoricSnapIntervalMs(visibleDurationDays) {
   return tier ? tier.intervalMs : THIRTY_MINUTES_MS
 }
 
+function getSnapIntervalMs(timeRange, visibleDurationDays) {
+  let snapIntervalMs = getTickSnapIntervalMs(timeRange)
+  if (!snapIntervalMs) {
+    return null
+  }
+  if (HISTORIC_RANGES.has(timeRange)) {
+    snapIntervalMs = getHistoricSnapIntervalMs(visibleDurationDays)
+  }
+  return snapIntervalMs
+}
+
 function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
   if (!data || data.length === 0 || !visibleDomain) {
     return data
   }
 
-  // Log range before snapping
   const rangeBefore = calculateValueRange(data)
 
   // For 5-day range near full view, don't snap (use exact timestamps)
@@ -289,13 +299,9 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
   }
 
   // Get the snap interval for the current time range
-  let snapIntervalMs = getTickSnapIntervalMs(timeRange)
+  const snapIntervalMs = getSnapIntervalMs(timeRange, visibleDurationDays)
   if (!snapIntervalMs) {
     return data
-  }
-
-  if (HISTORIC_RANGES.has(timeRange)) {
-    snapIntervalMs = getHistoricSnapIntervalMs(visibleDurationDays)
   }
 
   const snapped = data.map(item => snapPointToInterval(item, snapIntervalMs))
