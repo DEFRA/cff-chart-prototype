@@ -17,7 +17,8 @@ import {
   THRESHOLD_CURRENT_LEVEL_ID,
   THRESHOLD_HIGHEST_LEVEL_ID,
   THRESHOLD_TOP_NORMAL_ID,
-  TIME_FILTER_LINK_SELECTOR
+  TIME_FILTER_LINK_SELECTOR,
+  HISTORIC_DATA_REQUIRED_FILTERS
 } from './application-constants.js'
 import {
   getDefaultActiveThresholdId,
@@ -37,9 +38,6 @@ import {
   updateActiveButtonState,
   setupZoomControls
 } from './application-ui.js'
-import {
-  HISTORIC_DATA_REQUIRED_FILTERS
-} from './application-constants.js'
 
 initAll()
 
