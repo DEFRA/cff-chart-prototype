@@ -7,6 +7,8 @@ import { getTickSnapIntervalMs, getVisibleDurationDays } from './line-chart-tick
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const MS_PER_HOUR = 60 * 60 * 1000
+const FIFTEEN_MINUTES = 15
+const FIFTEEN_MINUTES_MS = FIFTEEN_MINUTES * 60 * 1000
 const THIRTY_MINUTES = 30
 const THIRTY_MINUTES_MS = THIRTY_MINUTES * 60 * 1000
 const DAYS_DAILY_TIER = 180
@@ -40,12 +42,23 @@ function getTimestamp(value) {
   return null
 }
 
+function removeFutureData(data) {
+  const now = new Date().getTime()
+  const before = data.length
+  const result = data.filter(item => new Date(item.dateTime).getTime() <= now)
+  if (result.length < before) {
+    console.log(`[removeFutureData] removed ${before - result.length} future points`)
+  }
+  return result
+}
+
 function snapPointToInterval(point, snapIntervalMs) {
   const timestamp = getTimestamp(point.dateTime)
   if (timestamp === null) {
     return point
   }
 
+  // Use normal rounding for bucketing - future filtering happens in filter functions
   const roundedMs = Math.round(timestamp / snapIntervalMs) * snapIntervalMs
   const asDate = point.dateTime instanceof Date
 
@@ -108,6 +121,38 @@ function downsampleToDaily(data) {
   return result
 }
 
+function downsampleToFifteenMin(data) {
+  const intervalGroups = new Map()
+
+  for (const item of data) {
+    const timestamp = new Date(item.dateTime).getTime()
+    const interval = Math.floor(timestamp / FIFTEEN_MINUTES_MS) * FIFTEEN_MINUTES_MS
+    const itemValue = Number(item.value)
+    const safeItemValue = Number.isFinite(itemValue) ? itemValue : Number.NEGATIVE_INFINITY
+    const existing = intervalGroups.get(interval)
+
+    if (!existing) {
+      intervalGroups.set(interval, {
+        point: item,
+        maxValue: safeItemValue,
+        isSignificant: !!item.isSignificant
+      })
+      continue
+    }
+
+    if (safeItemValue > existing.maxValue) {
+      existing.point = item
+      existing.maxValue = safeItemValue
+    }
+
+    existing.isSignificant = existing.isSignificant || !!item.isSignificant
+  }
+
+  return [...intervalGroups.values()]
+    .map(({ point, isSignificant }) => ({ ...point, isSignificant }))
+    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
+}
+
 function downsampleToThirtyMin(data) {
   const intervalGroups = new Map()
 
@@ -150,11 +195,25 @@ function filterToVisibleWindow(data, visibleDomain) {
 
   const windowStart = startMs - buffer
   const windowEnd = endMs + buffer
+  const now = new Date().getTime()
 
-  return data.filter(item => {
+  let futureCount = 0
+  const filtered = data.filter(item => {
     const t = new Date(item.dateTime).getTime()
-    return t >= windowStart && t <= windowEnd
+    const inWindow = t >= windowStart && t <= windowEnd
+    const notFuture = t <= now
+    if (inWindow && !notFuture) {
+      futureCount++
+    }
+    // Include item if it's in the visible window AND not in the future
+    return inWindow && notFuture
   })
+  
+  if (futureCount > 0) {
+    console.warn(`[filterToVisibleWindow] FOUND AND REMOVED ${futureCount} future data points!`)
+  }
+  
+  return filtered
 }
 
 function downsampleByVisibleDomain(data, visibleDomain) {
@@ -169,11 +228,12 @@ function downsampleByVisibleDomain(data, visibleDomain) {
     return downsampleToDaily(data)
   }
 
-  if (visibleDays > DAYS_THIRTY_MIN_TIER) {
-    return downsampleToThirtyMin(data)
+  // Use 15-minute intervals for 5-day view, 30-minute for longer views
+  if (visibleDays <= DAYS_THIRTY_MIN_TIER) {
+    return downsampleToFifteenMin(data)
   }
 
-  return data
+  return downsampleToThirtyMin(data)
 }
 
 function simplifyByType(data, dataType) {
@@ -230,6 +290,12 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
     return data
   }
 
+  // Log range before snapping
+  const valuesBefore = data.map(d => Number(d.value)).filter(v => Number.isFinite(v))
+  const minBefore = Math.min(...valuesBefore)
+  const maxBefore = Math.max(...valuesBefore)
+  const meanBefore = valuesBefore.reduce((a, b) => a + b, 0) / valuesBefore.length
+
   // For 5-day range near full view, don't snap (use exact timestamps)
   const visibleDurationDays = getVisibleDurationDays(visibleDomain)
   const isNearFullFiveDayView = timeRange === FIVE_DAY_RANGE && visibleDurationDays >= FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD
@@ -249,7 +315,17 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
 
   const snapped = data.map(item => snapPointToInterval(item, snapIntervalMs))
   const aggregate = timeRange === '3y' ? 'max' : 'mean'
-  return toCollapsedBucketPoints(snapped, aggregate)
+  const result = toCollapsedBucketPoints(snapped, aggregate)
+
+  // Log range after snapping
+  const valuesAfter = result.map(d => Number(d.value)).filter(v => Number.isFinite(v))
+  const minAfter = Math.min(...valuesAfter)
+  const maxAfter = Math.max(...valuesAfter)
+  const meanAfter = valuesAfter.reduce((a, b) => a + b, 0) / valuesAfter.length
+  
+  console.log(`[snapDataToNiceIntervals] ${timeRange}: ${data.length}→${result.length} points, aggregate=${aggregate}, values before=[${minBefore.toFixed(2)}, ${maxBefore.toFixed(2)}, mean=${meanBefore.toFixed(2)}], after=[${minAfter.toFixed(2)}, ${maxAfter.toFixed(2)}, mean=${meanAfter.toFixed(2)}]`)
+  
+  return result
 }
 
 
@@ -267,12 +343,16 @@ export function processData(dataCache, visibleDomain, timeRange) {
   }
 
   observedPoints = filterToVisibleWindow(observedPoints, visibleDomain)
+  const beforeDownsample = observedPoints.length
   observedPoints = downsampleByVisibleDomain(observedPoints, visibleDomain)
+  console.log(`[processData] downsampled observed from ${beforeDownsample} to ${observedPoints.length} points`)
   observedPoints = snapDataToNiceIntervals(observedPoints, timeRange, visibleDomain)
+  observedPoints = removeFutureData(observedPoints)
 
   forecastPoints = filterToVisibleWindow(forecastPoints, visibleDomain)
   forecastPoints = downsampleByVisibleDomain(forecastPoints, visibleDomain)
   forecastPoints = snapDataToNiceIntervals(forecastPoints, timeRange, visibleDomain)
+  forecastPoints = removeFutureData(forecastPoints)
 
   const lines = observedPoints.concat(forecastPoints)
   return { lines, observedPoints, forecastPoints }

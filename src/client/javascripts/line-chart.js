@@ -248,6 +248,12 @@ function renderChartComponents(config) {
   const { activateThreshold, dismissThreshold } = config.handlers
   const tickConfig = getTickConfigForRender(stateRef.xScale, timeRange, stateRef.width)
 
+  if (stateRef.observedPoints.length > 0) {
+    const first = stateRef.observedPoints[0]
+    const last = stateRef.observedPoints[stateRef.observedPoints.length - 1]
+    console.log(`[renderChartComponents] timeRange=${timeRange}, points=${stateRef.observedPoints.length}, first=${first?.value}@${first?.dateTime}, last=${last?.value}@${last?.dateTime}`)
+  }
+
   renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange, tickConfig })
   renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, timeRange, tickConfig)
   updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current, timeRange)

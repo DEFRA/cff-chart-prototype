@@ -17,6 +17,14 @@ const THREE_YEARS = 3
 const FIVE_YEARS_MS = FIVE_YEARS * DAYS_PER_YEAR * HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND
 
 /**
+ * Remove data points with future timestamps
+ */
+function removeFutureData(data) {
+  const now = new Date()
+  return data.filter(item => new Date(item.dateTime) <= now)
+}
+
+/**
  * Merge historic data with real-time telemetry data
  * Removes duplicates, keeping real-time data when timestamps match
  */
@@ -46,7 +54,18 @@ export function mergeData(historicData, realtimeData) {
   // Sort by dateTime
   merged.sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
 
-  return merged
+  // Remove any future-dated points
+  const filtered = removeFutureData(merged)
+
+  if (filtered.length > 0) {
+    const first = filtered[0]
+    const last = filtered[filtered.length - 1]
+    const removedCount = merged.length - filtered.length
+    const removedMsg = removedCount > 0 ? ` (removed ${removedCount} future points)` : ''
+    console.log(`[mergeData] merged ${realtimeData.length} realtime + ${historicData.length} historic = ${merged.length} total, filtered to ${filtered.length}${removedMsg}, range ${first.value}@${first.dateTime} to ${last.value}@${last.dateTime}`)
+  }
+
+  return filtered
 }
 
 /**
@@ -85,7 +104,32 @@ export function filterDataByTimeRange(data, range) {
       return data
   }
 
-  return data.filter(item => new Date(item.dateTime) >= cutoffDate)
+  // Filter by time range AND exclude future data
+  let futureCount = 0
+  const filtered = data.filter(item => {
+    const itemTime = new Date(item.dateTime)
+    const isInRange = itemTime >= cutoffDate
+    const isNotFuture = itemTime <= now
+    if (isInRange && !isNotFuture) {
+      futureCount++
+    }
+    return isInRange && isNotFuture
+  })
+  
+  if (filtered.length > 0) {
+    const first = filtered[0]
+    const last = filtered[filtered.length - 1]
+    const futureMsg = futureCount > 0 ? ` (removed ${futureCount} future)` : ''
+    
+    // Log value distribution for diagnostics
+    const values = filtered.map(d => Number(d.value)).filter(v => Number.isFinite(v))
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const mean = values.reduce((a, b) => a + b, 0) / values.length
+    
+    console.log(`[filterDataByTimeRange] ${range}: ${data.length} → ${filtered.length} points${futureMsg}, value range=[${min.toFixed(2)}, ${max.toFixed(2)}], mean=${mean.toFixed(2)}, first=${first.value}@${first.dateTime}, last=${last.value}@${last.dateTime}`)
+  }
+  return filtered
 }
 
 /**

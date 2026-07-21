@@ -82,7 +82,13 @@ export function renderLines(svg, observedPoints, forecastPoints, xScale, yScale,
     .y(d => yScale(dataType === 'river' && d.value < 0 ? 0 : d.value))
 
   if (observedPoints.length) {
-    svg.select('.observed-area').datum(observedPoints).attr('d', area)
+    const observedAreaPath = svg.select('.observed-area')
+    const currentD = observedAreaPath.attr('d')
+    const newD = area(observedPoints)
+    if (currentD === newD) {
+      console.warn('[renderLines] WARNING: observed-area path unchanged but rendering anyway', { pointCount: observedPoints.length })
+    }
+    observedAreaPath.datum(observedPoints).attr('d', newD)
     svg.select('.observed-line').datum(observedPoints).attr('d', line)
   }
 
