@@ -476,8 +476,16 @@ export function setupResponsiveHandlers(config) {
     renderChart()
   })
 
-  globalThis.addEventListener('resize', () => {
+  // Remove old resize listener if it exists (from previous chart render)
+  if (container._resizeListener) {
+    globalThis.removeEventListener('resize', container._resizeListener)
+  }
+
+  // Create and store new resize listener so we can clean it up on next chart render
+  const resizeListener = () => {
     tooltipManager.hide()
     renderChart()
-  })
+  }
+  container._resizeListener = resizeListener
+  globalThis.addEventListener('resize', resizeListener)
 }
