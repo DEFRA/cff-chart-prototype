@@ -108,14 +108,14 @@ export const config = convict({
     doc: 'HTTP Proxy',
     format: String,
     nullable: true,
-    default: null,
+    default: process.env.CDP_HTTP_PROXY || null,
     env: 'HTTP_PROXY'
   },
   httpsProxy: {
     doc: 'HTTPS Proxy',
     format: String,
     nullable: true,
-    default: null,
+    default: process.env.CDP_HTTPS_PROXY || null,
     env: 'HTTPS_PROXY'
   },
   isSecureContextEnabled: {
