@@ -16,7 +16,9 @@ const DEFAULT_HEADERS = {
  * To use the fetch dispatcher option on Node.js native fetch, Node.js v18.2.0 or greater is required
  */
 export function proxyFetch(url, options = {}) {
-  const proxyUrlConfig = config.get('httpProxy') // bound to HTTP_PROXY
+  const proxyUrlConfig = url.startsWith('https:')
+    ? config.get('httpsProxy') || config.get('httpProxy')
+    : config.get('httpProxy') || config.get('httpsProxy')
   const timeoutMs = options.timeout || DEFAULT_TIMEOUT_MS
 
   const mergedOptions = {
@@ -43,7 +45,7 @@ export function proxyFetch(url, options = {}) {
   }
 
   if (!proxyUrlConfig) {
-    console.log(`[PROXY] No HTTP_PROXY set - using direct fetch for: ${url}`)
+    console.log(`[PROXY] No proxy set - using direct fetch for: ${url}`)
     return fetch(url, fetchOptions).finally(() => clearTimeout(timeoutId))
   }
 
