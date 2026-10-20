@@ -1,6 +1,6 @@
 {
   "name": "cff-chart-prototype",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "CDP Frontend Template",
   "sideEffects": false,
   "main": "src/index.js",

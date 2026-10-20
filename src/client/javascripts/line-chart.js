@@ -26,7 +26,7 @@ import {
   createStateRef
 } from './line-chart-utils.js'
 
-function initializeZoom(config) {
+function initializeZoom (config) {
   const {
     svg,
     mainGroup,
@@ -81,7 +81,13 @@ function initializeZoom(config) {
           stateRef.onThresholdActivate(thresholdId)
         }
       },
-      getActiveThresholdId: () => stateRef.activeThresholdId
+      getActiveThresholdId: () => stateRef.activeThresholdId,
+      getLockedState: () => ({ isLocked: stateRef.isLocked, dataPoint: stateRef.lockedDataPoint }),
+      onAutoUnlock: () => {
+        if (typeof stateRef.unlockPoint === 'function') {
+          stateRef.unlockPoint()
+        }
+      }
     })(event, stateRef.lines)
 
     stateRef.xScale = result.xScale
@@ -89,6 +95,10 @@ function initializeZoom(config) {
     stateRef.lines = result.lines
     stateRef.observedPoints = result.observedPoints
     stateRef.forecastPoints = result.forecastPoints
+
+    if (stateRef.isLocked && stateRef.lockedDataPoint) {
+      stateRef.lockedX = result.xScale(new Date(stateRef.lockedDataPoint.dateTime))
+    }
   }
 
   const zoomSetup = setupZoomBehavior({
@@ -104,10 +114,18 @@ function initializeZoom(config) {
   zoomRef.behavior = zoomSetup.zoomBehavior
   zoomRef.rect = zoomSetup.zoomRect
 
-  setupZoomControls(container, mainGroup, zoomRef.behavior, zoomSetup.maxScale)
+  const getZoomFocalPoint = () => {
+    if (stateRef.isLocked && Number.isFinite(stateRef.lockedX)) {
+      return [stateRef.lockedX, stateRef.height / 2]
+    }
+
+    return null
+  }
+
+  setupZoomControls(container, mainGroup, zoomRef.behavior, zoomSetup.maxScale, getZoomFocalPoint)
 }
 
-function renderChartComponents(config) {
+function renderChartComponents (config) {
   const { svg, svgElements, stateRef, dataCache, timeRange, isMobileRef } = config
   const { activateThreshold, dismissThreshold } = config.handlers
   const tickConfig = getTickConfigForRender(stateRef.xScale, timeRange, stateRef.width)
@@ -137,7 +155,7 @@ function renderChartComponents(config) {
   svgElements.inner.select('.locator__line').attr('y1', 0).attr('y2', stateRef.height)
 }
 
-function createChartRenderer(config) {
+function createChartRenderer (config) {
   const {
     container,
     svg,
@@ -167,7 +185,7 @@ function createChartRenderer(config) {
       console.warn('No data to render')
       return
     }
-    
+
     stateRef.xScale = xScaleNew
     stateRef.xExtent = calculateFinalExtent(visibleDomain, stateRef.lines, xExtentNew)
     stateRef.yScale = createYScaleForRange(stateRef.lines, dataCache.type, stateRef.height || DEFAULT_HEIGHT, timeRange)
@@ -204,7 +222,7 @@ function createChartRenderer(config) {
   return render
 }
 
-function setupChartContext(containerId, data, options) {
+function setupChartContext (containerId, data, options) {
   const dataCache = data
   const timeRange = options.timeRange || '5d'
   const enableZoom = options.enableZoom || false
@@ -231,7 +249,7 @@ function setupChartContext(containerId, data, options) {
   const hasExternalActive = typeof options.activeThresholdId === 'string' &&
     initiallyEnabledThresholds.some(threshold => threshold.id === options.activeThresholdId)
   const labelPreferred = initiallyEnabledThresholds.filter(threshold => threshold.showLabel)
-  
+
   if (hasExternalActive) {
     stateRef.activeThresholdId = options.activeThresholdId
   } else if (labelPreferred.length) {
@@ -241,7 +259,7 @@ function setupChartContext(containerId, data, options) {
   } else {
     stateRef.activeThresholdId = null
   }
-  
+
   stateRef.onThresholdDismiss = typeof options.onThresholdDismiss === 'function' ? options.onThresholdDismiss : null
   stateRef.onThresholdActivate = typeof options.onThresholdActivate === 'function' ? options.onThresholdActivate : null
   const zoomRef = { behavior: null, rect: null }
@@ -269,7 +287,7 @@ function setupChartContext(containerId, data, options) {
   }
 }
 
-function setupTooltipManager(context) {
+function setupTooltipManager (context) {
   return createTooltipManager({
     tooltip: context.tooltip,
     tooltipPath: context.tooltipPath,
@@ -284,7 +302,7 @@ function setupTooltipManager(context) {
   })
 }
 
-function initializeZoomIfEnabled(context, container, tooltipManager) {
+function initializeZoomIfEnabled (context, container, tooltipManager) {
   if (!context.enableZoom) {
     container.panBy = undefined
     container.getTouchPanStep = undefined
@@ -319,7 +337,7 @@ function initializeZoomIfEnabled(context, container, tooltipManager) {
   })
 }
 
-export function lineChart(containerId, _stationId, data, _options = {}) {
+export function lineChart (containerId, _stationId, data, _options = {}) {
   const container = document.getElementById(containerId)
 
   if (!container) {

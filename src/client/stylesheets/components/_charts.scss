@@ -187,7 +187,7 @@
 
       text {
         fill: #0b0c0c;
-        font-size: 16px;
+        font-size: 14px;
       }
     }
 
@@ -252,9 +252,8 @@
 
     .time-now-text {
       fill: #0b0c0c;
-      font-size: 16px;
+      font-size: 14px;
       text-anchor: middle;
-      font-weight: bold;
       pointer-events: none;
     }
 
@@ -266,6 +265,11 @@
 
         &--visible {
           opacity: 1;
+        }
+
+        &--locked {
+          stroke: #1d70b8;
+          stroke-width: 2;
         }
       }
 
@@ -523,7 +527,7 @@
       }
 
       .time-now-text {
-        font-size: 14px;
+        font-size: 13px;
       }
     }
   }
