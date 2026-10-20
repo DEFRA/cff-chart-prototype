@@ -11,7 +11,7 @@ const ZOOM_MAX_SCALE_SAFETY = 1000
 const MIN_ZOOM_WINDOW_DAYS = 5
 const MIN_ZOOM_WINDOW_MS = MIN_ZOOM_WINDOW_DAYS * 24 * 60 * 60 * 1000
 
-function getBoundedMaxZoomScale(maxScale) {
+function getBoundedMaxZoomScale (maxScale) {
   if (!Number.isFinite(maxScale)) {
     return ZOOM_MIN_SCALE
   }
@@ -19,7 +19,7 @@ function getBoundedMaxZoomScale(maxScale) {
   return Math.max(ZOOM_MIN_SCALE, Math.min(maxScale, ZOOM_MAX_SCALE_SAFETY))
 }
 
-function calculateMaxZoomScaleFromDomain(baseXScale) {
+function calculateMaxZoomScaleFromDomain (baseXScale) {
   const [start, end] = baseXScale.domain() || []
   const startMs = new Date(start).getTime()
   const endMs = new Date(end).getTime()
@@ -35,22 +35,36 @@ function calculateMaxZoomScaleFromDomain(baseXScale) {
 /**
  * Create zoom event handler
  */
-export function createZoomHandler(config) {
+export function createZoomHandler (config) {
   const { svg, baseXScale, baseYScale, width, height, timeRange, dataCache,
     significantContainer, timeLine, timeLabel, isMobile, tooltipManager, container,
     processData, renderAxes, renderGridLines, renderLines, renderSignificantPoints,
     getTickConfigForRender, createYScaleForRange,
     renderThresholds, updateTimeIndicator, hideOverlappingTicks,
-    thresholds, onThresholdDismiss, onThresholdActivate, getActiveThresholdId } = config
+    thresholds, onThresholdDismiss, onThresholdActivate, getActiveThresholdId, getLockedState, onAutoUnlock } = config
 
   return (event, _lines) => {
-    tooltipManager.hide()
+    const lockedState = typeof getLockedState === 'function' ? getLockedState() : null
+    // Only zoom/pan on X-axis (time dimension)
+    const newXScale = event.transform.rescaleX(baseXScale)
+    let isLocked = Boolean(lockedState?.isLocked && lockedState.dataPoint)
+
+    if (isLocked) {
+      const lockedPixelX = newXScale(new Date(lockedState.dataPoint.dateTime))
+      if (lockedPixelX < 0 || lockedPixelX > width) {
+        isLocked = false
+        if (typeof onAutoUnlock === 'function') {
+          onAutoUnlock()
+        }
+      }
+    }
+
+    if (!isLocked) {
+      tooltipManager.hide()
+    }
 
     // Get the transform
     const transform = event.transform
-
-    // Only zoom/pan on X-axis (time dimension)
-    const newXScale = transform.rescaleX(baseXScale)
 
     // Re-render with appropriate level of detail based on visible time window
     const visibleDomain = newXScale.domain()
@@ -82,6 +96,12 @@ export function createZoomHandler(config) {
     updateTimeIndicator(svg, timeLabel, timeLine, newXScale, height, isMobile, timeRange)
     hideOverlappingTicks(timeLabel, timeRange)
 
+    if (isLocked) {
+      const { dataPoint } = lockedState
+      const chartY = newYScale(dataPoint.value)
+      tooltipManager.show(dataPoint, chartY, newXScale, newYScale, true)
+    }
+
     if (container.updateZoomControls) {
       container.updateZoomControls(transform.k)
     }
@@ -94,7 +114,7 @@ export function createZoomHandler(config) {
 /**
  * Setup zoom behavior for the chart
  */
-export function setupZoomBehavior(config) {
+export function setupZoomBehavior (config) {
   const { svg, mainGroup, width, height, margin, handleZoomEvent, baseXScale } = config
   const maxScale = calculateMaxZoomScaleFromDomain(baseXScale)
 
@@ -109,7 +129,7 @@ export function setupZoomBehavior(config) {
         event.stopPropagation()
         return true
       }
-      
+
       // For touch events, only allow multi-touch (2+ fingers) for zooming/panning.
       // Single touch (1 finger) is handled by interaction handlers for showing tooltip.
       if (event.type === 'touchstart' || event.type === 'touchmove') {
@@ -120,7 +140,7 @@ export function setupZoomBehavior(config) {
       if (event.type === 'touchend' || event.type === 'touchcancel') {
         return true
       }
-      
+
       return true
     })
     .on('zoom', (event) => {
@@ -151,7 +171,7 @@ export function setupZoomBehavior(config) {
 /**
  * Setup zoom control methods on container
  */
-export function setupZoomControls(container, mainGroup, zoomBehavior, maxZoomScale = ZOOM_MIN_SCALE) {
+export function setupZoomControls (container, mainGroup, zoomBehavior, maxZoomScale = ZOOM_MIN_SCALE, getZoomFocalPoint = null) {
   const boundedMaxZoomScale = getBoundedMaxZoomScale(maxZoomScale)
 
   const getPanStep = () => {
@@ -206,11 +226,23 @@ export function setupZoomControls(container, mainGroup, zoomBehavior, maxZoomSca
   }
 
   container.zoomIn = () => {
-    mainGroup.call(zoomBehavior.scaleBy, ZOOM_IN_FACTOR)
+    const focalPoint = typeof getZoomFocalPoint === 'function' ? getZoomFocalPoint() : null
+
+    if (focalPoint) {
+      mainGroup.call(zoomBehavior.scaleBy, ZOOM_IN_FACTOR, focalPoint)
+    } else {
+      mainGroup.call(zoomBehavior.scaleBy, ZOOM_IN_FACTOR)
+    }
   }
 
   container.zoomOut = () => {
-    mainGroup.call(zoomBehavior.scaleBy, ZOOM_OUT_FACTOR)
+    const focalPoint = typeof getZoomFocalPoint === 'function' ? getZoomFocalPoint() : null
+
+    if (focalPoint) {
+      mainGroup.call(zoomBehavior.scaleBy, ZOOM_OUT_FACTOR, focalPoint)
+    } else {
+      mainGroup.call(zoomBehavior.scaleBy, ZOOM_OUT_FACTOR)
+    }
   }
 
   container.panLeft = () => {

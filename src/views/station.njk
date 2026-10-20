@@ -44,284 +44,300 @@
   }) }}
 {% endblock %}
 
-{% block content %}  
+{% block content %}
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-    <h1 class="govuk-heading-xl govuk-!-margin-bottom-0">
-      {{ station.river }} level at {{ station.name }}
-    </h1>
-  </div>
-</div>
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-    <nav class="defra-navbar defra-navbar--secondary" aria-label="Related levels">
-      <div class="defra-navbar__inner">
-        <div class="defra-navbar__group">
-          <ul class="defra-navbar__list">
-            <li class="defra-navbar__item" id="map-live"></li>
-            <li class="defra-navbar__item">
-              <a href="/river-and-sea-levels/rloi/{{ station.rloiId }}">Nearby levels</a>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </nav>
-  </div>
-</div>
-
-{# Latest Status #}
-{% if station.recentValue %}
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-    <div class="defra-flood-statistics">
-      <div class="govuk-!-margin-top-4" data-toggletip data-toggletip-label="More information" data-toggletip-content="We get readings more often as the risk of flooding increases.">
-        <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
-          Latest at {{ station.recentValue.formattedTime }} on {{ station.recentValue.latestDayFormatted }}
-        </h2>
-      </div>
-      <dl class="defra-flood-statistics__list" aria-label="Latest readings">
-        <div class="defra-flood-statistics__item">
-          <dt class="defra-flood-statistics__key">Height</dt>
-          <dd class="defra-flood-statistics__value">
-            <span data-toggletip data-toggletip-label="More information about the height" data-toggletip-content="This station measures height from a fixed point on or close to the riverbed.">
-              {{ station.recentValue.value }}m
-            </span>
-          </dd>
-        </div>
-        <div class="defra-flood-statistics__item">
-          <dt class="defra-flood-statistics__key">Trend</dt>
-          <dd class="defra-flood-statistics__value">
-            <span data-toggletip data-toggletip-label="More information about the trend" data-toggletip-content="The trend is based on the last 5 readings.">
-              {{ station.trend | capitalize }}
-            </span>
-          </dd>
-        </div>
-        {% if station.hasPercentiles %}
-        <div class="defra-flood-statistics__item">
-          <dt class="defra-flood-statistics__key">State</dt>
-          <dd class="defra-flood-statistics__value">
-            <span data-toggletip data-toggletip-label="More information about the state" data-toggletip-content="There are 3 states: low, normal and high. The latest level is within the normal range.">
-              {{ station.state | capitalize }}
-            </span>
-          </dd>
-        </div>
-        {% endif %}
-      </dl>
-      {% if station.hasPercentiles %}
-      <p class="govuk-body-s govuk-!-margin-top-3 govuk-!-margin-bottom-0" style="color: #505a5f;">
-        Normal range {{ station.stateInformation }}
-      </p>
-      {% endif %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <h1 class="govuk-heading-xl govuk-!-margin-bottom-0">
+        {{ station.river }} level at {{ station.name }}
+      </h1>
     </div>
   </div>
-</div>
-{% endif %}
 
-{# Chart Section #}
-<hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <nav class="defra-navbar defra-navbar--secondary" aria-label="Related levels">
+        <div class="defra-navbar__inner">
+          <div class="defra-navbar__group">
+            <ul class="defra-navbar__list">
+              <li class="defra-navbar__item" id="map-live"></li>
+              <li class="defra-navbar__item">
+                <a href="/river-and-sea-levels/rloi/{{ station.rloiId }}">Nearby levels</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+    </div>
+  </div>
 
+  {# Latest Status #}
+  {% if station.recentValue %}
+    <div class="govuk-grid-row">
+      <div class="govuk-grid-column-full">
+        <div class="defra-flood-statistics">
+          <div class="govuk-!-margin-top-4" data-toggletip data-toggletip-label="More information" data-toggletip-content="We get readings more often as the risk of flooding increases.">
+            <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
+          Latest at {{ station.recentValue.formattedTime }} on {{ station.recentValue.latestDayFormatted }}
+            </h2>
+          </div>
+          <dl class="defra-flood-statistics__list" aria-label="Latest readings">
+            <div class="defra-flood-statistics__item">
+              <dt class="defra-flood-statistics__key">Height</dt>
+              <dd class="defra-flood-statistics__value">
+                <span data-toggletip data-toggletip-label="More information about the height" data-toggletip-content="This station measures height from a fixed point on or close to the riverbed.">
+                  {{ station.recentValue.value }}m
+            </span>
+              </dd>
+            </div>
+            <div class="defra-flood-statistics__item">
+              <dt class="defra-flood-statistics__key">Trend</dt>
+              <dd class="defra-flood-statistics__value">
+                <span data-toggletip data-toggletip-label="More information about the trend" data-toggletip-content="The trend is based on the last 5 readings.">
+                  {{ station.trend | capitalize }}
+                </span>
+              </dd>
+            </div>
+            {% if station.hasPercentiles %}
+              <div class="defra-flood-statistics__item">
+                <dt class="defra-flood-statistics__key">State</dt>
+                <dd class="defra-flood-statistics__value">
+                  <span data-toggletip data-toggletip-label="More information about the state" data-toggletip-content="There are 3 states: low, normal and high. The latest level is within the normal range.">
+                    {{ station.state | capitalize }}
+                  </span>
+                </dd>
+              </div>
+            {% endif %}
+          </dl>
+          {% if station.hasPercentiles %}
+            <p class="govuk-body-s govuk-!-margin-top-3 govuk-!-margin-bottom-0" style="color: #505a5f;">
+        Normal range {{ station.stateInformation }}
+            </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-    <div class="defra-line-chart govuk-!-margin-bottom-4">
-      <div class="defra-line-chart__header">
-        <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
+  {# Chart Section #}
+  <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible">
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <div class="defra-line-chart govuk-!-margin-bottom-4">
+        <div class="defra-line-chart__header">
+          <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
           Height in metres over the <span id="chart-time-range">last 5 days</span>
-        </h2>
-        
-        {% if chartStyle === 'styleB' %}
-        {# Time filter links #}
-        <nav id="time-filter-nav" class="defra-line-chart__time-filters" aria-label="Chart time ranges">
-          <ul class="defra-line-chart__time-filters-list govuk-list">
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link time-filter-link--active" data-filter="5d" aria-current="page">5 days</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1m">1 month</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="6m">6 months</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1y">1 year</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="5y">5 years</a>
-            </li>
-          </ul>
-        </nav>
-        {% endif %}
+          </h2>
+
+          {% if chartStyle === 'styleB' %}
+            {# Time filter links #}
+            <nav id="time-filter-nav" class="defra-line-chart__time-filters" aria-label="Chart time ranges">
+              <ul class="defra-line-chart__time-filters-list govuk-list">
+                <li>
+                  <a href="#line-chart" class="govuk-link time-filter-link time-filter-link--active" data-filter="5d" aria-current="page">5 days</a>
+                </li>
+                <li>
+                  <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1m">1 month</a>
+                </li>
+                <li>
+                  <a href="#line-chart" class="govuk-link time-filter-link" data-filter="6m">6 months</a>
+                </li>
+                <li>
+                  <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1y">1 year</a>
+                </li>
+                <li>
+                  <a href="#line-chart" class="govuk-link time-filter-link" data-filter="5y">5 years</a>
+                </li>
+              </ul>
+            </nav>
+          {% endif %}
+
+          {% if chartStyle === 'styleC' %}
+            {# Time filter links for interactive timeline #}
+            <nav id="time-filter-nav" class="defra-line-chart__time-filters" aria-label="Chart time ranges">
+              <ul class="defra-line-chart__time-filters-list govuk-list">
+                <li>
+                  <a href="#line-chart" class="govuk-link time-filter-link time-filter-link--active" data-filter="5d" aria-current="page">5 days</a>
+                </li>
+                <li>
+                  <a href="#line-chart" class="govuk-link time-filter-link" data-filter="6m">6 months</a>
+                </li>
+                <li>
+                  <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1y">1 year</a>
+                </li>
+                <li>
+                  <a href="#line-chart" class="govuk-link time-filter-link" data-filter="3y">3 years</a>
+                </li>
+              </ul>
+            </nav>
+          {% endif %}
+
+        </div>
+
+        {# Placeholder for chart - will be populated by JavaScript #}
+        <div id="line-chart" class="defra-line-chart__container"></div>
 
         {% if chartStyle === 'styleC' %}
-        {# Time filter links for interactive timeline #}
-        <nav id="time-filter-nav" class="defra-line-chart__time-filters" aria-label="Chart time ranges">
-          <ul class="defra-line-chart__time-filters-list govuk-list">
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link time-filter-link--active" data-filter="5d" aria-current="page">5 days</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="6m">6 months</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1y">1 year</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="3y">3 years</a>
-            </li>
-          </ul>
-        </nav>
+          {# Zoom control buttons aligned like service prototype #}
+          <div class="defra-line-chart__control-row" style="display: none;">
+            <div id="zoom-control-buttons">
+              <button type="button" id="pan-left-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart left" aria-controls="line-chart-visualisation">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="19" y1="12" x2="7" y2="12"></line>
+                  <polyline points="11 8 7 12 11 16"></polyline>
+                </svg>
+              </button>
+              <button type="button" id="pan-right-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart right" aria-controls="line-chart-visualisation">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="17" y2="12"></line>
+                  <polyline points="13 8 17 12 13 16"></polyline>
+                </svg>
+              </button>
+              <button type="button" id="zoom-in-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom in" aria-controls="line-chart-visualisation">
+                <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="10.5" cy="10.5" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle>
+                  <line x1="15.8" y1="15.8" x2="21" y2="21" stroke="currentColor" stroke-width="3" stroke-linecap="round"></line>
+                  <line x1="10.5" y1="7.5" x2="10.5" y2="13.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+                  <line x1="7.5" y1="10.5" x2="13.5" y2="10.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+                </svg>
+              </button>
+              <button type="button" id="zoom-out-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom out" aria-controls="line-chart-visualisation">
+                <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="10.5" cy="10.5" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle>
+                  <line x1="15.8" y1="15.8" x2="21" y2="21" stroke="currentColor" stroke-width="3" stroke-linecap="round"></line>
+                  <line x1="7.5" y1="10.5" x2="13.5" y2="10.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+                </svg>
+              </button>
+              <button type="button" id="zoom-reset-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0 defra-line-chart__reset-btn" data-module="govuk-button" aria-label="Reset chart view" aria-controls="line-chart-visualisation">
+                <svg class="defra-line-chart__reset-full" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
+                </svg>
+                <span class="defra-line-chart__reset-short">
+                  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
+                  </svg>
+                </span>
+              </button>
+            </div>
+          </div>
         {% endif %}
-        
-      </div>
 
-      {# Placeholder for chart - will be populated by JavaScript #}
-      <div id="line-chart" class="defra-line-chart__container">
-      </div>
-
-      {% if chartStyle === 'styleC' %}
-      {# Zoom control buttons aligned like service prototype #}
-      <div class="defra-line-chart__control-row" style="display: none;">
-        <div id="zoom-control-buttons">
-          <button type="button" id="pan-left-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart left" aria-controls="line-chart-visualisation">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="19" y1="12" x2="7" y2="12"></line>
-              <polyline points="11 8 7 12 11 16"></polyline>
-            </svg>
-          </button>
-          <button type="button" id="pan-right-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Pan chart right" aria-controls="line-chart-visualisation">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="17" y2="12"></line>
-              <polyline points="13 8 17 12 13 16"></polyline>
-            </svg>
-          </button>
-          <button type="button" id="zoom-out-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom out" aria-controls="line-chart-visualisation">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-          </button>
-          <button type="button" id="zoom-in-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" aria-label="Zoom in" aria-controls="line-chart-visualisation">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-          </button>
-          <button type="button" id="zoom-reset-btn" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0 defra-line-chart__reset-btn" data-module="govuk-button" aria-label="Reset chart view" aria-controls="line-chart-visualisation">
-            <svg class="defra-line-chart__reset-full" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
-            </svg>
-            <span class="defra-line-chart__reset-short">
-              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
-              </svg>
-            </span>
-          </button>
+        <div class="defra-line-chart__actions govuk-!-margin-bottom-4">
+          <a href="/station-csv/{{ station.id }}" id="download-csv-btn">Download latest 5 days of data (CSV 16KB)</a>
         </div>
-      </div>
-      {% endif %}
 
-      <div class="defra-line-chart__actions govuk-!-margin-bottom-4">
-        <a href="/station-csv/{{ station.id }}" id="download-csv-btn">Download latest 5 days of data (CSV 16KB)</a>
-      </div>
-
-      {% if chartStyle === 'styleC' %}
-      <h2 class="govuk-heading-s govuk-!-margin-bottom-1">How levels here could affect nearby areas</h2>
-      <div class="defra-line-chart__threshold-controls" id="chart-threshold-controls" aria-label="Chart reference lines">
-        <div class="govuk-checkboxes govuk-checkboxes--small">
-          <div class="govuk-checkboxes__item">
-            <input class="govuk-checkboxes__input" id="threshold-current-level" type="checkbox" data-threshold-id="current-level">
-            <label class="govuk-label govuk-checkboxes__label" id="threshold-current-level-label" for="threshold-current-level">
+        {% if chartStyle === 'styleC' %}
+          <h2 class="govuk-heading-s govuk-!-margin-bottom-1">How levels here could affect nearby areas</h2>
+          <div class="defra-line-chart__threshold-controls" id="chart-threshold-controls" aria-label="Chart reference lines">
+            <div class="govuk-checkboxes govuk-checkboxes--small">
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input" id="threshold-current-level" type="checkbox" data-threshold-id="current-level">
+                <label class="govuk-label govuk-checkboxes__label" id="threshold-current-level-label" for="threshold-current-level">
               Show latest level (0.28m)
             </label>
-          </div>
-          <div class="govuk-checkboxes__item">
-            <input class="govuk-checkboxes__input" id="threshold-highest-level" type="checkbox" data-threshold-id="highest-level">
-            <label class="govuk-label govuk-checkboxes__label" id="threshold-highest-level-label" for="threshold-highest-level">
+              </div>
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input" id="threshold-highest-level" type="checkbox" data-threshold-id="highest-level">
+                <label class="govuk-label govuk-checkboxes__label" id="threshold-highest-level-label" for="threshold-highest-level">
               Show highest level recorded at this measuring station (0.64m)
             </label>
-          </div>
-          <div class="govuk-checkboxes__item">
-            <input class="govuk-checkboxes__input" id="threshold-top-normal" type="checkbox" data-threshold-id="top-normal" checked>
-            <label class="govuk-label govuk-checkboxes__label" id="threshold-top-normal-label" for="threshold-top-normal">
+              </div>
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input" id="threshold-top-normal" type="checkbox" data-threshold-id="top-normal" checked>
+                <label class="govuk-label govuk-checkboxes__label" id="threshold-top-normal-label" for="threshold-top-normal">
               Show top of normal range (0.50m). Low-lying land flooding possible above this level
             </label>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      {% endif %}
+        {% endif %}
 
+      </div>
     </div>
   </div>
-</div>
 
-{# Additional Information #}
+  {# Additional Information #}
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-    <h2 class="govuk-heading-s govuk-!-margin-bottom-4" data-toggletip data-toggletip-label="More information about historical events" data-toggletip-content="Flooding might not happen again at the same historical levels if, for example, flood defences are now in place.">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <h2 class="govuk-heading-s govuk-!-margin-bottom-4" data-toggletip data-toggletip-label="More information about historical events" data-toggletip-content="Flooding might not happen again at the same historical levels if, for example, flood defences are now in place.">
       How levels here could affect nearby areas
     </h2>
-    
-    <p class="govuk-body govuk-!-margin-top-3 govuk-!-margin-bottom-0">
-      <a href="/how-we-measure-river-sea-groundwater-levels" class="govuk-link">
+
+      <p class="govuk-body govuk-!-margin-top-3 govuk-!-margin-bottom-0">
+        <a href="/how-we-measure-river-sea-groundwater-levels" class="govuk-link">
         How we measure river, sea and groundwater levels
       </a>
-    </p>
+      </p>
+    </div>
   </div>
-</div>
 
-<hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-6">
+  <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-6">
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-    <h2 class="govuk-heading-s govuk-!-margin-bottom-3">Contact Floodline for advice</h2>
-    <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-2">Floodline helpline</p>
-    <p class="govuk-body govuk-!-margin-bottom-0">Telephone: 0345 988 1188</p>
-    <p class="govuk-body govuk-!-margin-bottom-3">Textphone: 0345 602 6340</p>
-    <p class="govuk-body govuk-!-margin-bottom-3">Open 24 hours a day, 7 days a week</p>
-    <p class="govuk-body govuk-!-margin-bottom-0">
-      <a href="https://www.gov.uk/call-charges" class="govuk-link">Find out more about call charges</a>
-    </p>
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <h2 class="govuk-heading-s govuk-!-margin-bottom-3">Contact Floodline for advice</h2>
+      <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-2">Floodline helpline</p>
+      <p class="govuk-body govuk-!-margin-bottom-0">Telephone: 0345 988 1188</p>
+      <p class="govuk-body govuk-!-margin-bottom-3">Textphone: 0345 602 6340</p>
+      <p class="govuk-body govuk-!-margin-bottom-3">Open 24 hours a day, 7 days a week</p>
+      <p class="govuk-body govuk-!-margin-bottom-0">
+        <a href="https://www.gov.uk/call-charges" class="govuk-link">Find out more about call charges</a>
+      </p>
+    </div>
   </div>
-</div>
 
-<hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-6">
+  <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-6">
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-    {# Related Content #}
-    <h2 class="govuk-heading-s govuk-!-margin-bottom-3">Related content</h2>
-    <ul class="govuk-list">
-      <li><a href="/river-and-sea-levels/rloi/{{ station.id }}" class="govuk-link">Nearby levels</a></li>
-      <li><a href="https://www.gov.uk/get-flood-warnings" class="govuk-link">Get flood warnings by phone, text or email</a></li>
-      <li><a href="https://www.gov.uk/prepare-for-flooding" class="govuk-link">Prepare for flooding</a></li>
-      <li><a href="https://www.gov.uk/help-during-flood" class="govuk-link">What to do before or during a flood</a></li>
-      <li><a href="https://www.gov.uk/after-flood" class="govuk-link">What to do after a flood</a></li>
-      <li><a href="https://www.gov.uk/check-long-term-flood-risk" class="govuk-link">Check your long term flood risk</a></li>
-      <li><a href="https://www.gov.uk/report-flood-cause" class="govuk-link">Report a flood</a></li>
-    </ul>
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      {# Related Content #}
+      <h2 class="govuk-heading-s govuk-!-margin-bottom-3">Related content</h2>
+      <ul class="govuk-list">
+        <li>
+          <a href="/river-and-sea-levels/rloi/{{ station.id }}" class="govuk-link">Nearby levels</a>
+        </li>
+        <li>
+          <a href="https://www.gov.uk/get-flood-warnings" class="govuk-link">Get flood warnings by phone, text or email</a>
+        </li>
+        <li>
+          <a href="https://www.gov.uk/prepare-for-flooding" class="govuk-link">Prepare for flooding</a>
+        </li>
+        <li>
+          <a href="https://www.gov.uk/help-during-flood" class="govuk-link">What to do before or during a flood</a>
+        </li>
+        <li>
+          <a href="https://www.gov.uk/after-flood" class="govuk-link">What to do after a flood</a>
+        </li>
+        <li>
+          <a href="https://www.gov.uk/check-long-term-flood-risk" class="govuk-link">Check your long term flood risk</a>
+        </li>
+        <li>
+          <a href="https://www.gov.uk/report-flood-cause" class="govuk-link">Report a flood</a>
+        </li>
+      </ul>
 
-    {# Debug info #}
-    <details class="govuk-details govuk-!-margin-top-6">
-      <summary class="govuk-details__summary">
-        <span class="govuk-details__summary-text">View station data (Debug)</span>
-      </summary>
-      <div class="govuk-details__text">
-        <dl class="govuk-summary-list">
-          <div class="govuk-summary-list__row">
-            <dt class="govuk-summary-list__key">Station ID</dt>
-            <dd class="govuk-summary-list__value">{{ station.id }}</dd>
-          </div>
-          <div class="govuk-summary-list__row">
-            <dt class="govuk-summary-list__key">Telemetry points</dt>
-            <dd class="govuk-summary-list__value">{{ telemetry.observed | length }} observations</dd>
-          </div>
-        </dl>
-      </div>
-    </details>
+      {# Debug info #}
+      <details class="govuk-details govuk-!-margin-top-6">
+        <summary class="govuk-details__summary">
+          <span class="govuk-details__summary-text">View station data (Debug)</span>
+        </summary>
+        <div class="govuk-details__text">
+          <dl class="govuk-summary-list">
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Station ID</dt>
+              <dd class="govuk-summary-list__value">{{ station.id }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Telemetry points</dt>
+              <dd class="govuk-summary-list__value">{{ telemetry.observed | length }} observations</dd>
+            </div>
+          </dl>
+        </div>
+      </details>
+    </div>
   </div>
-</div>
 
 {% endblock %}
 
@@ -366,11 +382,13 @@
   <script>
     // Initialize toggletips
     if (typeof window.flood !== 'undefined' && window.flood.createToggletips) {
-      window.flood.createToggletips();
+      window
+        .flood
+        .createToggletips();
     }
 
     // Create Map button
-    (function() {
+    (function () {
       const mapLiveContainer = document.getElementById('map-live');
       if (mapLiveContainer) {
         const mapLink = document.createElement('a');

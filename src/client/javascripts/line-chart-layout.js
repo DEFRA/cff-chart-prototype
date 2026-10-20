@@ -38,6 +38,7 @@ const TWO_LINE_MONTH_YEAR_RANGES = new Set([SIX_MONTH_RANGE, ONE_YEAR_RANGE, THR
 const X_AXIS_TIME_TSPAN_DY = '15'
 const TIME_LABEL_DY = '0.71em'
 const FIXED_X_TICK_COUNT = 6
+const HISTORIC_VISIBLE_TICK_COUNT = 6
 const DEFAULT_REMOVE_LAST_N_TICKS = 0
 const MIDNIGHT_HOUR = 0
 const MOBILE_VIEWPORT_MAX_WIDTH_PX = 640
@@ -55,7 +56,7 @@ const FINAL_HISTORIC_ZOOM_THRESHOLD_DAYS = 6.5
 const DAY_ALIGNED_RANGES = new Set([SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE])
 const DAY_CADENCE_HOUR = DISPLAYED_HOUR_ON_X_AXIS
 
-function isNowVisibleInExtent(xExtent, timeRange, nowMs = Date.now()) {
+function isNowVisibleInExtent (xExtent, timeRange, nowMs = Date.now()) {
   if (!TIME_INDICATOR_RANGES.includes(timeRange)) {
     return false
   }
@@ -66,7 +67,7 @@ function isNowVisibleInExtent(xExtent, timeRange, nowMs = Date.now()) {
   return nowMs >= minTime && nowMs <= maxTime
 }
 
-function getFiveDayTicksWithTodayEnd(xExtent, nowMs = Date.now()) {
+function getFiveDayTicksWithTodayEnd (xExtent, nowMs = Date.now()) {
   const maxTime = Math.min(xExtent[1].getTime(), nowMs)
   const minTime = xExtent[0].getTime()
 
@@ -94,7 +95,7 @@ function getFiveDayTicksWithTodayEnd(xExtent, nowMs = Date.now()) {
   return ticks
 }
 
-function getFixedHourDailyTicks(xExtent, hour = DAY_CADENCE_HOUR) {
+function getFixedHourDailyTicks (xExtent, hour = DAY_CADENCE_HOUR) {
   const startMs = xExtent[0].getTime()
   const endMs = xExtent[1].getTime()
 
@@ -123,7 +124,7 @@ function getFixedHourDailyTicks(xExtent, hour = DAY_CADENCE_HOUR) {
   return [fallbackTick]
 }
 
-function getFixedHourCadenceTicks(xExtent, targetTickCount = FIXED_X_TICK_COUNT, hour = DAY_CADENCE_HOUR, minStepDays = 1) {
+function getFixedHourCadenceTicks (xExtent, targetTickCount = FIXED_X_TICK_COUNT, hour = DAY_CADENCE_HOUR, minStepDays = 1) {
   const dailyTicks = getFixedHourDailyTicks(xExtent, hour)
   if (dailyTicks.length <= targetTickCount) {
     if (minStepDays <= 1) {
@@ -165,7 +166,7 @@ function getFixedHourCadenceTicks(xExtent, targetTickCount = FIXED_X_TICK_COUNT,
   return ticks.slice(0, targetTickCount)
 }
 
-function calculateTickInterval(xExtent, timeRange, _width, nowMs = Date.now()) {
+function calculateTickInterval (xExtent, timeRange, _width, nowMs = Date.now()) {
   const labelMode = getLabelModeForExtent(timeRange, xExtent)
   const visibleDurationDays = getVisibleDurationDays(xExtent)
   const isNearFullFiveDayView = timeRange === FIVE_DAY_RANGE && visibleDurationDays >= FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD
@@ -174,6 +175,11 @@ function calculateTickInterval(xExtent, timeRange, _width, nowMs = Date.now()) {
     visibleDurationDays > DAY_ALIGNED_MIN_DURATION_DAYS &&
     visibleDurationDays <= DAY_ALIGNED_TICK_THRESHOLD_DAYS
 
+  // Historic ranges always show the same number of labels, so generate an extra
+  // tick whenever the rightmost one is hidden by the live "now" indicator.
+  const hidesRightmostTick = isNowVisibleInExtent(xExtent, timeRange, nowMs)
+  const historicTickCount = HISTORIC_VISIBLE_TICK_COUNT + (hidesRightmostTick ? 1 : 0)
+
   const configFactories = {
     [FIVE_DAY_RANGE]: () => ({
       tickValues: isNearFullFiveDayView
@@ -181,37 +187,37 @@ function calculateTickInterval(xExtent, timeRange, _width, nowMs = Date.now()) {
         : generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
       removeLastNTicks: 1,
-      hideFirstTickLabel: !isNearFullFiveDayView
+      hideFirstTickLabel: false
     }),
     [ONE_MONTH_RANGE]: () => ({
       tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
       removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
-      hideFirstTickLabel: true
+      hideFirstTickLabel: false
     }),
     [SIX_MONTH_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
+      tickValues: generateFixedTickValues(xExtent, historicTickCount),
       labelMode,
       removeLastNTicks: 1,
-      hideFirstTickLabel: true
+      hideFirstTickLabel: false
     }),
     [ONE_YEAR_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
+      tickValues: generateFixedTickValues(xExtent, historicTickCount),
       labelMode,
       removeLastNTicks: 1,
-      hideFirstTickLabel: true
+      hideFirstTickLabel: false
     }),
     [THREE_YEAR_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
+      tickValues: generateFixedTickValues(xExtent, historicTickCount),
       labelMode,
       removeLastNTicks: 1,
-      hideFirstTickLabel: true
+      hideFirstTickLabel: false
     }),
     [FIVE_YEAR_RANGE]: () => ({
       tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
       removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
-      hideFirstTickLabel: true
+      hideFirstTickLabel: false
     })
   }
 
@@ -219,12 +225,12 @@ function calculateTickInterval(xExtent, timeRange, _width, nowMs = Date.now()) {
     tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
     labelMode,
     removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
-    hideFirstTickLabel: true
+    hideFirstTickLabel: false
   })))()
 
   // Only remove the rightmost tick label while the live "now" indicator is visible.
   // If users pan/zoom so "now" is out of view, keep a normal rightmost date label.
-  const shouldHideRightmostTick = config.removeLastNTicks > 0 && isNowVisibleInExtent(xExtent, timeRange, nowMs)
+  const shouldHideRightmostTick = config.removeLastNTicks > 0 && hidesRightmostTick
   config.removeLastNTicks = shouldHideRightmostTick ? config.removeLastNTicks : DEFAULT_REMOVE_LAST_N_TICKS
 
   if (useDayAlignedTicks) {
@@ -239,21 +245,21 @@ function calculateTickInterval(xExtent, timeRange, _width, nowMs = Date.now()) {
     } else {
       config.tickValues = getFixedHourCadenceTicks(xExtent, FIXED_X_TICK_COUNT, MIDNIGHT_HOUR)
     }
-    config.hideFirstTickLabel = true
+    config.hideFirstTickLabel = false
     config.removeLastNTicks = DEFAULT_REMOVE_LAST_N_TICKS
   }
 
   return config
 }
 
-export function getTickConfigForRender(xScale, timeRange, width, nowMs = Date.now()) {
+export function getTickConfigForRender (xScale, timeRange, width, nowMs = Date.now()) {
   const visibleExtent = xScale.domain()
   const tickConfig = calculateTickInterval(visibleExtent, timeRange, width, nowMs)
   tickConfig.timeRange = timeRange
   return tickConfig
 }
 
-function removeLastTickLabel(svg, count = 1) {
+function removeLastTickLabel (svg, count = 1) {
   const xAxisTicks = svg.select('.x.axis').selectAll('.tick')
   const tickCount = xAxisTicks.size()
 
@@ -266,7 +272,7 @@ function removeLastTickLabel(svg, count = 1) {
   }
 }
 
-function removeFirstTickLabel(svg) {
+function removeFirstTickLabel (svg) {
   const xAxisTicks = svg.select('.x.axis').selectAll('.tick')
   const tickCount = xAxisTicks.size()
 
@@ -276,7 +282,7 @@ function removeFirstTickLabel(svg) {
   }
 }
 
-function alignEdgeTickLabels(svg) {
+function alignEdgeTickLabels (svg) {
   const xAxisTicks = svg.select('.x.axis').selectAll('.tick')
   const tickCount = xAxisTicks.size()
   const isMobileViewport = globalThis.matchMedia?.(MOBILE_MAX_WIDTH_MEDIA_QUERY)?.matches ?? false
@@ -306,15 +312,15 @@ function alignEdgeTickLabels(svg) {
   }
 }
 
-function makeTspan(text, x, dy) {
+function makeTspan (text, x, dy) {
   const tspan = document.createElementNS(SVG_NAMESPACE_URI, 'tspan')
   tspan.textContent = text
-  if (x !== undefined) {tspan.setAttribute('x', x)}
-  if (dy !== undefined) {tspan.setAttribute('dy', dy)}
+  if (x !== undefined) { tspan.setAttribute('x', x) }
+  if (dy !== undefined) { tspan.setAttribute('dy', dy) }
   return tspan
 }
 
-function appendTickTspans(textEl, tickDate, labelMode, isTwoLine) {
+function appendTickTspans (textEl, tickDate, labelMode, isTwoLine) {
   if (labelMode === TIME_AND_DATE_LABEL_MODE) {
     textEl.appendChild(makeTspan(formatTickTime(tickDate)))
     textEl.appendChild(makeTspan(timeFormat('%-e %b')(tickDate), '0', X_AXIS_TIME_TSPAN_DY))
@@ -322,25 +328,19 @@ function appendTickTspans(textEl, tickDate, labelMode, isTwoLine) {
   }
 
   if (labelMode === MONTH_YEAR_LABEL_MODE) {
-    if (isTwoLine) {
-      textEl.appendChild(makeTspan(timeFormat('%b')(tickDate)))
-      textEl.appendChild(makeTspan(timeFormat('%Y')(tickDate), '0', X_AXIS_TIME_TSPAN_DY))
-    } else {
-      textEl.appendChild(makeTspan(timeFormat('%b %y')(tickDate)))
-    }
+    textEl.appendChild(makeTspan(timeFormat(isTwoLine ? '%-e %b %y' : '%b %y')(tickDate)))
     return
   }
 
   if (labelMode === DATE_LABEL_MODE && isTwoLine) {
-    textEl.appendChild(makeTspan(timeFormat('%-e %b')(tickDate)))
-    textEl.appendChild(makeTspan(timeFormat('%Y')(tickDate), '0', X_AXIS_TIME_TSPAN_DY))
+    textEl.appendChild(makeTspan(timeFormat('%-e %b %y')(tickDate)))
     return
   }
 
   textEl.appendChild(makeTspan(timeFormat('%-e %b')(tickDate)))
 }
 
-function getOrCreateTickText(tickNode) {
+function getOrCreateTickText (tickNode) {
   const existing = tickNode.querySelector('text')
   if (existing) {
     return existing
@@ -355,7 +355,7 @@ function getOrCreateTickText(tickNode) {
   return el
 }
 
-function populateTickLabels(svg, tickConfig) {
+function populateTickLabels (svg, tickConfig) {
   const tickData = svg.select('.x.axis').selectAll('.tick').data()
   const tickElements = Array.from(document.querySelectorAll('.x.axis .tick'))
   const isTwoLine = TWO_LINE_MONTH_YEAR_RANGES.has(tickConfig.timeRange)
@@ -375,7 +375,7 @@ function populateTickLabels(svg, tickConfig) {
   })
 }
 
-export function renderAxes(svg, config) {
+export function renderAxes (svg, config) {
   const { xScale, yScale, width, height, timeRange, tickConfig: providedTickConfig } = config
   const isMobileViewport = globalThis.matchMedia?.(MOBILE_MAX_WIDTH_MEDIA_QUERY)?.matches ?? false
   const yTickTextOffset = isMobileViewport ? MOBILE_Y_TICK_TEXT_OFFSET : TICK_TEXT_OFFSET_X
@@ -390,14 +390,14 @@ export function renderAxes(svg, config) {
   // Generate smart Y-axis ticks that respect the scale's domain
   const yDomain = yScale.domain()
   const yRange = yDomain[1] - yDomain[0]
-  
+
   // Calculate appropriate tick count based on domain range
   const yTickCount = getAdaptiveYTickCount(yRange)
-  
+
   // Generate unique ticks without duplicates
   const yTickValues = generateUniqueYTicks(yScale, yTickCount)
   const yAxisTickFormat = getYAxisLabelFormatter(yRange)
-  
+
   const yAxis = axisLeft()
     .scale(yScale)
     .tickValues(yTickValues)
@@ -424,7 +424,7 @@ export function renderAxes(svg, config) {
   svg.selectAll(`${Y_AXIS_CLASS} .tick text`).attr('x', yTickTextOffset)
 }
 
-export function renderGridLines(svg, xScale, yScale, height, width, timeRange, tickConfigArg = null) {
+export function renderGridLines (svg, xScale, yScale, height, width, timeRange, tickConfigArg = null) {
   const tickConfig = tickConfigArg || getTickConfigForRender(xScale, timeRange, width)
   const visibleExtent = xScale.domain()
 
@@ -446,9 +446,9 @@ export function renderGridLines(svg, xScale, yScale, height, width, timeRange, t
   // Use same smart tick calculation as renderAxes for consistency
   const yDomain = yScale.domain()
   const yRange = yDomain[1] - yDomain[0]
-  
+
   const yTickCount = getAdaptiveYTickCount(yRange)
-  
+
   const yTickValues = generateUniqueYTicks(yScale, yTickCount)
 
   svg.select('.y.grid')
@@ -460,7 +460,7 @@ export function renderGridLines(svg, xScale, yScale, height, width, timeRange, t
     )
 }
 
-export function updateTimeIndicator(_svg, timeLabel, timeLine, xScale, height, isMobile, timeRange) {
+export function updateTimeIndicator (_svg, timeLabel, timeLine, xScale, height, isMobile, timeRange) {
   const allowTimeIndicator = TIME_INDICATOR_RANGES.includes(timeRange)
 
   if (!allowTimeIndicator) {
@@ -487,14 +487,17 @@ export function updateTimeIndicator(_svg, timeLabel, timeLine, xScale, height, i
     .attr('x', isMobile ? TIME_LABEL_OFFSET_X_MOBILE : TIME_LABEL_OFFSET_X_DESKTOP)
     .style('display', isVisible ? null : 'none')
 
+  const showTime = !TWO_LINE_MONTH_YEAR_RANGES.has(timeRange)
+
   timeLabel.select('.time-now-text__time')
-    .text(timeFormat('%-I:%M%p')(now).toLowerCase())
+    .text(showTime ? timeFormat('%-I:%M%p')(now).toLowerCase() : '')
 
   timeLabel.select('.time-now-text__date')
-    .text(timeFormat('%-e %b')(now))
+    .attr('dy', showTime ? X_AXIS_TIME_TSPAN_DY : TIME_LABEL_DY)
+    .text(timeFormat(showTime ? '%-e %b' : '%-e %b %y')(now))
 }
 
-export function hideOverlappingTicks(timeLabel, _timeRange) {
+export function hideOverlappingTicks (timeLabel, _timeRange) {
   const timeLabelNode = timeLabel.node()
   if (!timeLabelNode) {
     return
