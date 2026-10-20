@@ -13,13 +13,13 @@ const MOBILE_MARGIN_LEFT = 8
 const MOBILE_MARGIN_RIGHT_BASE = 14
 const MOBILE_Y_LABEL_CHAR_WIDTH = 6
 
-export function assignProcessedDataToState(stateRef, processedData) {
+export function assignProcessedDataToState (stateRef, processedData) {
   stateRef.lines = processedData.lines
   stateRef.observedPoints = processedData.observedPoints
   stateRef.forecastPoints = processedData.forecastPoints
 }
 
-export function getLongestYAxisLabelLength(yScale) {
+export function getLongestYAxisLabelLength (yScale) {
   const yDomain = yScale.domain()
   const yRange = yDomain[1] - yDomain[0]
   const yAxisFormatter = getYAxisLabelFormatter(yRange)
@@ -28,7 +28,7 @@ export function getLongestYAxisLabelLength(yScale) {
   return yLabelSamples.reduce((max, label) => Math.max(max, label.length), MIN_Y_AXIS_LABEL_LENGTH)
 }
 
-export function setChartMargins(stateRef, isMobile, longestYAxisLabelLength) {
+export function setChartMargins (stateRef, isMobile, longestYAxisLabelLength) {
   const rightBase = isMobile ? MOBILE_MARGIN_RIGHT_BASE : DESKTOP_MARGIN_RIGHT_BASE
   const yLabelCharWidth = isMobile ? MOBILE_Y_LABEL_CHAR_WIDTH : MARGIN_CHAR_MULTIPLIER
 
@@ -40,13 +40,13 @@ export function setChartMargins(stateRef, isMobile, longestYAxisLabelLength) {
   }
 }
 
-export function setChartDimensionsFromContainer(container, stateRef) {
+export function setChartDimensionsFromContainer (container, stateRef) {
   const containerRect = container.getBoundingClientRect()
   stateRef.width = Math.floor(containerRect.width) - stateRef.margin.left - stateRef.margin.right
   stateRef.height = Math.floor(containerRect.height) - stateRef.margin.top - stateRef.margin.bottom
 }
 
-export function updateZoomViewport(zoomRef, stateRef) {
+export function updateZoomViewport (zoomRef, stateRef) {
   if (!zoomRef.rect || !zoomRef.behavior) {
     return
   }
@@ -62,7 +62,7 @@ export function updateZoomViewport(zoomRef, stateRef) {
     .extent([[0, 0], [stateRef.width, stateRef.height]])
 }
 
-export function syncZoomBaseScales(zoomRef, stateRef) {
+export function syncZoomBaseScales (zoomRef, stateRef) {
   if (zoomRef.baseXScaleRef) {
     zoomRef.baseXScaleRef.current = stateRef.xScale.copy()
   }
@@ -72,7 +72,7 @@ export function syncZoomBaseScales(zoomRef, stateRef) {
   }
 }
 
-export function calculateFinalExtent(visibleDomain, lines, xExtentNew) {
+export function calculateFinalExtent (visibleDomain, lines, xExtentNew) {
   if (!visibleDomain || !lines || lines.length === 0) {
     return xExtentNew
   }
@@ -92,7 +92,7 @@ export function calculateFinalExtent(visibleDomain, lines, xExtentNew) {
   return [new Date(minTime), new Date(maxTime)]
 }
 
-export function createStateRef() {
+export function createStateRef () {
   return {
     width: null,
     height: null,
@@ -103,6 +103,9 @@ export function createStateRef() {
     lines: null,
     observedPoints: null,
     forecastPoints: null,
-    activeThresholdId: null
+    activeThresholdId: null,
+    isLocked: false,
+    lockedX: null,
+    lockedDataPoint: null
   }
 }
