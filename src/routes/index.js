@@ -10,19 +10,16 @@ export const index = [
     method: 'POST',
     path: '/station',
     handler: async function (request, h) {
-      const { stationId, chartStyle } = request.payload
-
-      // Build query params
-      const params = new URLSearchParams({
-        chartStyle: chartStyle || 'styleA'
-      })
+      const { stationId } = request.payload
+      const params = new URLSearchParams()
 
       // Add stationId if provided
       if (stationId && stationId.trim()) {
         params.append('stationId', stationId.trim())
       }
 
-      return h.redirect(`/station?${params.toString()}`)
+      const query = params.toString()
+      return h.redirect(query ? `/station?${query}` : '/station')
     }
   }
 ]

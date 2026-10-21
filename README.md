@@ -2,6 +2,8 @@
 
 A prototype designed for use in user research for testing out different charts and the data they display
 
+The prototype now uses a single interactive chart (formerly style C). Enter a station ID on the home screen, or leave it blank to use station 3089. The historic-data admin page links to the same chart. Available time ranges are 5 days, 6 months, 1 year and 3 years, with pan and zoom controls for historic views.
+
 ## Requirements
 
 - Node.js ≥ v22
@@ -154,7 +156,6 @@ Additional technical documentation is available in the `docs/` folder:
 
 - [Authentication](docs/AUTHENTICATION.md) - Optional password protection for external environments
 - [Historic Data Feature](docs/HISTORIC_DATA_FEATURE.md) - Implementation details for historic data storage and retrieval
-- [Chart Style C Implementation](docs/CHART_STYLE_C_IMPLEMENTATION.md) - Interactive pan & zoom chart implementation
 - [CDP Proxy Setup](docs/CDP_PROXY_SETUP.md) - Corporate proxy configuration guide
 
 ## Dependabot
