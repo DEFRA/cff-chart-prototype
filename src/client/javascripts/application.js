@@ -4,15 +4,12 @@ import './toggletip.js'
 import { lineChart } from './line-chart.js'
 import {
   mergeData,
-  filterDataByTimeRange,
-  downsampleForStyleB
+  filterDataByTimeRange
 } from './historic-data.js'
 import {
   LINE_CHART_ID,
   DEFAULT_FILTER,
   ARIA_DISABLED,
-  CHART_STYLE_B,
-  CHART_STYLE_C,
   HISTORIC_DATA_ENDPOINT,
   THRESHOLD_CURRENT_LEVEL_ID,
   THRESHOLD_HIGHEST_LEVEL_ID,
@@ -29,7 +26,6 @@ import {
 } from './application-thresholds.js'
 import {
   setupDownloadCsvReverseTabHandler,
-  setupChartStyleRadioKeyboardSupport,
   updateDownloadCsvState,
   updateFilterButtonStates,
   setTimeFilterLinksTemporarilyDisabled,
@@ -56,7 +52,7 @@ async function fetchHistoricData(stationId) {
   return Array.isArray(payload?.readings) ? payload.readings : []
 }
 
-function renderStyleCChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdContext, renderOptions = {}) {
+function renderInteractiveChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdContext, renderOptions = {}) {
   const { thresholds, onThresholdDismiss, activeThresholdRef } = thresholdContext
   const preserveZoom = renderOptions.preserveZoom === true
 
@@ -116,7 +112,7 @@ function updateThresholdsOnly(chartContainer, thresholds, activeThresholdId, onT
   return true
 }
 
-function renderStyleCChartFlow(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdState, activeThresholdRef, renderOptions) {
+function renderChartFlow(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdState, activeThresholdRef, renderOptions) {
   const thresholdMetrics = getThresholdMetrics(mergedObserved)
   const thresholds = buildThresholds(thresholdMetrics, thresholdState)
   
@@ -131,7 +127,7 @@ function renderStyleCChartFlow(stationId, realtimeTelemetry, mergedObserved, cur
   updateThresholdControls(thresholdMetrics, thresholdState)
 
   if (renderOptions.thresholdsOnly !== true) {
-    renderStyleCChart(
+    renderInteractiveChart(
       stationId,
       realtimeTelemetry,
       mergedObserved,
@@ -144,24 +140,6 @@ function renderStyleCChartFlow(stationId, realtimeTelemetry, mergedObserved, cur
 
   const chartContainer = document.getElementById(LINE_CHART_ID)
   updateThresholdsOnly(chartContainer, thresholds, activeThresholdRef.value, onThresholdDismiss)
-}
-
-function renderFilteredChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, chartStyle) {
-  const filteredObserved = filterDataByTimeRange(mergedObserved, currentFilter)
-  const processedObserved = chartStyle === CHART_STYLE_B
-    ? downsampleForStyleB(filteredObserved, currentFilter)
-    : filteredObserved
-
-  const filteredTelemetry = {
-    ...realtimeTelemetry,
-    observed: processedObserved
-  }
-
-  updateTimeRangeLabel(currentFilter)
-  updateActiveButtonState(currentFilter)
-  updateDownloadCsvState(currentFilter)
-
-  lineChart(LINE_CHART_ID, stationId, filteredTelemetry, { timeRange: currentFilter })
 }
 
 function createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter, thresholdState, activeThresholdRef) {
@@ -185,14 +163,7 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
         ? mergeData(historicDataRef.data, realtimeObserved) || []
         : realtimeObserved || []
       
-      const chartStyle = globalThis.flood?.model?.chartStyle
-
-      if (chartStyle === CHART_STYLE_C) {
-        renderStyleCChartFlow(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdState, activeThresholdRef, renderOptions)
-        return
-      }
-
-      renderFilteredChart(stationId, realtimeTelemetry, mergedObserved, currentFilter.value, chartStyle)
+      renderChartFlow(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdState, activeThresholdRef, renderOptions)
     } finally {
       isRendering = false
     }
@@ -305,8 +276,6 @@ async function initializeChartApp() {
 }
 
 if (typeof document !== 'undefined' && typeof globalThis !== 'undefined') {
-  setupChartStyleRadioKeyboardSupport()
-
   const chartElement = document.getElementById(LINE_CHART_ID)
   if (chartElement && globalThis.flood?.model) {
     initializeChartApp().catch(error => {

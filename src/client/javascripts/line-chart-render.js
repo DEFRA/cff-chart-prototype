@@ -173,7 +173,7 @@ function appendPointGeometry(pointTargets, xScale, yScale, timeRange) {
       const value = `${d.value.toFixed(2)}m`
       const dateObj = new Date(d.dateTime)
       const time = timeFormat('%-I:%M%p')(dateObj).toLowerCase()
-      const includeYear = timeRange === '1y' || timeRange === '5y'
+      const includeYear = timeRange === '1y'
       const dateFormat = includeYear ? '%e %b %Y' : '%e %b'
       const date = timeFormat(dateFormat)(dateObj)
       select(this).text(`${value} at ${time}, ${date}`)
@@ -225,7 +225,7 @@ export function renderSignificantPoints(container, observedPoints, forecastPoint
       const value = `${d.value.toFixed(2)}m`
       const dateObj = new Date(d.dateTime)
       const time = timeFormat('%-I:%M%p')(dateObj).toLowerCase()
-      const includeYear = timeRange === '1y' || timeRange === '5y'
+      const includeYear = timeRange === '1y'
       const dateFormat = includeYear ? '%e %b %Y' : '%e %b'
       const date = timeFormat(dateFormat)(dateObj)
       return `${value} at ${time}, ${date}`

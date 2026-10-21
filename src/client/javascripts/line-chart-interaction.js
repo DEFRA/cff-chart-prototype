@@ -4,7 +4,7 @@ import { TOOLTIP_TEXT_HEIGHT_OFFSET, TOOLTIP_PATH_LENGTH, TOOLTIP_PATH_LENGTH_WI
 
 const THRESHOLD_DETECTION_TOLERANCE_PX = 12
 const TOUCH_EDGE_PAN_THRESHOLD_PX = 16
-const WIDE_TIME_RANGES = new Set(['6m', '1y', '3y', '5y'])
+const WIDE_TIME_RANGES = new Set(['6m', '1y', '3y'])
 const DATA_POINT_FOCUSABLE_SELECTOR = 'data-point-focusable'
 
 function getPathLength (timeRange) {
@@ -70,7 +70,7 @@ export function createTooltipManager (tooltipConfig) {
 
     const value = dataType === 'river' && (Math.round(dataPoint.value * 100) / 100) <= 0 ? '0' : dataPoint.value.toFixed(2)
     const dateObj = new Date(dataPoint.dateTime)
-    const includeYear = timeRange === '6m' || timeRange === '1y' || timeRange === '3y' || timeRange === '5y'
+    const includeYear = timeRange === '6m' || timeRange === '1y' || timeRange === '3y'
     const dateFormat = includeYear ? '%e %b %Y' : '%e %b'
 
     tooltipValue.text(`${value}m`)

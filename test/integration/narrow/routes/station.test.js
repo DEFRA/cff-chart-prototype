@@ -1,6 +1,7 @@
 import { describe, beforeAll, afterAll, test, expect, vi } from 'vitest'
 import { createServer } from '../../../../src/server.js'
 import { config } from '../../../../src/config/config.js'
+import { load } from 'cheerio'
 
 // Mock the flood-service to avoid external API calls
 vi.mock('../../../../src/lib/flood-service.js', () => ({
@@ -210,6 +211,21 @@ describe('Station route', () => {
     expect(result).toContain('line-chart')
     expect(result).toContain('defra-line-chart')
   }, 10000)
+
+  test.each(['', '&chartStyle=styleA', '&chartStyle=styleB'])('Should always render interactive chart controls for legacy query %s', async (legacyQuery) => {
+    const response = await server.inject({
+      method: 'GET',
+      url: `/station?stationId=3089${legacyQuery}`,
+      headers: { cookie: authCookie }
+    })
+
+    expect(response.statusCode).toBe(200)
+    const $ = load(response.payload)
+    expect($('.time-filter-link').map((_index, link) => $(link).attr('data-filter')).get()).toEqual(['5d', '6m', '1y', '3y'])
+    expect($('#zoom-control-buttons').length).toBe(1)
+    expect($('#chart-threshold-controls').length).toBe(1)
+    expect(response.payload).not.toContain('chartStyle')
+  })
 
   test('Should include historicData in model for station with pre-fetched data', async () => {
     const { result, statusCode } = await server.inject({
