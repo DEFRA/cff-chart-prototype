@@ -72,10 +72,10 @@ describe('line-chart-layout hideOverlappingTicks', () => {
 
     const timeLabel = select(timeNow)
 
-    hideOverlappingTicks(timeLabel, '5d')
+    hideOverlappingTicks(timeLabel)
     expect(tickTextB.style.display).toBe('none')
 
-    hideOverlappingTicks(timeLabel, '5d')
+    hideOverlappingTicks(timeLabel)
     expect(tickTextB.style.display).toBe('none')
     expect(tickTextA.style.display).not.toBe('none')
   })
@@ -88,13 +88,13 @@ describe('line-chart-layout hideOverlappingTicks', () => {
     timeNow.getBoundingClientRect = () => createRect(100, 40)
     tickTextB.getBoundingClientRect = () => createRect(112, 52)
 
-    hideOverlappingTicks(timeLabel, '5d')
+    hideOverlappingTicks(timeLabel)
     expect(tickTextB.style.display).toBe('none')
 
     timeNow.getBoundingClientRect = () => createRect(300, 40)
     tickTextB.getBoundingClientRect = () => createRect(112, 52)
 
-    hideOverlappingTicks(timeLabel, '5d')
+    hideOverlappingTicks(timeLabel)
     expect(tickTextB.style.display).not.toBe('none')
   })
 })

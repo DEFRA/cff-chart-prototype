@@ -32,82 +32,85 @@ function calculateMaxZoomScaleFromDomain (baseXScale) {
   return getBoundedMaxZoomScale(spanMs / MIN_ZOOM_WINDOW_MS)
 }
 
+function callIfFunction (fn, ...args) {
+  return typeof fn === 'function' ? fn(...args) : null
+}
+
+// Returns the locked state if the locked point is still within the visible chart,
+// otherwise releases the lock and returns null.
+function resolveVisibleLock (getLockedState, onAutoUnlock, xScale, width) {
+  const lockedState = callIfFunction(getLockedState)
+  if (!lockedState?.isLocked || !lockedState.dataPoint) {
+    return null
+  }
+
+  const lockedPixelX = xScale(new Date(lockedState.dataPoint.dateTime))
+  if (lockedPixelX < 0 || lockedPixelX > width) {
+    callIfFunction(onAutoUnlock)
+    return null
+  }
+
+  return lockedState
+}
+
+function createZoomYScale ({ createYScaleForRange, baseYScale, dataCache, height, timeRange }, lines) {
+  if (typeof createYScaleForRange === 'function') {
+    return createYScaleForRange(lines, dataCache.type, height, timeRange)
+  }
+
+  return baseYScale.copy().range([height, 0])
+}
+
 /**
  * Create zoom event handler
  */
 export function createZoomHandler (config) {
-  const { svg, baseXScale, baseYScale, width, height, timeRange, dataCache,
+  const { svg, baseXScale, width, height, timeRange, dataCache,
     significantContainer, timeLine, timeLabel, isMobile, tooltipManager, container,
     processData, renderAxes, renderGridLines, renderLines, renderSignificantPoints,
-    getTickConfigForRender, createYScaleForRange,
+    getTickConfigForRender,
     renderThresholds, updateTimeIndicator, hideOverlappingTicks,
     thresholds, onThresholdDismiss, onThresholdActivate, getActiveThresholdId, getLockedState, onAutoUnlock } = config
 
-  return (event, _lines) => {
-    const lockedState = typeof getLockedState === 'function' ? getLockedState() : null
+  return (event) => {
+    const { transform } = event
     // Only zoom/pan on X-axis (time dimension)
-    const newXScale = event.transform.rescaleX(baseXScale)
-    let isLocked = Boolean(lockedState?.isLocked && lockedState.dataPoint)
+    const newXScale = transform.rescaleX(baseXScale)
+    const lockedState = resolveVisibleLock(getLockedState, onAutoUnlock, newXScale, width)
 
-    if (isLocked) {
-      const lockedPixelX = newXScale(new Date(lockedState.dataPoint.dateTime))
-      if (lockedPixelX < 0 || lockedPixelX > width) {
-        isLocked = false
-        if (typeof onAutoUnlock === 'function') {
-          onAutoUnlock()
-        }
-      }
-    }
-
-    if (!isLocked) {
+    if (!lockedState) {
       tooltipManager.hide()
     }
 
-    // Get the transform
-    const transform = event.transform
-
     // Re-render with appropriate level of detail based on visible time window
-    const visibleDomain = newXScale.domain()
-    const processedData = processData(dataCache, visibleDomain, timeRange)
-    const newObservedPoints = processedData.observedPoints
-    const newForecastPoints = processedData.forecastPoints
-    const newLines = processedData.lines
-    const newYScale = typeof createYScaleForRange === 'function'
-      ? createYScaleForRange(newLines, dataCache.type, height, timeRange)
-      : baseYScale.copy().range([height, 0])
-    const tickConfig = typeof getTickConfigForRender === 'function'
-      ? getTickConfigForRender(newXScale, timeRange, width)
-      : null
+    const { observedPoints, forecastPoints, lines } = processData(dataCache, newXScale.domain(), timeRange)
+    const newYScale = createZoomYScale(config, lines)
+    const tickConfig = callIfFunction(getTickConfigForRender, newXScale, timeRange, width)
 
     // Re-render axes and chart elements
     renderAxes(svg, { xScale: newXScale, yScale: newYScale, width, height, timeRange, tickConfig })
     renderGridLines(svg, newXScale, newYScale, height, width, timeRange, tickConfig)
-    renderLines(svg, newObservedPoints, newForecastPoints, newXScale, newYScale, height, dataCache.type)
+    renderLines(svg, observedPoints, forecastPoints, newXScale, newYScale, height, dataCache.type)
     renderThresholds(
       svg.select('.thresholds'),
       width,
       newYScale,
       onThresholdDismiss,
       onThresholdActivate,
-      typeof getActiveThresholdId === 'function' ? getActiveThresholdId() : null,
+      callIfFunction(getActiveThresholdId),
       thresholds
     )
-    renderSignificantPoints(significantContainer, newObservedPoints, newForecastPoints, newXScale, newYScale, timeRange)
-    updateTimeIndicator(svg, timeLabel, timeLine, newXScale, height, isMobile, timeRange)
-    hideOverlappingTicks(timeLabel, timeRange)
+    renderSignificantPoints(significantContainer, observedPoints, forecastPoints, newXScale, newYScale, timeRange)
+    updateTimeIndicator(timeLabel, timeLine, newXScale, height, isMobile, timeRange)
+    hideOverlappingTicks(timeLabel)
 
-    if (isLocked) {
-      const { dataPoint } = lockedState
-      const chartY = newYScale(dataPoint.value)
-      tooltipManager.show(dataPoint, chartY, newXScale, newYScale, true)
+    if (lockedState) {
+      tooltipManager.show(lockedState.dataPoint, newXScale, newYScale, true)
     }
 
-    if (container.updateZoomControls) {
-      container.updateZoomControls(transform.k)
-    }
+    container.updateZoomControls?.(transform.k)
 
-    // Return updated state
-    return { xScale: newXScale, yScale: newYScale, lines: newLines, observedPoints: newObservedPoints, forecastPoints: newForecastPoints }
+    return { xScale: newXScale, yScale: newYScale, lines, observedPoints, forecastPoints }
   }
 }
 
@@ -132,13 +135,10 @@ export function setupZoomBehavior (config) {
 
       // For touch events, only allow multi-touch (2+ fingers) for zooming/panning.
       // Single touch (1 finger) is handled by interaction handlers for showing tooltip.
+      // All other events (including touchend/touchcancel) are allowed so d3-zoom can
+      // complete gesture lifecycles.
       if (event.type === 'touchstart' || event.type === 'touchmove') {
-        return event.touches && event.touches.length > 1
-      }
-
-      // Always allow end/cancel events so d3-zoom can complete gesture lifecycles.
-      if (event.type === 'touchend' || event.type === 'touchcancel') {
-        return true
+        return event.touches?.length > 1
       }
 
       return true

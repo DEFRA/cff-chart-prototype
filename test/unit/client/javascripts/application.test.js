@@ -175,7 +175,7 @@ describe('interactive chart rendering', () => {
     await vi.importActual('../../../../src/client/javascripts/application.js')
 
     const { lineChart: renderChart } = await import('../../../../src/client/javascripts/line-chart.js')
-    expect(renderChart).toHaveBeenLastCalledWith('line-chart', '3089', globalThis.flood.model.telemetry, expect.objectContaining({
+    expect(renderChart).toHaveBeenLastCalledWith('line-chart', globalThis.flood.model.telemetry, expect.objectContaining({
       timeRange: '5d',
       enableZoom: false,
       activeThresholdId: 'top-normal',
@@ -191,7 +191,7 @@ describe('interactive chart rendering', () => {
     document.querySelector('[data-filter="6m"]').click()
 
     const { lineChart: renderChart } = await import('../../../../src/client/javascripts/line-chart.js')
-    expect(renderChart).toHaveBeenLastCalledWith('line-chart', '3089', {
+    expect(renderChart).toHaveBeenLastCalledWith('line-chart', {
       observed: [...globalThis.flood.model.historicData, ...globalThis.flood.model.telemetry.observed]
     }, expect.objectContaining({ timeRange: '6m', enableZoom: true }))
     expect(document.querySelector('.defra-line-chart__control-row').style.display).toBe('')

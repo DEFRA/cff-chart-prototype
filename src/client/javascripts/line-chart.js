@@ -138,8 +138,8 @@ function renderChartComponents (config) {
 
   renderAxes(svg, { xScale: stateRef.xScale, yScale: stateRef.yScale, width: stateRef.width, height: stateRef.height, timeRange, tickConfig })
   renderGridLines(svg, stateRef.xScale, stateRef.yScale, stateRef.height, stateRef.width, timeRange, tickConfig)
-  updateTimeIndicator(svg, svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current, timeRange)
-  hideOverlappingTicks(svgElements.timeLabel, timeRange)
+  updateTimeIndicator(svgElements.timeLabel, svgElements.timeLine, stateRef.xScale, stateRef.height, isMobileRef.current, timeRange)
+  hideOverlappingTicks(svgElements.timeLabel)
   renderLines(svg, stateRef.observedPoints, stateRef.forecastPoints, stateRef.xScale, stateRef.yScale, stateRef.height, dataCache.type)
   renderThresholds(
     svgElements.thresholdsContainer,
@@ -175,7 +175,7 @@ function createChartRenderer (config) {
     const activateThreshold = createActivateThresholdHandler(stateRef, () => render(visibleDomain))
     const dismissThreshold = createThresholdDismissHandler(stateRef)
 
-    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH)
+    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH, timeRange)
     const effectiveVisibleDomain = visibleDomain || xExtentNew
 
     const processedData = processData(dataCache, effectiveVisibleDomain, timeRange)
@@ -337,7 +337,7 @@ function initializeZoomIfEnabled (context, container, tooltipManager) {
   })
 }
 
-export function lineChart (containerId, _stationId, data, _options = {}) {
+export function lineChart (containerId, data, options = {}) {
   const container = document.getElementById(containerId)
 
   if (!container) {
@@ -350,7 +350,7 @@ export function lineChart (containerId, _stationId, data, _options = {}) {
     return null
   }
 
-  const context = setupChartContext(containerId, data, _options)
+  const context = setupChartContext(containerId, data, options)
   const renderChart = createChartRenderer({
     container,
     svg: context.svg,

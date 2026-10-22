@@ -63,7 +63,7 @@ export function createTooltipManager (tooltipConfig) {
     locator.select('.locator-point').attr('transform', `translate(0,${locatorY})`)
   }
 
-  function show (dataPoint, tooltipY, xScaleFunc, yScaleFunc, isLocked = false) {
+  function show (dataPoint, xScaleFunc, yScaleFunc, isLocked = false) {
     if (!dataPoint) {
       return
     }
@@ -204,34 +204,32 @@ function focusActivePointTarget (svgNode) {
   return focusElementAndReveal(fallbackPoint)
 }
 
+const ARROW_KEY_STEPS = { ArrowLeft: -1, ArrowRight: 1 }
+
+function getAdjacentPointTarget (svgNode, target, step) {
+  const pointTargets = Array.from(svgNode.querySelectorAll(`[${DATA_POINT_FOCUSABLE_SELECTOR}]`))
+  const currentIndex = pointTargets.indexOf(target)
+  if (currentIndex === -1) {
+    return null
+  }
+
+  return pointTargets[currentIndex + step] ?? null
+}
+
 function createPointArrowNavigationHandler (svgNode) {
   return (event) => {
     const { key, target } = event
-    if (key !== 'ArrowLeft' && key !== 'ArrowRight') {
+    const step = ARROW_KEY_STEPS[key]
+    if (!step || !target?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
       return
     }
 
-    if (!target?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
-      return
-    }
-
-    const pointTargets = Array.from(svgNode.querySelectorAll(`[${DATA_POINT_FOCUSABLE_SELECTOR}]`))
-    if (!pointTargets.length) {
-      return
-    }
-
-    const currentIndex = pointTargets.indexOf(target)
-    if (currentIndex === -1) {
-      return
-    }
-
-    const nextIndex = key === 'ArrowRight' ? currentIndex + 1 : currentIndex - 1
-    if (nextIndex < 0 || nextIndex >= pointTargets.length) {
+    const nextTarget = getAdjacentPointTarget(svgNode, target, step)
+    if (!nextTarget) {
       return
     }
 
     event.preventDefault()
-    const nextTarget = pointTargets[nextIndex]
     target.setAttribute('tabindex', -1)
     nextTarget.setAttribute('tabindex', 0)
     focusElementAndReveal(nextTarget)
@@ -256,9 +254,23 @@ function createThresholdTabForwardHandler (svgNode) {
   }
 }
 
-function attachEventListeners (svgNode, container, eventConfig) {
-  const { handleClick, handleMouseMove, handleTouchMove, handlePointFocus, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef, lockedRef } = eventConfig
+function hideSignificantPointsOnPointBlur (svgNode) {
+  return (event) => {
+    const focusTarget = event.target
+    if (!focusTarget?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
+      return
+    }
 
+    const nextFocused = event.relatedTarget
+    if (nextFocused?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
+      return
+    }
+
+    hideSignificantPoints(svgNode)
+  }
+}
+
+function attachFocusAndKeyboardListeners (svgNode, handlePointFocus) {
   const handlePointArrowNavigation = createPointArrowNavigationHandler(svgNode)
   const handleThresholdTabForward = createThresholdTabForwardHandler(svgNode)
 
@@ -281,11 +293,7 @@ function attachEventListeners (svgNode, container, eventConfig) {
   }
 
   const handleTabExitFromSvg = (event) => {
-    if (event.key !== 'Tab') {
-      return
-    }
-
-    if (!svgNode.contains(event.target)) {
+    if (event.key !== 'Tab' || !svgNode.contains(event.target)) {
       return
     }
 
@@ -296,6 +304,21 @@ function attachEventListeners (svgNode, container, eventConfig) {
       }
     }, 0)
   }
+
+  svgNode.addEventListener('focusin', handlePointFocus)
+  svgNode.addEventListener('focusout', handleSvgFocusOut)
+  svgNode.addEventListener('focusout', hideSignificantPointsOnPointBlur(svgNode))
+  svgNode.addEventListener('keydown', handlePointArrowNavigation)
+  svgNode.addEventListener('keydown', handleThresholdTabForward, true)
+
+  // Fallback: some browsers report SVG focus targets inconsistently, so capture at document level.
+  document.addEventListener('keydown', handleThresholdTabForward, true)
+  document.addEventListener('focusin', handleDocumentFocusIn, true)
+  document.addEventListener('keydown', handleTabExitFromSvg, true)
+}
+
+function attachEventListeners (svgNode, container, eventConfig) {
+  const { handleClick, handleMouseMove, handleTouchMove, handlePointFocus, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef, lockedRef } = eventConfig
 
   svgNode.addEventListener('click', handleClick)
   svgNode.addEventListener('click', () => { hideSignificantPoints(svgNode) })
@@ -309,28 +332,9 @@ function attachEventListeners (svgNode, container, eventConfig) {
   })
   svgNode.addEventListener('touchmove', handleTouchMove, { passive: false })
   svgNode.addEventListener('touchend', () => { interfaceTypeRef.value = null })
-  svgNode.addEventListener('focusin', handlePointFocus)
-  svgNode.addEventListener('focusout', handleSvgFocusOut)
-  svgNode.addEventListener('focusout', (event) => {
-    const focusTarget = event.target
-    if (!focusTarget?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
-      return
-    }
 
-    const nextFocused = event.relatedTarget
-    if (nextFocused?.hasAttribute?.(DATA_POINT_FOCUSABLE_SELECTOR)) {
-      return
-    }
+  attachFocusAndKeyboardListeners(svgNode, handlePointFocus)
 
-    hideSignificantPoints(svgNode)
-  })
-  svgNode.addEventListener('keydown', handlePointArrowNavigation)
-  svgNode.addEventListener('keydown', handleThresholdTabForward, true)
-
-  // Fallback: some browsers report SVG focus targets inconsistently, so capture at document level.
-  document.addEventListener('keydown', handleThresholdTabForward, true)
-  document.addEventListener('focusin', handleDocumentFocusIn, true)
-  document.addEventListener('keydown', handleTabExitFromSvg, true)
   container.addEventListener('mouseleave', () => {
     if (lockedRef.value) {
       return
@@ -364,17 +368,15 @@ function createPointFocusHandler (getState, tooltipManager) {
       return
     }
 
-    tooltipManager.show(dataPoint, yScale(dataPoint.value), xScale, yScale)
+    tooltipManager.show(dataPoint, xScale, yScale)
   }
 }
 
-export function setupEventHandlers (container, svg, getState, tooltipManager, onThresholdLineHover, onLockChange) {
-  const interfaceTypeRef = { value: null }
-  const hoveredThresholdIdRef = { value: null }
-  const lockedRef = { value: false }
+function createMouseMoveHandler (ctx) {
+  const { svg, getState, tooltipManager, onThresholdLineHover, interfaceTypeRef, hoveredThresholdIdRef, lockedRef } = ctx
   let lastClientX, lastClientY
 
-  const handleMouseMove = (e) => {
+  return (e) => {
     if (lastClientX === e.clientX && lastClientY === e.clientY) {
       return
     }
@@ -401,61 +403,77 @@ export function setupEventHandlers (container, svg, getState, tooltipManager, on
     const chartX = mouseX - margin.left
     const chartY = mouseY - margin.top
     const dataPoint = findDataPointByX(chartX, lines, xScale)
-    tooltipManager.show(dataPoint, chartY, xScale, yScale)
+    tooltipManager.show(dataPoint, xScale, yScale)
     updateThresholdHover(chartY, yScale, thresholds, hoveredThresholdIdRef, onThresholdLineHover)
   }
-  const handleClick = (e) => {
+}
+
+function createClickHandler (ctx) {
+  const { svg, getState, tooltipManager, onLockChange, lockedRef } = ctx
+
+  return (e) => {
     const { margin, lines, xScale, yScale } = getState()
-    const [mouseX, mouseY] = getMousePosition(e, svg.node())
+    const [mouseX] = getMousePosition(e, svg.node())
     const chartX = mouseX - margin.left
-    const chartY = mouseY - margin.top
     const dataPoint = findDataPointByX(chartX, lines, xScale)
     lockedRef.value = !lockedRef.value
-    tooltipManager.show(dataPoint, chartY, xScale, yScale, lockedRef.value)
+    tooltipManager.show(dataPoint, xScale, yScale, lockedRef.value)
 
     if (typeof onLockChange === 'function') {
       onLockChange(lockedRef.value, lockedRef.value ? chartX : null, lockedRef.value ? dataPoint : null)
     }
   }
-  const handleTouchMove = (e) => {
+}
+
+function createTouchMoveHandler (ctx) {
+  const { container, svg, getState, tooltipManager } = ctx
+
+  return (e) => {
     if (e.touches?.length !== 1) {
       return
     }
 
     e.preventDefault()
-    let { margin, lines, xScale, yScale } = getState()
+    const { margin, xScale } = getState()
     if (!xScale) {
       return
     }
 
-    const touchEvent = e.touches[0]
-    const [mouseX, mouseY] = getMousePosition(touchEvent, svg.node())
-    let chartX = mouseX - margin.left
-    const chartY = mouseY - margin.top
+    const [mouseX] = getMousePosition(e.touches[0], svg.node())
     const chartWidth = Array.isArray(xScale.range()) ? xScale.range()[1] : null
+    handleTouchPan(mouseX - margin.left, chartWidth, container)
 
-    handleTouchPan(chartX, chartWidth, container)
     // Refresh state after pan; xScale may have updated
-    const updatedState = getState();
-    ({ margin, lines, xScale, yScale } = updatedState)
-    chartX = mouseX - margin.left
-
-    const dataPoint = findDataPointByX(chartX, lines, xScale)
-    tooltipManager.show(dataPoint, chartY, xScale, yScale)
+    const updatedState = getState()
+    const chartX = mouseX - updatedState.margin.left
+    const dataPoint = findDataPointByX(chartX, updatedState.lines, updatedState.xScale)
+    tooltipManager.show(dataPoint, updatedState.xScale, updatedState.yScale)
   }
+}
 
-  const handlePointFocus = createPointFocusHandler(getState, tooltipManager)
-
-  const svgNode = svg.node()
-  attachEventListeners(svgNode, container, {
-    handleClick,
-    handleMouseMove,
-    handleTouchMove,
-    handlePointFocus,
+export function setupEventHandlers (container, svg, getState, tooltipManager, onThresholdLineHover, onLockChange) {
+  const ctx = {
+    container,
+    svg,
+    getState,
     tooltipManager,
     onThresholdLineHover,
-    interfaceTypeRef,
-    hoveredThresholdIdRef,
+    onLockChange,
+    interfaceTypeRef: { value: null },
+    hoveredThresholdIdRef: { value: null },
+    lockedRef: { value: false }
+  }
+  const { lockedRef } = ctx
+
+  attachEventListeners(svg.node(), container, {
+    handleClick: createClickHandler(ctx),
+    handleMouseMove: createMouseMoveHandler(ctx),
+    handleTouchMove: createTouchMoveHandler(ctx),
+    handlePointFocus: createPointFocusHandler(getState, tooltipManager),
+    tooltipManager,
+    onThresholdLineHover,
+    interfaceTypeRef: ctx.interfaceTypeRef,
+    hoveredThresholdIdRef: ctx.hoveredThresholdIdRef,
     lockedRef
   })
 
