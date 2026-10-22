@@ -60,12 +60,17 @@ export function calculateYScaleDomain(lines, dataType, rangeBufferDivisor = RANG
   }
 }
 
-export function createXScale(observed, forecast, width) {
+export function createXScale(observed, forecast, width, timeRange = '5d') {
   const xExtent = extent(observed.concat(forecast), (d) => new Date(d.dateTime))
   const now = new Date()
-  const latestTime = Math.max(xExtent[1].getTime(), now.getTime())
-  const timeRange = latestTime - xExtent[0].getTime()
-  const paddedMax = new Date(latestTime + (timeRange * TIME_RANGE_PADDING))
+  let paddedMax = now
+
+  // Only the 5 day chart leaves room on the right for the forecast
+  if (timeRange === '5d') {
+    const latestTime = Math.max(xExtent[1].getTime(), now.getTime())
+    const span = latestTime - xExtent[0].getTime()
+    paddedMax = new Date(latestTime + (span * TIME_RANGE_PADDING))
+  }
 
   const scale = scaleTime().domain([xExtent[0], paddedMax]).range([0, width])
 

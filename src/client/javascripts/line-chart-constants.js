@@ -34,7 +34,7 @@ export const DEFAULT_TOOLTIP_Y = 10
 
 export const MARGIN_TOP = 20
 export const MARGIN_BOTTOM = 45
-export const MARGIN_LEFT = 15
+export const MARGIN_LEFT = 0
 export const MOBILE_MARGIN_RIGHT_BASE = 15
 export const DESKTOP_MARGIN_RIGHT_BASE = 36
 export const MARGIN_CHAR_MULTIPLIER = 9

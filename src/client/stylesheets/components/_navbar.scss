@@ -121,12 +121,12 @@
     }
 
     .defra-navbar__item a {
-      color: govuk.govuk-colour("black");
+      color: govuk.$govuk-link-colour;
       text-decoration: underline;
       padding: 7px 6px;
 
       &:visited {
-        color: govuk.govuk-colour("black");
+        color: govuk.$govuk-link-colour;
       }
 
       &:hover {
@@ -144,7 +144,7 @@
 
       &:not([keyboard-focus]):focus {
         background-color: white;
-        color: govuk.govuk-colour("black");
+        color: govuk.$govuk-link-colour;
         box-shadow: none;
       }
 
@@ -154,6 +154,7 @@
         vertical-align: middle;
 
         svg {
+          fill: currentColor;
           margin-right: 6px;
           margin-bottom: -4px;
         }

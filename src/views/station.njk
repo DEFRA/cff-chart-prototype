@@ -62,7 +62,7 @@
             <ul class="defra-navbar__list">
               <li class="defra-navbar__item" id="map-live"></li>
               <li class="defra-navbar__item">
-                <a href="/river-and-sea-levels/rloi/{{ station.rloiId }}">Nearby levels</a>
+                <a href="/river-and-sea-levels/rloi/{{ station.rloiId }}" class="govuk-link govuk-link--no-visited-state">Nearby levels</a>
               </li>
             </ul>
           </div>
@@ -76,12 +76,12 @@
     <div class="govuk-grid-row">
       <div class="govuk-grid-column-full">
         <div class="defra-flood-statistics">
-          <div class="govuk-!-margin-top-4" data-toggletip data-toggletip-label="More information" data-toggletip-content="We get readings more often as the risk of flooding increases.">
+          <div data-toggletip data-toggletip-label="More information" data-toggletip-content="We get readings more often as the risk of flooding increases.">
             <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
           Latest at {{ station.recentValue.formattedTime }} on {{ station.recentValue.latestDayFormatted }}
             </h2>
           </div>
-          <dl class="defra-flood-statistics__list" aria-label="Latest readings">
+          <dl class="defra-flood-statistics__list govuk-!-margin-top-4" aria-label="Latest readings">
             <div class="defra-flood-statistics__item">
               <dt class="defra-flood-statistics__key">Height</dt>
               <dd class="defra-flood-statistics__value">

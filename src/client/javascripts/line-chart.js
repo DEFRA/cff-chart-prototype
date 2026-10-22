@@ -175,7 +175,7 @@ function createChartRenderer (config) {
     const activateThreshold = createActivateThresholdHandler(stateRef, () => render(visibleDomain))
     const dismissThreshold = createThresholdDismissHandler(stateRef)
 
-    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH)
+    const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH, timeRange)
     const effectiveVisibleDomain = visibleDomain || xExtentNew
 
     const processedData = processData(dataCache, effectiveVisibleDomain, timeRange)
