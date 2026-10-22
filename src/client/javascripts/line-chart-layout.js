@@ -54,15 +54,17 @@ const FINAL_HISTORIC_ZOOM_THRESHOLD_DAYS = 6.5
 const DAY_ALIGNED_RANGES = new Set([SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE])
 const DAY_CADENCE_HOUR = DISPLAYED_HOUR_ON_X_AXIS
 
-function isNowVisibleInExtent (xExtent, timeRange, nowMs = Date.now()) {
+function isNowVisibleInExtent (xExtent, timeRange, width, nowMs = Date.now()) {
   if (!TIME_INDICATOR_RANGES.includes(timeRange)) {
     return false
   }
 
   const minTime = xExtent[0].getTime()
   const maxTime = xExtent[1].getTime()
+  // Historic domains end at "now", so allow one pixel of slack to match updateTimeIndicator's floored position
+  const onePixelMs = width > 0 ? (maxTime - minTime) / width : 0
 
-  return nowMs >= minTime && nowMs <= maxTime
+  return nowMs >= minTime && nowMs <= maxTime + onePixelMs
 }
 
 function getFiveDayTicksWithTodayEnd (xExtent, nowMs = Date.now()) {
@@ -164,7 +166,7 @@ function getFixedHourCadenceTicks (xExtent, targetTickCount = FIXED_X_TICK_COUNT
   return ticks.slice(0, targetTickCount)
 }
 
-function calculateTickInterval (xExtent, timeRange, _width, nowMs = Date.now()) {
+function calculateTickInterval (xExtent, timeRange, width, nowMs = Date.now()) {
   const labelMode = getLabelModeForExtent(timeRange, xExtent)
   const visibleDurationDays = getVisibleDurationDays(xExtent)
   const isNearFullFiveDayView = timeRange === FIVE_DAY_RANGE && visibleDurationDays >= FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD
@@ -175,7 +177,7 @@ function calculateTickInterval (xExtent, timeRange, _width, nowMs = Date.now()) 
 
   // Historic ranges always show the same number of labels, so generate an extra
   // tick whenever the rightmost one is hidden by the live "now" indicator.
-  const hidesRightmostTick = isNowVisibleInExtent(xExtent, timeRange, nowMs)
+  const hidesRightmostTick = isNowVisibleInExtent(xExtent, timeRange, width, nowMs)
   const historicTickCount = HISTORIC_VISIBLE_TICK_COUNT + (hidesRightmostTick ? 1 : 0)
 
   const configFactories = {
@@ -187,29 +189,23 @@ function calculateTickInterval (xExtent, timeRange, _width, nowMs = Date.now()) 
       removeLastNTicks: 1,
       hideFirstTickLabel: false
     }),
-    [ONE_MONTH_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
-      labelMode,
-      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
-      hideFirstTickLabel: false
-    }),
     [SIX_MONTH_RANGE]: () => ({
       tickValues: generateFixedTickValues(xExtent, historicTickCount),
       labelMode,
       removeLastNTicks: 1,
-      hideFirstTickLabel: true
+      hideFirstTickLabel: false
     }),
     [ONE_YEAR_RANGE]: () => ({
       tickValues: generateFixedTickValues(xExtent, historicTickCount),
       labelMode,
       removeLastNTicks: 1,
-      hideFirstTickLabel: true
+      hideFirstTickLabel: false
     }),
     [THREE_YEAR_RANGE]: () => ({
       tickValues: generateFixedTickValues(xExtent, historicTickCount),
       labelMode,
       removeLastNTicks: 1,
-      hideFirstTickLabel: true
+      hideFirstTickLabel: false
     })
   }
 
