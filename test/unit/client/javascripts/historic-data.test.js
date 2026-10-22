@@ -2,8 +2,7 @@ import { describe, test, expect } from 'vitest'
 import {
   mergeData,
   filterDataByTimeRange,
-  getTimeRangeLabel,
-  downsampleForStyleB
+  getTimeRangeLabel
 } from '../../../../src/client/javascripts/historic-data.js'
 
 // Test constants
@@ -95,8 +94,8 @@ describe('Historic Data Management', () => {
       })).toBe(true)
     })
 
-    test('should filter data to last month', () => {
-      const result = filterDataByTimeRange(data, '1m')
+    test('should filter data to last 6 months', () => {
+      const result = filterDataByTimeRange(data, '6m')
 
       expect(result).toHaveLength(EXPECTED_ARRAY_LENGTH_3)
     })
@@ -136,106 +135,4 @@ describe('Historic Data Management', () => {
     })
   })
 
-  describe('downsampleForStyleB', () => {
-    const createDataPoint = (dateTime, value) => ({ dateTime, value })
-
-    test('should return all data for 5d range (no downsampling)', () => {
-      const data = [
-        createDataPoint('2024-01-15T10:00:00', 1.5),
-        createDataPoint('2024-01-15T10:15:00', 1.6),
-        createDataPoint('2024-01-15T10:30:00', 1.7),
-        createDataPoint('2024-01-15T10:45:00', 1.8)
-      ]
-      const result = downsampleForStyleB(data, '5d')
-      expect(result).toEqual(data)
-    })
-
-    test('should return all data for 1m range (no downsampling)', () => {
-      const data = [
-        createDataPoint('2024-01-15T10:00:00', 1.5),
-        createDataPoint('2024-01-15T10:15:00', 1.6),
-        createDataPoint('2024-01-15T10:30:00', 1.7),
-        createDataPoint('2024-01-15T10:45:00', 1.8)
-      ]
-      const result = downsampleForStyleB(data, '1m')
-      expect(result).toEqual(data)
-    })
-
-    test('should downsample to 30-minute intervals for 6m range', () => {
-      const data = [
-        createDataPoint('2024-01-15T10:00:00', 1.0),
-        createDataPoint('2024-01-15T10:15:00', 1.1),
-        createDataPoint('2024-01-15T10:30:00', 1.2),
-        createDataPoint('2024-01-15T10:45:00', 1.3),
-        createDataPoint('2024-01-15T11:00:00', 2.0),
-        createDataPoint('2024-01-15T11:15:00', 2.1),
-        createDataPoint('2024-01-15T11:30:00', 2.2),
-        createDataPoint('2024-01-15T12:00:00', 3.0)
-      ]
-      const result = downsampleForStyleB(data, '6m')
-      expect(result).toHaveLength(5)
-      expect(result[0].dateTime).toBe('2024-01-15T10:00:00')
-      expect(result[1].dateTime).toBe('2024-01-15T10:30:00')
-      expect(result[2].dateTime).toBe('2024-01-15T11:00:00')
-      expect(result[3].dateTime).toBe('2024-01-15T11:30:00')
-      expect(result[4].dateTime).toBe('2024-01-15T12:00:00')
-    })
-
-    test('should downsample to 30-minute intervals for 1y range', () => {
-      const data = [
-        createDataPoint('2024-01-15T00:00:00', 1.0),
-        createDataPoint('2024-01-15T00:15:00', 1.1),
-        createDataPoint('2024-01-15T00:30:00', 2.0),
-        createDataPoint('2024-01-15T00:45:00', 2.1),
-        createDataPoint('2024-01-15T01:00:00', 3.0),
-        createDataPoint('2024-01-15T01:30:00', 4.0)
-      ]
-      const result = downsampleForStyleB(data, '1y')
-      expect(result).toHaveLength(4)
-      expect(result[0].dateTime).toBe('2024-01-15T00:00:00')
-      expect(result[1].dateTime).toBe('2024-01-15T00:30:00')
-      expect(result[2].dateTime).toBe('2024-01-15T01:00:00')
-      expect(result[3].dateTime).toBe('2024-01-15T01:30:00')
-    })
-
-    test('should downsample to weekly max for 5y range', () => {
-      const data = [
-        createDataPoint('2024-01-14T10:00:00', 1.5), // Sunday week 1
-        createDataPoint('2024-01-15T14:00:00', 2.5), // Monday week 1 - max
-        createDataPoint('2024-01-16T18:00:00', 2.0), // Tuesday week 1
-        createDataPoint('2024-01-21T10:00:00', 3.0), // Sunday week 2
-        createDataPoint('2024-01-22T14:00:00', 3.5), // Monday week 2 - max
-        createDataPoint('2024-01-28T10:00:00', 1.0)  // Sunday week 3
-      ]
-      const result = downsampleForStyleB(data, '5y')
-      // Should have 3 weeks, one max value per week
-      expect(result).toHaveLength(3)
-      // Week starting Jan 14: max is 2.5
-      expect(result[0].value).toBe(2.5)
-      // Week starting Jan 21: max is 3.5
-      expect(result[1].value).toBe(3.5)
-      // Week starting Jan 28: max is 1.0
-      expect(result[2].value).toBe(1.0)
-    })
-
-    test('should handle empty array', () => {
-      const result = downsampleForStyleB([], '6m')
-      expect(result).toEqual([])
-    })
-
-    test('should handle single data point', () => {
-      const data = [createDataPoint('2024-01-15T10:00:00', 1.5)]
-      const result = downsampleForStyleB(data, '6m')
-      expect(result).toEqual(data)
-    })
-
-    test('should handle unknown range by returning original data', () => {
-      const data = [
-        createDataPoint('2024-01-15T10:00:00', 1.5),
-        createDataPoint('2024-01-15T10:15:00', 1.6)
-      ]
-      const result = downsampleForStyleB(data, 'unknown')
-      expect(result).toEqual(data)
-    })
-  })
 })

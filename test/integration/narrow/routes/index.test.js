@@ -1,6 +1,7 @@
 import { describe, beforeAll, afterAll, test, expect } from 'vitest'
 import { createServer } from '../../../../src/server.js'
 import { config } from '../../../../src/config/config.js'
+import { load } from 'cheerio'
 
 describe('Index route', () => {
   let server
@@ -34,7 +35,7 @@ describe('Index route', () => {
   })
 
   test('Should render the index page for authenticated users and return status code 200', async () => {
-    const { statusCode, headers } = await server.inject({
+    const { statusCode, headers, payload } = await server.inject({
       method: 'GET',
       url: '/',
       headers: {
@@ -44,5 +45,26 @@ describe('Index route', () => {
 
     expect(statusCode).toBe(200)
     expect(headers['content-type']).toContain('text/html')
+    const $ = load(payload)
+    expect($('form[action="/station"] input').map((_index, input) => $(input).attr('name')).get()).toEqual(['stationId'])
+    expect(payload).not.toContain('Chart style')
+  })
+
+  test.each([
+    [{ stationId: ' 7041 ' }, '/station?stationId=7041'],
+    [{ stationId: '' }, '/station'],
+    [{ stationId: '   ' }, '/station'],
+    [{}, '/station'],
+    [{ stationId: '3089', chartStyle: 'styleB' }, '/station?stationId=3089']
+  ])('Should redirect using only the station ID from %j', async (payload, location) => {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/station',
+      headers: { cookie: authCookie },
+      payload
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(location)
   })
 })

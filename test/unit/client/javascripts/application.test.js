@@ -133,56 +133,67 @@ describe('time filter state with historic data availability', () => {
   })
 })
 
-describe('splash page chart style radio keyboard support', () => {
+describe('interactive chart rendering', () => {
   let previousDocument
   let previousWindow
+  let previousFlood
 
   beforeEach(() => {
     previousDocument = globalThis.document
     previousWindow = globalThis.window
+    previousFlood = globalThis.flood
 
     const dom = new JSDOM(`
       <body>
-        <form>
-          <input type="radio" id="chart-style-a" name="chartStyle" value="styleA" checked>
-          <input type="radio" id="chart-style-b" name="chartStyle" value="styleB">
-          <input type="radio" id="chart-style-c" name="chartStyle" value="styleC">
-        </form>
+        <div id="line-chart"></div>
+        <div class="defra-line-chart__control-row"></div>
+        <a class="time-filter-link" data-filter="5d" href="#line-chart">5 days</a>
+        <a class="time-filter-link" data-filter="6m" href="#line-chart">6 months</a>
+        <input id="threshold-top-normal" type="checkbox" checked>
       </body>
     `)
 
     globalThis.window = dom.window
     globalThis.document = dom.window.document
+    globalThis.flood = {
+      model: {
+        id: '3089',
+        telemetry: { observed: [{ dateTime: new Date().toISOString(), value: 1.1 }] },
+        historicData: [{ dateTime: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), value: 1.2 }]
+      }
+    }
   })
 
   afterEach(() => {
     globalThis.document = previousDocument
     globalThis.window = previousWindow
+    globalThis.flood = previousFlood
   })
 
-  test('makes each chart style radio tabbable', async () => {
+  test('renders the interactive chart and thresholds without a style selection', async () => {
     vi.resetModules()
     await vi.importActual('../../../../src/client/javascripts/application.js')
 
-    const radios = document.querySelectorAll('input[type="radio"][name="chartStyle"]')
-    radios.forEach(radio => {
-      expect(radio.getAttribute('tabindex')).toBe('0')
-    })
+    const { lineChart: renderChart } = await import('../../../../src/client/javascripts/line-chart.js')
+    expect(renderChart).toHaveBeenLastCalledWith('line-chart', '3089', globalThis.flood.model.telemetry, expect.objectContaining({
+      timeRange: '5d',
+      enableZoom: false,
+      activeThresholdId: 'top-normal',
+      thresholds: expect.arrayContaining([expect.objectContaining({ id: 'top-normal' })])
+    }))
+    expect(document.querySelector('.defra-line-chart__control-row').style.display).toBe('none')
   })
 
-  test('selects focused chart style radio on Enter', async () => {
+  test('enables zoom and merges historic data for longer time ranges', async () => {
     vi.resetModules()
     await vi.importActual('../../../../src/client/javascripts/application.js')
 
-    const styleARadio = document.getElementById('chart-style-a')
-    const styleBRadio = document.getElementById('chart-style-b')
+    document.querySelector('[data-filter="6m"]').click()
 
-    expect(styleARadio.checked).toBe(true)
-    expect(styleBRadio.checked).toBe(false)
-
-    styleBRadio.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-
-    expect(styleARadio.checked).toBe(false)
-    expect(styleBRadio.checked).toBe(true)
+    const { lineChart: renderChart } = await import('../../../../src/client/javascripts/line-chart.js')
+    expect(renderChart).toHaveBeenLastCalledWith('line-chart', '3089', {
+      observed: [...globalThis.flood.model.historicData, ...globalThis.flood.model.telemetry.observed]
+    }, expect.objectContaining({ timeRange: '6m', enableZoom: true }))
+    expect(document.querySelector('.defra-line-chart__control-row').style.display).toBe('')
   })
 })
