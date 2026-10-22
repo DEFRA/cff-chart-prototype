@@ -172,6 +172,12 @@
       }
     }
 
+    .y.grid path {
+      stroke: rgba(govuk.$govuk-text-colour, 0.1);
+      stroke-width: 1;
+      shape-rendering: crispEdges;
+    }
+
     .axis {
       line {
         color: govuk.$govuk-border-colour;
