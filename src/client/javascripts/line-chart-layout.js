@@ -187,12 +187,6 @@ function calculateTickInterval (xExtent, timeRange, _width, nowMs = Date.now()) 
       removeLastNTicks: 1,
       hideFirstTickLabel: false
     }),
-    [ONE_MONTH_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
-      labelMode,
-      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
-      hideFirstTickLabel: false
-    }),
     [SIX_MONTH_RANGE]: () => ({
       tickValues: generateFixedTickValues(xExtent, historicTickCount),
       labelMode,
