@@ -131,30 +131,6 @@
           Height in metres over the <span id="chart-time-range">last 5 days</span>
         </h2>
         
-        {% if chartStyle === 'styleB' %}
-        {# Time filter links #}
-        <nav id="time-filter-nav" class="defra-line-chart__time-filters" aria-label="Chart time ranges">
-          <ul class="defra-line-chart__time-filters-list govuk-list">
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link time-filter-link--active" data-filter="5d" aria-current="page">5 days</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1m">1 month</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="6m">6 months</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="1y">1 year</a>
-            </li>
-            <li>
-              <a href="#line-chart" class="govuk-link time-filter-link" data-filter="5y">5 years</a>
-            </li>
-          </ul>
-        </nav>
-        {% endif %}
-
-        {% if chartStyle === 'styleC' %}
         {# Time filter links for interactive timeline #}
         <nav id="time-filter-nav" class="defra-line-chart__time-filters" aria-label="Chart time ranges">
           <ul class="defra-line-chart__time-filters-list govuk-list">
@@ -172,7 +148,6 @@
             </li>
           </ul>
         </nav>
-        {% endif %}
         
       </div>
 
@@ -180,7 +155,6 @@
       <div id="line-chart" class="defra-line-chart__container">
       </div>
 
-      {% if chartStyle === 'styleC' %}
       {# Zoom control buttons aligned like service prototype #}
       <div class="defra-line-chart__control-row" style="display: none;">
         <div id="zoom-control-buttons">
@@ -219,13 +193,11 @@
           </button>
         </div>
       </div>
-      {% endif %}
 
       <div class="defra-line-chart__actions govuk-!-margin-bottom-4">
         <a href="/station-csv/{{ station.id }}" id="download-csv-btn">Download latest 5 days of data (CSV 16KB)</a>
       </div>
 
-      {% if chartStyle === 'styleC' %}
       <h2 class="govuk-heading-s govuk-!-margin-bottom-1">How levels here could affect nearby areas</h2>
       <div class="defra-line-chart__threshold-controls" id="chart-threshold-controls" aria-label="Chart reference lines">
         <div class="govuk-checkboxes govuk-checkboxes--small">
@@ -249,7 +221,6 @@
           </div>
         </div>
       </div>
-      {% endif %}
 
     </div>
   </div>
@@ -356,7 +327,6 @@
       stationId: '{{ station.id }}',
       telemetry: {{ telemetry | dump | safe }},
       chartThreshold: [],
-      chartStyle: '{{ chartStyle }}',
       historicData: {{ historicData | dump | safe }},
       historicDataAvailable: {{ historicDataAvailable | dump | safe }},
       typicalRangeHigh: {{ station.typicalRangeHigh | dump | safe }}

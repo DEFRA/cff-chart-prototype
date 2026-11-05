@@ -39,39 +39,6 @@ export function setupDownloadCsvReverseTabHandler() {
   })
 }
 
-export function setupChartStyleRadioKeyboardSupport() {
-  const chartStyleRadios = Array.from(document.querySelectorAll('input[type="radio"][name="chartStyle"]'))
-
-  if (chartStyleRadios.length === 0) {
-    return
-  }
-
-  chartStyleRadios.forEach(radio => {
-    if (!radio.disabled) {
-      radio.setAttribute('tabindex', '0')
-    }
-
-    if (radio.dataset.enterSelectBound === 'true') {
-      return
-    }
-
-    radio.dataset.enterSelectBound = 'true'
-
-    radio.addEventListener('keydown', function (event) {
-      if (event.key !== 'Enter') {
-        return
-      }
-
-      event.preventDefault()
-      this.checked = true
-      const EventConstructor = this.ownerDocument?.defaultView?.Event
-      if (typeof EventConstructor === 'function') {
-        this.dispatchEvent(new EventConstructor('change', { bubbles: true }))
-      }
-    })
-  })
-}
-
 export function updateDownloadCsvState(currentFilter) {
   const downloadBtn = document.getElementById(DOWNLOAD_CSV_BTN_ID)
 

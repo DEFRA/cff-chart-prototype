@@ -4,7 +4,6 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24
 const MS_PER_MINUTE = 1000 * 60
 const FIFTEEN = 15
 const THIRTY = 30
-const DAYS_PER_WEEK = 7
 const THREE_HOURS = 3
 const SIX_HOURS = 6
 const TWELVE_HOURS = 12
@@ -14,7 +13,6 @@ const MS_PER_HOUR = MS_PER_MINUTE * 60
 const THREE_HOURS_MS = THREE_HOURS * MS_PER_HOUR
 const SIX_HOURS_MS = SIX_HOURS * MS_PER_HOUR
 const TWELVE_HOURS_MS = TWELVE_HOURS * MS_PER_HOUR
-const WEEK_MS = DAYS_PER_WEEK * MS_PER_DAY
 const VERY_ZOOMED_DAY_THRESHOLD = 1
 const VERY_ZOOMED_TICK_COUNT = 3
 const REDUCED_TICK_COUNT = 4
@@ -31,11 +29,9 @@ const DAY_INTERVAL_45 = 45
 const DAY_INTERVAL_60 = 60
 const DAY_INTERVAL_90 = 90
 const FIVE_DAY_RANGE = '5d'
-const ONE_MONTH_RANGE = '1m'
 const SIX_MONTH_RANGE = '6m'
 const ONE_YEAR_RANGE = '1y'
 const THREE_YEAR_RANGE = '3y'
-const FIVE_YEAR_RANGE = '5y'
 const FIXED_X_TICK_COUNT = 6
 const FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD = 4.5
 const SIX_AM_HOUR = 6
@@ -44,7 +40,7 @@ const FLOAT_DEDUPE_DECIMALS = 5
 const MIN_UNIQUE_TICKS = 2
 
 export function getTickSnapIntervalMs(timeRange) {
-  if (timeRange === FIVE_DAY_RANGE || timeRange === ONE_MONTH_RANGE) {
+  if (timeRange === FIVE_DAY_RANGE) {
     return FIFTEEN_MINUTES_MS
   }
 
@@ -54,10 +50,6 @@ export function getTickSnapIntervalMs(timeRange) {
 
   if (timeRange === THREE_YEAR_RANGE) {
     return MS_PER_DAY
-  }
-
-  if (timeRange === FIVE_YEAR_RANGE) {
-    return WEEK_MS
   }
 
   return null

@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { admin } from '../../../src/routes/admin.js'
 import { lookupStationByRLOI, fetchHistoricReadings } from '../../../src/lib/hydrology-service.js'
 import { readdir, readFile, unlink } from 'node:fs/promises'
+import nunjucks from 'nunjucks'
+import { load } from 'cheerio'
 
 vi.mock('../../../src/lib/hydrology-service.js', () => ({
   lookupStationByRLOI: vi.fn(),
@@ -49,6 +51,22 @@ function createMockH() {
 describe('admin routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('should link stored stations directly to the interactive chart', () => {
+    const env = new nunjucks.Environment(new nunjucks.FileSystemLoader([
+      'src/views',
+      'node_modules/govuk-frontend/dist'
+    ]), { autoescape: true })
+    env.addGlobal('getAssetPath', (asset) => asset)
+
+    const html = env.render('admin.njk', {
+      stations: [{ rloiId: '7041', name: 'Bourton' }]
+    })
+    const $ = load(html)
+
+    expect($('td a').attr('href')).toBe('/station?stationId=7041')
+    expect(html).not.toContain('chartStyle')
   })
 
   describe('GET /admin', () => {

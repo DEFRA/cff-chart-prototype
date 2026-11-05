@@ -29,11 +29,9 @@ import {
 } from './line-chart-scale-utils.js'
 
 const FIVE_DAY_RANGE = '5d'
-const ONE_MONTH_RANGE = '1m'
 const SIX_MONTH_RANGE = '6m'
 const ONE_YEAR_RANGE = '1y'
 const THREE_YEAR_RANGE = '3y'
-const FIVE_YEAR_RANGE = '5y'
 const TWO_LINE_MONTH_YEAR_RANGES = new Set([SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE])
 const X_AXIS_TIME_TSPAN_DY = '15'
 const TIME_LABEL_DY = '0.71em'
@@ -48,7 +46,7 @@ const FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD = 4.5
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 const FIRST_TICK_OFFSET_DESKTOP = '12'
 const FIRST_TICK_OFFSET_MOBILE = '0'
-const TIME_INDICATOR_RANGES = [FIVE_DAY_RANGE, ONE_MONTH_RANGE, SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE, FIVE_YEAR_RANGE]
+const TIME_INDICATOR_RANGES = [FIVE_DAY_RANGE, SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE]
 const DAY_ALIGNED_TICK_THRESHOLD_DAYS = 7
 const DAY_ALIGNED_MIN_DURATION_DAYS = 4
 const FINAL_HISTORIC_ZOOM_THRESHOLD_DAYS = 6.5
@@ -183,12 +181,6 @@ function calculateTickInterval(xExtent, timeRange, _width, nowMs = Date.now()) {
       removeLastNTicks: 1,
       hideFirstTickLabel: !isNearFullFiveDayView
     }),
-    [ONE_MONTH_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
-      labelMode,
-      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
-      hideFirstTickLabel: true
-    }),
     [SIX_MONTH_RANGE]: () => ({
       tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
@@ -205,12 +197,6 @@ function calculateTickInterval(xExtent, timeRange, _width, nowMs = Date.now()) {
       tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
       labelMode,
       removeLastNTicks: 1,
-      hideFirstTickLabel: true
-    }),
-    [FIVE_YEAR_RANGE]: () => ({
-      tickValues: generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT),
-      labelMode,
-      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
       hideFirstTickLabel: true
     })
   }
