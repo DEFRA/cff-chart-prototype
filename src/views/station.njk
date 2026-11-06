@@ -134,10 +134,7 @@
             Height in metres over the <span id="chart-time-range">last 5 days</span>
           {% endif %}
         </h2>
-        {% if chartStyle == "styleB" %}
-          <a class="govuk-link" href="/station?stationId={{ station.id }}">Style A: time range tabs</a>
-        {% else %}
-          <a class="govuk-link" href="/station/single-chart?stationId={{ station.id }}">Style B: single timeline</a>
+          {% if chartStyle != "styleB" %}
         <nav id="time-filter-nav" class="defra-line-chart__time-filters" aria-label="Chart time ranges">
           <ul class="defra-line-chart__time-filters-list govuk-list">
             <li>

@@ -149,7 +149,8 @@ export function setupZoomControls() {
     chartContainer.updateZoomControls = updateZoomButtonStates
   }
 
-  const currentZoomScale = chartContainer?.getZoomScale?.() ?? 1
+  const isSingleTimeline = globalThis.flood?.model?.chartStyle === 'styleB'
+  const currentZoomScale = isSingleTimeline ? (chartContainer?.getZoomScale?.() ?? 1) : 1
   updateZoomButtonStates(currentZoomScale)
 
   if (panLeftBtn) {
