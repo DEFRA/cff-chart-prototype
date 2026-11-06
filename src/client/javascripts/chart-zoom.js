@@ -11,7 +11,7 @@ const ZOOM_MAX_SCALE_SAFETY = 1000
 const MIN_ZOOM_WINDOW_DAYS = 5
 const MIN_ZOOM_WINDOW_MS = MIN_ZOOM_WINDOW_DAYS * 24 * 60 * 60 * 1000
 
-function getBoundedMaxZoomScale(maxScale) {
+function getBoundedMaxZoomScale (maxScale) {
   if (!Number.isFinite(maxScale)) {
     return ZOOM_MIN_SCALE
   }
@@ -19,7 +19,7 @@ function getBoundedMaxZoomScale(maxScale) {
   return Math.max(ZOOM_MIN_SCALE, Math.min(maxScale, ZOOM_MAX_SCALE_SAFETY))
 }
 
-function calculateMaxZoomScaleFromDomain(baseXScale) {
+function calculateMaxZoomScaleFromDomain (baseXScale) {
   const [start, end] = baseXScale.domain() || []
   const startMs = new Date(start).getTime()
   const endMs = new Date(end).getTime()
@@ -32,69 +32,92 @@ function calculateMaxZoomScaleFromDomain(baseXScale) {
   return getBoundedMaxZoomScale(spanMs / MIN_ZOOM_WINDOW_MS)
 }
 
+function callIfFunction (fn, ...args) {
+  return typeof fn === 'function' ? fn(...args) : null
+}
+
+// Returns the locked state if the locked point is still within the visible chart,
+// otherwise releases the lock and returns null.
+function resolveVisibleLock (getLockedState, onAutoUnlock, xScale, width) {
+  const lockedState = callIfFunction(getLockedState)
+  if (!lockedState?.isLocked || !lockedState.dataPoint) {
+    return null
+  }
+
+  const lockedPixelX = xScale(new Date(lockedState.dataPoint.dateTime))
+  if (lockedPixelX < 0 || lockedPixelX > width) {
+    callIfFunction(onAutoUnlock)
+    return null
+  }
+
+  return lockedState
+}
+
+function createZoomYScale ({ createYScaleForRange, baseYScale, dataCache, height, timeRange }, lines) {
+  if (typeof createYScaleForRange === 'function') {
+    return createYScaleForRange(lines, dataCache.type, height, timeRange)
+  }
+
+  return baseYScale.copy().range([height, 0])
+}
+
 /**
  * Create zoom event handler
  */
-export function createZoomHandler(config) {
-  const { svg, baseXScale, baseYScale, width, height, timeRange, dataCache,
+export function createZoomHandler (config) {
+  const { svg, baseXScale, width, height, timeRange, dataCache,
     significantContainer, timeLine, timeLabel, isMobile, tooltipManager, container,
     processData, renderAxes, renderGridLines, renderLines, renderSignificantPoints,
-    getTickConfigForRender, createYScaleForRange,
+    getTickConfigForRender,
     renderThresholds, updateTimeIndicator, hideOverlappingTicks,
-    thresholds, onThresholdDismiss, onThresholdActivate, getActiveThresholdId } = config
+    thresholds, onThresholdDismiss, onThresholdActivate, getActiveThresholdId, getLockedState, onAutoUnlock } = config
 
-  return (event, _lines) => {
-    tooltipManager.hide()
-
-    // Get the transform
-    const transform = event.transform
-
+  return (event) => {
+    const { transform } = event
     // Only zoom/pan on X-axis (time dimension)
     const newXScale = transform.rescaleX(baseXScale)
+    const lockedState = resolveVisibleLock(getLockedState, onAutoUnlock, newXScale, width)
+
+    if (!lockedState) {
+      tooltipManager.hide()
+    }
 
     // Re-render with appropriate level of detail based on visible time window
-    const visibleDomain = newXScale.domain()
-    const processedData = processData(dataCache, visibleDomain, timeRange)
-    const newObservedPoints = processedData.observedPoints
-    const newForecastPoints = processedData.forecastPoints
-    const newLines = processedData.lines
-    const newYScale = typeof createYScaleForRange === 'function'
-      ? createYScaleForRange(newLines, dataCache.type, height, timeRange)
-      : baseYScale.copy().range([height, 0])
-    const tickConfig = typeof getTickConfigForRender === 'function'
-      ? getTickConfigForRender(newXScale, timeRange, width)
-      : null
+    const { observedPoints, forecastPoints, lines } = processData(dataCache, newXScale.domain(), timeRange)
+    const newYScale = createZoomYScale(config, lines)
+    const tickConfig = callIfFunction(getTickConfigForRender, newXScale, timeRange, width)
 
     // Re-render axes and chart elements
     renderAxes(svg, { xScale: newXScale, yScale: newYScale, width, height, timeRange, tickConfig })
     renderGridLines(svg, newXScale, newYScale, height, width, timeRange, tickConfig)
-    renderLines(svg, newObservedPoints, newForecastPoints, newXScale, newYScale, height, dataCache.type)
+    renderLines(svg, observedPoints, forecastPoints, newXScale, newYScale, height, dataCache.type)
     renderThresholds(
       svg.select('.thresholds'),
       width,
       newYScale,
       onThresholdDismiss,
       onThresholdActivate,
-      typeof getActiveThresholdId === 'function' ? getActiveThresholdId() : null,
+      callIfFunction(getActiveThresholdId),
       thresholds
     )
-    renderSignificantPoints(significantContainer, newObservedPoints, newForecastPoints, newXScale, newYScale, timeRange)
-    updateTimeIndicator(svg, timeLabel, timeLine, newXScale, height, isMobile, timeRange)
-    hideOverlappingTicks(timeLabel, timeRange)
+    renderSignificantPoints(significantContainer, observedPoints, forecastPoints, newXScale, newYScale, timeRange)
+    updateTimeIndicator(timeLabel, timeLine, newXScale, height, isMobile, timeRange)
+    hideOverlappingTicks(timeLabel)
 
-    if (container.updateZoomControls) {
-      container.updateZoomControls(transform.k)
+    if (lockedState) {
+      tooltipManager.show(lockedState.dataPoint, newXScale, newYScale, true)
     }
 
-    // Return updated state
-    return { xScale: newXScale, yScale: newYScale, lines: newLines, observedPoints: newObservedPoints, forecastPoints: newForecastPoints }
+    container.updateZoomControls?.(transform.k)
+
+    return { xScale: newXScale, yScale: newYScale, lines, observedPoints, forecastPoints }
   }
 }
 
 /**
  * Setup zoom behavior for the chart
  */
-export function setupZoomBehavior(config) {
+export function setupZoomBehavior (config) {
   const { svg, mainGroup, width, height, margin, handleZoomEvent, baseXScale } = config
   const maxScale = calculateMaxZoomScaleFromDomain(baseXScale)
 
@@ -109,18 +132,15 @@ export function setupZoomBehavior(config) {
         event.stopPropagation()
         return true
       }
-      
+
       // For touch events, only allow multi-touch (2+ fingers) for zooming/panning.
       // Single touch (1 finger) is handled by interaction handlers for showing tooltip.
+      // All other events (including touchend/touchcancel) are allowed so d3-zoom can
+      // complete gesture lifecycles.
       if (event.type === 'touchstart' || event.type === 'touchmove') {
-        return event.touches && event.touches.length > 1
+        return event.touches?.length > 1
       }
 
-      // Always allow end/cancel events so d3-zoom can complete gesture lifecycles.
-      if (event.type === 'touchend' || event.type === 'touchcancel') {
-        return true
-      }
-      
       return true
     })
     .on('zoom', (event) => {
@@ -151,7 +171,7 @@ export function setupZoomBehavior(config) {
 /**
  * Setup zoom control methods on container
  */
-export function setupZoomControls(container, mainGroup, zoomBehavior, maxZoomScale = ZOOM_MIN_SCALE) {
+export function setupZoomControls (container, mainGroup, zoomBehavior, maxZoomScale = ZOOM_MIN_SCALE, getZoomFocalPoint = null) {
   const boundedMaxZoomScale = getBoundedMaxZoomScale(maxZoomScale)
 
   const getPanStep = () => {
@@ -206,11 +226,23 @@ export function setupZoomControls(container, mainGroup, zoomBehavior, maxZoomSca
   }
 
   container.zoomIn = () => {
-    mainGroup.call(zoomBehavior.scaleBy, ZOOM_IN_FACTOR)
+    const focalPoint = typeof getZoomFocalPoint === 'function' ? getZoomFocalPoint() : null
+
+    if (focalPoint) {
+      mainGroup.call(zoomBehavior.scaleBy, ZOOM_IN_FACTOR, focalPoint)
+    } else {
+      mainGroup.call(zoomBehavior.scaleBy, ZOOM_IN_FACTOR)
+    }
   }
 
   container.zoomOut = () => {
-    mainGroup.call(zoomBehavior.scaleBy, ZOOM_OUT_FACTOR)
+    const focalPoint = typeof getZoomFocalPoint === 'function' ? getZoomFocalPoint() : null
+
+    if (focalPoint) {
+      mainGroup.call(zoomBehavior.scaleBy, ZOOM_OUT_FACTOR, focalPoint)
+    } else {
+      mainGroup.call(zoomBehavior.scaleBy, ZOOM_OUT_FACTOR)
+    }
   }
 
   container.panLeft = () => {

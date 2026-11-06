@@ -4,7 +4,7 @@ import { select } from 'd3-selection'
 import { hideOverlappingTicks, renderAxes } from '../../../../src/client/javascripts/line-chart-layout.js'
 import { scaleTime, scaleLinear } from 'd3-scale'
 
-function createRect(left, width) {
+function createRect (left, width) {
   return {
     left,
     width,
@@ -72,10 +72,10 @@ describe('line-chart-layout hideOverlappingTicks', () => {
 
     const timeLabel = select(timeNow)
 
-    hideOverlappingTicks(timeLabel, '5d')
+    hideOverlappingTicks(timeLabel)
     expect(tickTextB.style.display).toBe('none')
 
-    hideOverlappingTicks(timeLabel, '5d')
+    hideOverlappingTicks(timeLabel)
     expect(tickTextB.style.display).toBe('none')
     expect(tickTextA.style.display).not.toBe('none')
   })
@@ -88,13 +88,13 @@ describe('line-chart-layout hideOverlappingTicks', () => {
     timeNow.getBoundingClientRect = () => createRect(100, 40)
     tickTextB.getBoundingClientRect = () => createRect(112, 52)
 
-    hideOverlappingTicks(timeLabel, '5d')
+    hideOverlappingTicks(timeLabel)
     expect(tickTextB.style.display).toBe('none')
 
     timeNow.getBoundingClientRect = () => createRect(300, 40)
     tickTextB.getBoundingClientRect = () => createRect(112, 52)
 
-    hideOverlappingTicks(timeLabel, '5d')
+    hideOverlappingTicks(timeLabel)
     expect(tickTextB.style.display).not.toBe('none')
   })
 })
@@ -143,8 +143,8 @@ describe('line-chart-layout rightmost x tick behavior', () => {
     const visibleTickTextCount = tickTexts.filter(text => text.textContent.trim() !== '').length
     const rightmostTickText = tickTexts.at(-1)?.textContent?.trim() || ''
 
-    // 6m view intentionally hides the first tick label.
-    expect(visibleTickTextCount).toBe(5)
+    // 6m view now shows the first tick label alongside the others.
+    expect(visibleTickTextCount).toBe(6)
     // When "now" is out of view, the rightmost label should remain visible.
     expect(rightmostTickText.length).toBeGreaterThan(0)
   })

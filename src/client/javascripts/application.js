@@ -52,7 +52,7 @@ async function fetchHistoricData(stationId) {
   return Array.isArray(payload?.readings) ? payload.readings : []
 }
 
-function renderInteractiveChart(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdContext, renderOptions = {}) {
+function renderInteractiveChart(realtimeTelemetry, mergedObserved, currentFilter, thresholdContext, renderOptions = {}) {
   const { thresholds, onThresholdDismiss, activeThresholdRef } = thresholdContext
   const preserveZoom = renderOptions.preserveZoom === true
 
@@ -76,7 +76,7 @@ function renderInteractiveChart(stationId, realtimeTelemetry, mergedObserved, cu
       }
     : null
 
-  const chartContainer = lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
+  const chartContainer = lineChart(LINE_CHART_ID, fullTelemetry, {
     timeRange: currentFilter,
     enableZoom: currentFilter !== DEFAULT_FILTER,
     thresholds,
@@ -112,7 +112,7 @@ function updateThresholdsOnly(chartContainer, thresholds, activeThresholdId, onT
   return true
 }
 
-function renderChartFlow(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdState, activeThresholdRef, renderOptions) {
+function renderChartFlow(realtimeTelemetry, mergedObserved, currentFilter, thresholdState, activeThresholdRef, renderOptions) {
   const thresholdMetrics = getThresholdMetrics(mergedObserved)
   const thresholds = buildThresholds(thresholdMetrics, thresholdState)
   
@@ -128,7 +128,6 @@ function renderChartFlow(stationId, realtimeTelemetry, mergedObserved, currentFi
 
   if (renderOptions.thresholdsOnly !== true) {
     renderInteractiveChart(
-      stationId,
       realtimeTelemetry,
       mergedObserved,
       currentFilter.value,
@@ -142,7 +141,7 @@ function renderChartFlow(stationId, realtimeTelemetry, mergedObserved, currentFi
   updateThresholdsOnly(chartContainer, thresholds, activeThresholdRef.value, onThresholdDismiss)
 }
 
-function createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter, thresholdState, activeThresholdRef) {
+function createRenderChart(realtimeTelemetry, historicDataRef, currentFilter, thresholdState, activeThresholdRef) {
   let isRendering = false
   
   return (renderOptions = {}) => {
@@ -163,7 +162,7 @@ function createRenderChart(stationId, realtimeTelemetry, historicDataRef, curren
         ? mergeData(historicDataRef.data, realtimeObserved) || []
         : realtimeObserved || []
       
-      renderChartFlow(stationId, realtimeTelemetry, mergedObserved, currentFilter, thresholdState, activeThresholdRef, renderOptions)
+      renderChartFlow(realtimeTelemetry, mergedObserved, currentFilter, thresholdState, activeThresholdRef, renderOptions)
     } finally {
       isRendering = false
     }
@@ -264,7 +263,7 @@ async function initializeChartApp() {
     }
   }
 
-  const renderChart = createRenderChart(stationId, realtimeTelemetry, historicDataRef, currentFilter, thresholdState, activeThresholdRef)
+  const renderChart = createRenderChart(realtimeTelemetry, historicDataRef, currentFilter, thresholdState, activeThresholdRef)
 
   renderChart()
   updateFilterButtonStates(historicDataRef)

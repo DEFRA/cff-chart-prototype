@@ -8,7 +8,7 @@ vi.mock('../../../../src/client/javascripts/utils.js', () => ({
 
 /**
  * Tests for helper functions in line-chart.js
- * 
+ *
  * This file tests the logic of helper functions that were created to reduce cognitive
  * complexity and improve code organization:
  * - simplifyByType: Applies data simplification based on data type
@@ -428,17 +428,17 @@ describe('line-chart - Data Processing Helpers', () => {
     })
 
     test('should clamp to bottom margin when y is too large', () => {
-      const height = 400
+      const height = 454
       const TOOLTIP_MARGIN_BOTTOM_OFFSET = 10
       const tooltipHeight = 50
       const tooltipMarginBottom = height - (tooltipHeight + TOOLTIP_MARGIN_BOTTOM_OFFSET)
-      let y = 380
+      let y = 420
 
       if (y > tooltipMarginBottom) {
         y = tooltipMarginBottom
       }
 
-      expect(y).toBe(340)
+      expect(y).toBe(394)
     })
 
     test('should not modify y when within bounds', () => {
