@@ -39,7 +39,8 @@ function initializeZoom(config) {
     isMobileRef,
     tooltipManager,
     container,
-    zoomRef
+    zoomRef,
+    initialZoomDomain
   } = config
 
   zoomRef.baseXScaleRef = zoomRef.baseXScaleRef || { current: stateRef.xScale.copy() }
@@ -105,6 +106,22 @@ function initializeZoom(config) {
   zoomRef.rect = zoomSetup.zoomRect
 
   setupZoomControls(container, mainGroup, zoomRef.behavior, zoomSetup.maxScale)
+
+  if (Array.isArray(initialZoomDomain) && initialZoomDomain.length === 2) {
+    const [visibleStart, visibleEnd] = initialZoomDomain.map(value => new Date(value))
+    const [baseStart, baseEnd] = zoomRef.baseXScaleRef.current.domain().map(value => new Date(value))
+    const visibleDuration = visibleEnd.getTime() - visibleStart.getTime()
+    const baseDuration = baseEnd.getTime() - baseStart.getTime()
+
+    if (visibleDuration > 0 && baseDuration > visibleDuration) {
+      const scale = baseDuration / visibleDuration
+      container.applyZoomTransform({
+        k: scale,
+        x: -scale * zoomRef.baseXScaleRef.current(visibleStart),
+        y: 0
+      })
+    }
+  }
 }
 
 function renderChartComponents(config) {
@@ -250,6 +267,7 @@ function setupChartContext(containerId, data, options) {
     dataCache,
     timeRange,
     enableZoom,
+    initialZoomDomain: options.initialZoomDomain,
     svgElements,
     svg,
     mainGroup,
@@ -315,7 +333,8 @@ function initializeZoomIfEnabled(context, container, tooltipManager) {
     isMobileRef: context.isMobileRef,
     tooltipManager,
     container,
-    zoomRef: context.zoomRef
+    zoomRef: context.zoomRef,
+    initialZoomDomain: context.initialZoomDomain
   })
 }
 

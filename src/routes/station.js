@@ -27,10 +27,7 @@ async function hasHistoricData(stationId) {
   }
 }
 
-export const station = {
-  method: 'GET',
-  path: '/station',
-  handler: async function (request, h) {
+async function renderStation(request, h, chartStyle) {
     const { stationId = '3089' } = request.query
 
     try {
@@ -60,7 +57,8 @@ export const station = {
         station,
         telemetry,
         historicData: [],
-        historicDataAvailable
+        historicDataAvailable,
+        chartStyle
       })
     } catch (error) {
       request.logger.error('Error loading station data:', error)
@@ -70,7 +68,18 @@ export const station = {
         message: error.message
       }).code(500)
     }
-  }
+}
+
+export const station = {
+  method: 'GET',
+  path: '/station',
+  handler: (request, h) => renderStation(request, h, 'styleA')
+}
+
+export const stationSingleChart = {
+  method: 'GET',
+  path: '/station/single-chart',
+  handler: (request, h) => renderStation(request, h, 'styleB')
 }
 
 export const stationHistoricData = {

@@ -172,6 +172,7 @@ export function setupZoomControls(container, mainGroup, zoomBehavior, maxZoomSca
 
   container.getTouchPanStep = () => TOUCH_PAN_STEP_PX
   container.getMaxZoomScale = () => boundedMaxZoomScale
+  container.getZoomScale = () => zoomTransform(mainGroup.node()).k || ZOOM_MIN_SCALE
 
   container.applyZoomTransform = (transform) => {
     if (!transform || !Number.isFinite(transform.k)) {

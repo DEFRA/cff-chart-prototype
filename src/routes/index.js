@@ -11,6 +11,7 @@ export const index = [
     path: '/station',
     handler: async function (request, h) {
       const { stationId } = request.payload
+      const { chartStyle } = request.payload
       const params = new URLSearchParams()
 
       // Add stationId if provided
@@ -19,7 +20,8 @@ export const index = [
       }
 
       const query = params.toString()
-      return h.redirect(query ? `/station?${query}` : '/station')
+      const stationPath = chartStyle === 'styleB' ? '/station/single-chart' : '/station'
+      return h.redirect(query ? `${stationPath}?${query}` : stationPath)
     }
   }
 ]

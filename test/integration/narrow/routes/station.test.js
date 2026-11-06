@@ -212,7 +212,7 @@ describe('Station route', () => {
     expect(result).toContain('defra-line-chart')
   }, 10000)
 
-  test.each(['', '&chartStyle=styleA', '&chartStyle=styleB'])('Should always render interactive chart controls for legacy query %s', async (legacyQuery) => {
+  test.each(['', '&chartStyle=styleA'])('Should render the existing chart style for query %s', async (legacyQuery) => {
     const response = await server.inject({
       method: 'GET',
       url: `/station?stationId=3089${legacyQuery}`,
@@ -224,7 +224,20 @@ describe('Station route', () => {
     expect($('.time-filter-link').map((_index, link) => $(link).attr('data-filter')).get()).toEqual(['5d', '6m', '1y', '3y'])
     expect($('#zoom-control-buttons').length).toBe(1)
     expect($('#chart-threshold-controls').length).toBe(1)
-    expect(response.payload).not.toContain('chartStyle')
+    expect(response.payload).toContain('chartStyle: "styleA"')
+  })
+
+  test('Should render the separate single-timeline chart page', async () => {
+    const response = await server.inject({
+      method: 'GET',
+      url: '/station/single-chart?stationId=3089',
+      headers: { cookie: authCookie }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.payload).toContain('Height in metres over time')
+    expect(response.payload).toContain('chartStyle: "styleB"')
+    expect(response.payload).not.toContain('data-filter="6m"')
   })
 
   test('Should include historicData in model for station with pre-fetched data', async () => {

@@ -149,7 +149,8 @@ export function setupZoomControls() {
     chartContainer.updateZoomControls = updateZoomButtonStates
   }
 
-  updateZoomButtonStates(1)
+  const currentZoomScale = chartContainer?.getZoomScale?.() ?? 1
+  updateZoomButtonStates(currentZoomScale)
 
   if (panLeftBtn) {
     panLeftBtn.onclick = () => {

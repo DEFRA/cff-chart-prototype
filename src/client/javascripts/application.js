@@ -35,7 +35,23 @@ import {
   setupZoomControls
 } from './application-ui.js'
 
+const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
+
 initAll()
+
+function getRecentVisibleDomain(telemetry) {
+  const points = [...(telemetry.observed || []), ...(telemetry.forecast || [])]
+  const timestamps = points
+    .map(point => new Date(point.dateTime).getTime())
+    .filter(Number.isFinite)
+
+  if (!timestamps.length) {
+    return null
+  }
+
+  const latestTimestamp = Math.max(...timestamps)
+  return [new Date(latestTimestamp - FIVE_DAYS_MS), new Date(latestTimestamp)]
+}
 
 async function fetchHistoricData(stationId) {
   const response = await fetch(`${HISTORIC_DATA_ENDPOINT}?stationId=${encodeURIComponent(stationId)}`, {
@@ -79,6 +95,9 @@ function renderInteractiveChart(stationId, realtimeTelemetry, mergedObserved, cu
   const chartContainer = lineChart(LINE_CHART_ID, stationId, fullTelemetry, {
     timeRange: currentFilter,
     enableZoom: currentFilter !== DEFAULT_FILTER,
+    initialZoomDomain: globalThis.flood?.model?.chartStyle === 'styleB'
+      ? getRecentVisibleDomain(fullTelemetry)
+      : null,
     thresholds,
     activeThresholdId: activeThresholdRef.value,
     onThresholdDismiss,
@@ -235,7 +254,8 @@ async function initializeChartApp() {
     return
   }
 
-  const currentFilter = { value: DEFAULT_FILTER }
+  const isSingleTimeline = globalThis.flood.model.chartStyle === 'styleB'
+  const currentFilter = { value: isSingleTimeline ? '3y' : DEFAULT_FILTER }
   const thresholdState = {
     [THRESHOLD_CURRENT_LEVEL_ID]: false,
     [THRESHOLD_HIGHEST_LEVEL_ID]: false,
@@ -253,7 +273,7 @@ async function initializeChartApp() {
   // If realtime data is empty but historic data is available, eagerly fetch it
   // so the initial 5-day chart can render using the most recent historic readings
   const hasNoRealtimeData = !realtimeTelemetry?.observed?.length
-  if (hasNoRealtimeData && historicDataRef.available && !historicDataRef.loaded) {
+  if ((isSingleTimeline || hasNoRealtimeData) && historicDataRef.available && !historicDataRef.loaded) {
     try {
       const historicData = await fetchHistoricData(stationId)
       historicDataRef.data = historicData
