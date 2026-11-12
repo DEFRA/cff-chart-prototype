@@ -2,18 +2,18 @@ import { subDays, subMonths, subYears } from 'date-fns'
 import { zoomIdentity, zoomTransform } from 'd3-zoom'
 
 export const TIMELINE_ZOOM_STEPS = [
-  { label: '5 days', start: end => subDays(end, 5) },
-  { label: '10 days', start: end => subDays(end, 10) },
-  { label: '15 days', start: end => subDays(end, 15) },
-  { label: '1 month', start: end => subMonths(end, 1) },
-  { label: '3 months', start: end => subMonths(end, 3) },
-  { label: '6 months', start: end => subMonths(end, 6) },
-  { label: '1 year', start: end => subYears(end, 1) },
-  { label: '2 years', start: end => subYears(end, 2) },
-  { label: '3 years', start: end => subYears(end, 3) }
+  { label: '5 days', start: end => subDays(end, 5), resolution: '15m' },
+  { label: '10 days', start: end => subDays(end, 10), resolution: '15m' },
+  { label: '15 days', start: end => subDays(end, 15), resolution: '15m' },
+  { label: '1 month', start: end => subMonths(end, 1), resolution: '30m' },
+  { label: '3 months', start: end => subMonths(end, 3), resolution: '30m' },
+  { label: '6 months', start: end => subMonths(end, 6), resolution: '30m' },
+  { label: '1 year', start: end => subYears(end, 1), resolution: '1h' },
+  { label: '2 years', start: end => subYears(end, 2), resolution: '1h' },
+  { label: '3 years', start: end => subYears(end, 3), resolution: 'daily' }
 ]
 
-export function setupSteppedZoom ({ container, mainGroup, zoomBehavior, getBaseScale, onRangeChange }) {
+export function setupSteppedZoom ({ container, mainGroup, zoomBehavior, getBaseScale, onRangeChange, onStepChange }) {
   let stepIndex = 0
   let lastWheelTime = -Infinity
   let touchDistance = null
@@ -34,6 +34,7 @@ export function setupSteppedZoom ({ container, mainGroup, zoomBehavior, getBaseS
   }
   const showStep = (index, end = getDomain()[1]) => {
     stepIndex = Math.max(0, Math.min(TIMELINE_ZOOM_STEPS.length - 1, index))
+    onStepChange?.(TIMELINE_ZOOM_STEPS[stepIndex])
     applyDomain([TIMELINE_ZOOM_STEPS[stepIndex].start(end), end])
   }
 

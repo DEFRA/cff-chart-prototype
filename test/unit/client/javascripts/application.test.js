@@ -147,6 +147,7 @@ describe('interactive chart rendering', () => {
       <body>
         <div id="line-chart"></div>
         <span id="chart-visible-range">5 days</span>
+        <span id="chart-resolution-label"></span>
         <div class="defra-line-chart__control-row"></div>
         <a class="time-filter-link" data-filter="5d" href="#line-chart">5 days</a>
         <a class="time-filter-link" data-filter="6m" href="#line-chart">6 months</a>
@@ -200,7 +201,7 @@ describe('interactive chart rendering', () => {
     expect(document.querySelector('.defra-line-chart__control-row').style.display).toBe('')
   })
 
-  test('enables full-resolution rendering for the single-timeline chart', async () => {
+  test('enables stepped rendering and labels daily maxima for the single-timeline chart', async () => {
     vi.resetModules()
     globalThis.flood.model.chartStyle = 'styleB'
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -223,6 +224,10 @@ describe('interactive chart rendering', () => {
     const options = renderChart.mock.lastCall[2]
     options.onRangeChange({ label: '15 days' })
     expect(document.getElementById('chart-visible-range').textContent).toBe('15 days')
+    options.onRangeChange({ label: '3 years' })
+    expect(document.getElementById('chart-resolution-label').textContent).toBe(' (daily maximum)')
+    options.onRangeChange({ label: '2 years' })
+    expect(document.getElementById('chart-resolution-label').textContent).toBe('')
   })
 
   test('requests fresh history for style B even when no stored history is advertised', async () => {

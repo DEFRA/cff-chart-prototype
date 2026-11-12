@@ -112,7 +112,7 @@ function downsampleToDaily(data) {
   for (const item of data) {
     const date = new Date(item.dateTime)
     const dayKey = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
-    if (!dailyGroups.has(dayKey) || item.value > dailyGroups.get(dayKey).value) {
+    if (!dailyGroups.has(dayKey) || Number(item.value) > Number(dailyGroups.get(dayKey).value)) {
       dailyGroups.set(dayKey, item)
     }
   }
@@ -159,6 +159,16 @@ function downsampleToFifteenMin(data) {
 
 function downsampleToThirtyMin(data) {
   return downsampleToInterval(data, THIRTY_MINUTES_MS)
+}
+
+function downsampleForSteppedZoom(data, resolution) {
+  switch (resolution) {
+    case '15m': return downsampleToFifteenMin(data)
+    case '30m': return downsampleToThirtyMin(data)
+    case '1h': return downsampleToInterval(data, MS_PER_HOUR)
+    case 'daily': return downsampleToDaily(data)
+    default: throw new Error(`Unknown stepped zoom resolution: ${resolution}`)
+  }
 }
 
 function filterToVisibleWindow(data, visibleDomain) {
@@ -320,7 +330,7 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
 
 
 
-export function processData(dataCache, visibleDomain, timeRange, { preserveAllPoints = false } = {}) {
+export function processData(dataCache, visibleDomain, timeRange, { preserveAllPoints = false, steppedResolution = null } = {}) {
   let observedPoints = []
   let forecastPoints = []
 
@@ -333,7 +343,11 @@ export function processData(dataCache, visibleDomain, timeRange, { preserveAllPo
   }
 
   observedPoints = filterToVisibleWindow(observedPoints, visibleDomain)
-  if (!preserveAllPoints) {
+  forecastPoints = filterToVisibleWindow(forecastPoints, visibleDomain)
+  if (steppedResolution) {
+    observedPoints = downsampleForSteppedZoom(observedPoints, steppedResolution)
+    forecastPoints = downsampleForSteppedZoom(forecastPoints, steppedResolution)
+  } else if (!preserveAllPoints) {
     const beforeDownsample = observedPoints.length
     observedPoints = downsampleByVisibleDomain(observedPoints, visibleDomain)
     console.log(`[processData] downsampled observed from ${beforeDownsample} to ${observedPoints.length} points`)
@@ -341,8 +355,7 @@ export function processData(dataCache, visibleDomain, timeRange, { preserveAllPo
   }
   observedPoints = removeFutureData(observedPoints)
 
-  forecastPoints = filterToVisibleWindow(forecastPoints, visibleDomain)
-  if (!preserveAllPoints) {
+  if (!preserveAllPoints && !steppedResolution) {
     forecastPoints = downsampleByVisibleDomain(forecastPoints, visibleDomain)
     forecastPoints = snapDataToNiceIntervals(forecastPoints, timeRange, visibleDomain)
   }

@@ -18,7 +18,52 @@ function hasQuarterHourPoints(points) {
 }
 
 describe('line-chart-data processData zoom snapping', () => {
-  test.each([5, 7.5, 31, 91, 181, 1095])('preserves every original reading across a %s-day style B window', (days) => {
+  test.each([
+    ['15m', 96, 1],
+    ['30m', 48, 2],
+    ['1h', 24, 4],
+    ['daily', 1, 96]
+  ])('stepped %s buckets retain the highest original reading', (steppedResolution, count, bucketSize) => {
+    const observed = createQuarterHourlyPoints('2024-01-01T00:00:00.000Z', 96)
+    const domain = [new Date('2024-01-01T00:00:00.000Z'), new Date('2024-01-02T00:00:00.000Z')]
+    const { observedPoints } = processData({ observed, forecast: [], type: 'river' }, domain, '3y', {
+      preserveAllPoints: true,
+      steppedResolution
+    })
+
+    expect(observedPoints).toHaveLength(count)
+    expect(observedPoints.map(({ dateTime, value }) => ({ dateTime, value }))).toEqual(
+      observed.filter((_, index) => (index + 1) % bucketSize === 0)
+    )
+  })
+
+  test.each([
+    ['1h', 730, 730 * 24],
+    ['daily', 1095, 1095]
+  ])('stepped %s resolution bounds points across %s days', (steppedResolution, days, count) => {
+    const observed = createQuarterHourlyPoints('2022-01-01T00:00:00.000Z', days * 96)
+    const domain = [
+      new Date('2022-01-01T00:00:00.000Z'),
+      new Date(Date.parse('2022-01-01T00:00:00.000Z') + days * 86400000)
+    ]
+    const result = processData({ observed, forecast: [], type: 'river' }, domain, '3y', {
+      preserveAllPoints: true, steppedResolution
+    })
+    expect(result.observedPoints).toHaveLength(count)
+  })
+
+  test('daily maximum compares numeric string values numerically', () => {
+    const observed = [
+      { dateTime: '2024-01-01T00:00:00.000Z', value: '9' },
+      { dateTime: '2024-01-01T00:15:00.000Z', value: '10' }
+    ]
+    const result = processData({ observed, forecast: [], type: 'river' }, null, '3y', {
+      preserveAllPoints: true, steppedResolution: 'daily'
+    })
+    expect(result.observedPoints).toEqual([{ ...observed[1], type: 'observed' }])
+  })
+
+  test.each([5, 7.5, 31, 91, 181, 1095])('preserves every original reading across a %s-day window when sampling is disabled', (days) => {
     const observed = createQuarterHourlyPoints('2024-01-01T00:15:00.000Z', 192)
     const forecast = createQuarterHourlyPoints('2024-01-03T00:15:00.000Z', 16)
     const visibleDomain = [
@@ -48,7 +93,7 @@ describe('line-chart-data processData zoom snapping', () => {
     )).toBe(true)
   })
 
-  test('still excludes error readings, future readings and points outside the buffered viewport in style B', () => {
+  test('still excludes error readings, future readings and points outside the buffered viewport when sampling is disabled', () => {
     const observed = [
       { dateTime: '2024-01-01T00:00:00.000Z', value: 1 },
       { dateTime: '2024-06-01T00:00:00.000Z', value: 2, err: true },

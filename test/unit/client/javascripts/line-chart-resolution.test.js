@@ -81,6 +81,36 @@ describe('line-chart full-resolution rendering', () => {
     return { container, end, onRangeChange }
   }
 
+  test('changes resolution at each stepped window and restores detail after zooming in and resizing', () => {
+    const end = new Date('2026-01-31T00:00:00Z')
+    const observed = Array.from({ length: 96 }, (_, index) => ({
+      dateTime: new Date(Number(end) - (96 - index) * 15 * 60000).toISOString(),
+      value: index
+    }))
+    const container = lineChart('line-chart', { observed, forecast: [], type: 'river' }, {
+      timeRange: '3y',
+      enableZoom: true,
+      preserveAllPoints: true,
+      steppedZoom: true,
+      initialZoomDomain: [new Date(Number(end) - 5 * 86400000), end]
+    })
+    const points = () => document.querySelector('.observed-line').__data__
+    const expectedCounts = [96, 96, 96, 48, 48, 48, 24, 24, 1]
+
+    for (const [index, count] of expectedCounts.entries()) {
+      expect(points()).toHaveLength(count)
+      expect(points().at(-1)).toMatchObject(observed.at(-1))
+      if (index < expectedCounts.length - 1) container.zoomOut()
+    }
+
+    dom.window.dispatchEvent(new dom.window.Event('resize'))
+    expect(points()).toHaveLength(1)
+    container.zoomIn()
+    expect(points()).toHaveLength(24)
+    container.resetZoom()
+    expect(points()).toHaveLength(96)
+  })
+
   test('uses the exact named calendar windows in both directions and keeps the right edge fixed', () => {
     const { container, end, onRangeChange } = createSteppedChart()
     for (let index = 0; index < TIMELINE_ZOOM_STEPS.length; index++) {

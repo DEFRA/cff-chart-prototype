@@ -105,6 +105,8 @@ function renderInteractiveChart(realtimeTelemetry, mergedObserved, currentFilter
     onRangeChange: ({ label }) => {
       const headingRange = document.getElementById('chart-visible-range')
       if (headingRange) headingRange.textContent = label
+      const resolutionLabel = document.getElementById('chart-resolution-label')
+      if (resolutionLabel) resolutionLabel.textContent = label === '3 years' ? ' (daily maximum)' : ''
     },
     initialZoomDomain: globalThis.flood?.model?.chartStyle === 'styleB'
       ? getRecentVisibleDomain(fullTelemetry)

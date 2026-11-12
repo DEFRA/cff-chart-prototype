@@ -24,7 +24,14 @@ Historic ranges are disabled when no stored data is available. Historic readings
 
 For historic views, readings are merged with recent telemetry, with recent telemetry taking precedence for duplicate timestamps. The combined readings are sorted and filtered to the selected range. Style A samples data according to the visible domain as users zoom.
 
-Style B (`/station/single-chart?stationId=3089`) starts with the latest five days visible within a three-year timeline. It plots every available 15-minute reading at its original timestamp and value, without sampling, bucketing or line simplification at any zoom level. Panning and resizing retain this full resolution. Missing readings are not filled in.
+Style B (`/station/single-chart?stationId=3089`) starts with the latest five days visible within a three-year timeline. It selects the highest reading in each interval, preserving that reading's timestamp and value:
+
+- **5, 10 and 15 days:** 15-minute intervals.
+- **1, 3 and 6 months:** 30-minute intervals.
+- **1 and 2 years:** hourly intervals.
+- **3 years:** daily maximum, labelled on the chart. Days use the viewer's local calendar.
+
+Panning and resizing retain the selected resolution, and zooming back in restores detail from the original readings. Missing readings are not filled in. Sampling reduces plotted points, not the amount of historic data fetched.
 
 Style B zooms through named windows: **5 days, 10 days, 15 days, 1 month, 3 months, 6 months, 1 year, 2 years and 3 years**. The first three windows divide into five axis intervals of 1, 2 and 3 days respectively. Buttons, mouse-wheel zoom and two-finger pinch use the same steps; a pinch moves one step per gesture. Months and years use calendar durations. The heading announces the selected window, including when viewing older data. Zooming keeps the right-hand date fixed unless the three-year timeline bounds require it to move. Resizing preserves the current window; reset returns to the latest five days. Style A retains continuous zoom.
 

@@ -128,7 +128,7 @@
         <div class="defra-line-chart__header">
           <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
           {% if chartStyle == "styleB" %}
-            Height in metres over <span id="chart-visible-range" aria-live="polite" aria-atomic="true">5 days</span>
+            <span aria-live="polite" aria-atomic="true">Height in metres over <span id="chart-visible-range">5 days</span><span id="chart-resolution-label"></span></span>
           {% else %}
             Height in metres over the <span id="chart-time-range">last 5 days</span>
           {% endif %}

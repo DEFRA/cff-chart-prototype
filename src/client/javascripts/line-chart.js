@@ -44,6 +44,7 @@ function initializeZoom (config) {
     zoomRef,
     initialZoomDomain,
     steppedZoom,
+    steppedResolutionRef,
     onRangeChange
   } = config
 
@@ -136,6 +137,10 @@ function initializeZoom (config) {
       mainGroup,
       zoomBehavior: zoomRef.behavior,
       getBaseScale: () => zoomRef.baseXScaleRef.current,
+      onStepChange: (step) => {
+        if (steppedResolutionRef.current !== step.resolution) stateRef.unlockPoint?.()
+        steppedResolutionRef.current = step.resolution
+      },
       onRangeChange
     })
     return
@@ -217,7 +222,7 @@ function createChartRenderer (config) {
       const end = initialZoomDomain?.[1] || xScaleNew.domain()[1]
       xScaleNew.domain([TIMELINE_ZOOM_STEPS.at(-1).start(end), end])
     }
-    const effectiveVisibleDomain = visibleDomain || xExtentNew
+    const effectiveVisibleDomain = visibleDomain || (steppedZoom && (savedDomain || initialZoomDomain)) || xExtentNew
 
     const processedData = processData(dataCache, effectiveVisibleDomain, timeRange)
     assignProcessedDataToState(stateRef, processedData)
@@ -305,16 +310,19 @@ function setupChartContext (containerId, data, options) {
   stateRef.onThresholdDismiss = typeof options.onThresholdDismiss === 'function' ? options.onThresholdDismiss : null
   stateRef.onThresholdActivate = typeof options.onThresholdActivate === 'function' ? options.onThresholdActivate : null
   const zoomRef = { behavior: null, rect: null }
+  const steppedResolutionRef = { current: TIMELINE_ZOOM_STEPS[0].resolution }
 
   return {
     dataCache,
     processData: (cache, visibleDomain, range) => processData(cache, visibleDomain, range, {
-      preserveAllPoints: options.preserveAllPoints === true
+      preserveAllPoints: options.preserveAllPoints === true,
+      steppedResolution: options.steppedZoom === true ? steppedResolutionRef.current : null
     }),
     timeRange,
     enableZoom,
     initialZoomDomain: options.initialZoomDomain,
     steppedZoom: options.steppedZoom === true,
+    steppedResolutionRef,
     onRangeChange: options.onRangeChange,
     svgElements,
     svg,
@@ -385,6 +393,7 @@ function initializeZoomIfEnabled (context, container, tooltipManager) {
     zoomRef: context.zoomRef,
     initialZoomDomain: context.initialZoomDomain,
     steppedZoom: context.steppedZoom,
+    steppedResolutionRef: context.steppedResolutionRef,
     onRangeChange: context.onRangeChange
   })
 }
