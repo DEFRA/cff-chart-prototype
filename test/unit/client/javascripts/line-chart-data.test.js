@@ -18,6 +18,54 @@ function hasQuarterHourPoints(points) {
 }
 
 describe('line-chart-data processData zoom snapping', () => {
+  test.each([5, 7.5, 31, 91, 181, 1095])('preserves every original reading across a %s-day style B window', (days) => {
+    const observed = createQuarterHourlyPoints('2024-01-01T00:15:00.000Z', 192)
+    const forecast = createQuarterHourlyPoints('2024-01-03T00:15:00.000Z', 16)
+    const visibleDomain = [
+      new Date('2024-01-01T00:00:00.000Z'),
+      new Date(new Date('2024-01-01T00:00:00.000Z').getTime() + days * 86400000)
+    ]
+
+    for (const type of ['river', 'tide', 'groundwater']) {
+      const result = processData({ observed, forecast, type }, visibleDomain, '3y', { preserveAllPoints: true })
+
+      expect(result.observedPoints).toEqual(observed.map(point => ({ ...point, type: 'observed' })))
+      expect(result.forecastPoints).toEqual(forecast.map(point => ({ ...point, type: 'forecast' })))
+      expect(result.lines).toHaveLength(observed.length + forecast.length)
+    }
+  })
+
+  test('retains all 105120 quarter-hourly readings across a three-year window', () => {
+    const observed = createQuarterHourlyPoints('2023-01-01T00:00:00.000Z', 365 * 3 * 96)
+    const result = processData({ observed, forecast: [], type: 'river' }, [
+      new Date('2023-01-01T00:00:00.000Z'),
+      new Date('2026-01-01T00:00:00.000Z')
+    ], '3y', { preserveAllPoints: true })
+
+    expect(result.observedPoints).toHaveLength(observed.length)
+    expect(result.observedPoints.every((point, index) =>
+      point.dateTime === observed[index].dateTime && point.value === observed[index].value
+    )).toBe(true)
+  })
+
+  test('still excludes error readings, future readings and points outside the buffered viewport in style B', () => {
+    const observed = [
+      { dateTime: '2024-01-01T00:00:00.000Z', value: 1 },
+      { dateTime: '2024-06-01T00:00:00.000Z', value: 2, err: true },
+      { dateTime: '2024-06-01T00:15:00.000Z', value: 3 },
+      { dateTime: '2999-01-01T00:00:00.000Z', value: 4 }
+    ]
+    const result = processData({ observed, forecast: [], type: 'river' }, [
+      new Date('2024-05-30T00:00:00.000Z'),
+      new Date('2024-06-04T00:00:00.000Z')
+    ], '3y', { preserveAllPoints: true })
+
+    expect(result.observedPoints).toEqual([{ ...observed[2], type: 'observed' }])
+
+    const unbounded = processData({ observed, forecast: [], type: 'river' }, null, '3y', { preserveAllPoints: true })
+    expect(unbounded.observedPoints.map(point => point.value)).toEqual([1, 3])
+  })
+
   test('keeps observed points in ascending order when input is already ascending', () => {
     const observed = [
       { dateTime: '2026-07-20T00:00:00.000Z', value: 0.2 },

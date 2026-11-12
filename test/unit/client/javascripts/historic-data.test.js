@@ -20,6 +20,19 @@ const REALTIME_OVERRIDE_VALUE = 2.5
 
 describe('Historic Data Management', () => {
   describe('mergeData', () => {
+    test('keeps the live reading when historic timestamps use a different equivalent format', () => {
+      const historic = [
+        { dateTime: '2024-01-15T10:00:00', value: 1 },
+        { dateTime: '2024-01-15T11:00:00.000+00:00', value: 2 }
+      ]
+      const realtime = [
+        { dateTime: '2024-01-15T10:00:00Z', value: 1.5 },
+        { dateTime: '2024-01-15T11:00:00Z', value: 2.5 }
+      ]
+
+      expect(mergeData(historic, realtime)).toEqual(realtime)
+    })
+
     test('should merge historic and realtime data without duplicates', () => {
       const historic = [
         { dateTime: SAMPLE_DATETIME_1, value: 1, _: 1 },

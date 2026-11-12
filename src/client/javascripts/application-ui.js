@@ -143,13 +143,21 @@ export function setupZoomControls() {
     zoomInBtn.disabled = scale >= maxZoomScale
     zoomOutBtn.disabled = scale <= 1
     zoomResetBtn.disabled = scale <= 1
+    const stepState = chartContainer?.getZoomControlState?.()
+    if (stepState) {
+      zoomInBtn.disabled = !stepState.canZoomIn
+      zoomOutBtn.disabled = !stepState.canZoomOut
+      zoomResetBtn.disabled = !stepState.canReset
+    }
   }
 
   if (chartContainer) {
     chartContainer.updateZoomControls = updateZoomButtonStates
   }
 
-  updateZoomButtonStates(1)
+  const isSingleTimeline = globalThis.flood?.model?.chartStyle === 'styleB'
+  const currentZoomScale = isSingleTimeline ? (chartContainer?.getZoomScale?.() ?? 1) : 1
+  updateZoomButtonStates(currentZoomScale)
 
   if (panLeftBtn) {
     panLeftBtn.onclick = () => {

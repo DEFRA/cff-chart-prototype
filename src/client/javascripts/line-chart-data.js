@@ -255,15 +255,15 @@ function markFirstForecastSignificance(observed, forecast) {
   forecast[0].isSignificant = !isSame
 }
 
-function processObservedData(observed, dataType) {
-  const processed = simplifyByType(observed, dataType)
+function processObservedData(observed, dataType, preserveAllPoints) {
+  const processed = preserveAllPoints ? observed : simplifyByType(observed, dataType)
   const filtered = processed.filter(l => !l.err)
   const ordered = toAscendingChronological(filtered)
   return ordered.map(l => ({ ...l, type: 'observed' }))
 }
 
-function processForecastData(forecast, dataType, observed) {
-  const processed = simplifyByType(forecast, dataType)
+function processForecastData(forecast, dataType, observed, preserveAllPoints) {
+  const processed = preserveAllPoints ? forecast : simplifyByType(forecast, dataType)
   markFirstForecastSignificance(observed, processed)
   return processed.map(l => ({ ...l, type: 'forecast' }))
 }
@@ -320,31 +320,34 @@ function snapDataToNiceIntervals(data, timeRange, visibleDomain) {
 
 
 
-export function processData(dataCache, visibleDomain, timeRange) {
+export function processData(dataCache, visibleDomain, timeRange, { preserveAllPoints = false } = {}) {
   let observedPoints = []
   let forecastPoints = []
 
   if (dataCache.observed?.length) {
-    observedPoints = processObservedData(dataCache.observed, dataCache.type)
+    observedPoints = processObservedData(dataCache.observed, dataCache.type, preserveAllPoints)
   }
 
   if (dataCache.forecast?.length) {
-    forecastPoints = processForecastData(dataCache.forecast, dataCache.type, dataCache.observed)
+    forecastPoints = processForecastData(dataCache.forecast, dataCache.type, dataCache.observed, preserveAllPoints)
   }
 
   observedPoints = filterToVisibleWindow(observedPoints, visibleDomain)
-  const beforeDownsample = observedPoints.length
-  observedPoints = downsampleByVisibleDomain(observedPoints, visibleDomain)
-  console.log(`[processData] downsampled observed from ${beforeDownsample} to ${observedPoints.length} points`)
-  observedPoints = snapDataToNiceIntervals(observedPoints, timeRange, visibleDomain)
+  if (!preserveAllPoints) {
+    const beforeDownsample = observedPoints.length
+    observedPoints = downsampleByVisibleDomain(observedPoints, visibleDomain)
+    console.log(`[processData] downsampled observed from ${beforeDownsample} to ${observedPoints.length} points`)
+    observedPoints = snapDataToNiceIntervals(observedPoints, timeRange, visibleDomain)
+  }
   observedPoints = removeFutureData(observedPoints)
 
   forecastPoints = filterToVisibleWindow(forecastPoints, visibleDomain)
-  forecastPoints = downsampleByVisibleDomain(forecastPoints, visibleDomain)
-  forecastPoints = snapDataToNiceIntervals(forecastPoints, timeRange, visibleDomain)
+  if (!preserveAllPoints) {
+    forecastPoints = downsampleByVisibleDomain(forecastPoints, visibleDomain)
+    forecastPoints = snapDataToNiceIntervals(forecastPoints, timeRange, visibleDomain)
+  }
   forecastPoints = removeFutureData(forecastPoints)
 
   const lines = observedPoints.concat(forecastPoints)
   return { lines, observedPoints, forecastPoints }
 }
-

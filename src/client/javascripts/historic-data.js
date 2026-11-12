@@ -59,13 +59,13 @@ export function mergeData(historicData, realtimeData) {
   // Create a map of real-time data by timestamp for quick lookup
   const realtimeMap = new Map()
   realtimeData.forEach(item => {
-    realtimeMap.set(item.dateTime, item)
+    realtimeMap.set(new Date(item.dateTime).getTime(), item)
   })
 
   // Merge: use all real-time data + historic data that doesn't overlap
   const merged = [...realtimeData]
   historicData.forEach(item => {
-    if (!realtimeMap.has(item.dateTime)) {
+    if (!realtimeMap.has(new Date(item.dateTime).getTime())) {
       merged.push(item)
     }
   })

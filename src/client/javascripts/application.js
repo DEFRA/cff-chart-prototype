@@ -37,8 +37,29 @@ import {
 
 initAll()
 
-async function fetchHistoricData(stationId) {
-  const response = await fetch(`${HISTORIC_DATA_ENDPOINT}?stationId=${encodeURIComponent(stationId)}`, {
+const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
+
+function getRecentVisibleDomain(telemetry) {
+  const getLatestTimestamp = (points) => points.reduce((latestTimestamp, point) => {
+    const timestamp = new Date(point.dateTime).getTime()
+    return Number.isFinite(timestamp) ? Math.max(latestTimestamp, timestamp) : latestTimestamp
+  }, Number.NEGATIVE_INFINITY)
+
+  const latestObserved = getLatestTimestamp(telemetry.observed || [])
+  const latestForecast = getLatestTimestamp(telemetry.forecast || [])
+
+  if (!Number.isFinite(latestObserved) && !Number.isFinite(latestForecast)) {
+    return null
+  }
+
+  const latestAvailable = Math.max(latestObserved, latestForecast)
+  const visibleStart = (Number.isFinite(latestObserved) ? latestObserved : latestAvailable) - FIVE_DAYS_MS
+  return [new Date(visibleStart), new Date(latestAvailable)]
+}
+
+async function fetchHistoricData(stationId, refresh = false) {
+  const refreshQuery = refresh ? '&refresh=true' : ''
+  const response = await fetch(`${HISTORIC_DATA_ENDPOINT}?stationId=${encodeURIComponent(stationId)}${refreshQuery}`, {
     headers: {
       Accept: 'application/json'
     }
@@ -79,6 +100,15 @@ function renderInteractiveChart(realtimeTelemetry, mergedObserved, currentFilter
   const chartContainer = lineChart(LINE_CHART_ID, fullTelemetry, {
     timeRange: currentFilter,
     enableZoom: currentFilter !== DEFAULT_FILTER,
+    preserveAllPoints: globalThis.flood?.model?.chartStyle === 'styleB',
+    steppedZoom: globalThis.flood?.model?.chartStyle === 'styleB',
+    onRangeChange: ({ label }) => {
+      const headingRange = document.getElementById('chart-visible-range')
+      if (headingRange) headingRange.textContent = label
+    },
+    initialZoomDomain: globalThis.flood?.model?.chartStyle === 'styleB'
+      ? getRecentVisibleDomain(fullTelemetry)
+      : null,
     thresholds,
     activeThresholdId: activeThresholdRef.value,
     onThresholdDismiss,
@@ -234,7 +264,8 @@ async function initializeChartApp() {
     return
   }
 
-  const currentFilter = { value: DEFAULT_FILTER }
+  const isSingleTimeline = globalThis.flood.model.chartStyle === 'styleB'
+  const currentFilter = { value: isSingleTimeline ? '3y' : DEFAULT_FILTER }
   const thresholdState = {
     [THRESHOLD_CURRENT_LEVEL_ID]: false,
     [THRESHOLD_HIGHEST_LEVEL_ID]: false,
@@ -249,17 +280,30 @@ async function initializeChartApp() {
     available: Boolean(globalThis.flood?.model?.historicDataAvailable) || initialHistoricData.length > 0
   }
 
-  // If realtime data is empty but historic data is available, eagerly fetch it
-  // so the initial 5-day chart can render using the most recent historic readings
   const hasNoRealtimeData = !realtimeTelemetry?.observed?.length
-  if (hasNoRealtimeData && historicDataRef.available && !historicDataRef.loaded) {
+  if (isSingleTimeline || (hasNoRealtimeData && historicDataRef.available && !historicDataRef.loaded)) {
+    const status = isSingleTimeline ? document.createElement('p') : null
+    if (status) {
+      status.className = 'govuk-body'
+      status.setAttribute('role', 'status')
+      status.textContent = 'Loading historic readings. This may take a moment.'
+      document.getElementById(LINE_CHART_ID).before(status)
+    }
     try {
-      const historicData = await fetchHistoricData(stationId)
+      const historicData = await fetchHistoricData(stationId, isSingleTimeline)
+      if (isSingleTimeline && historicData.length === 0) {
+        throw new Error('No historic readings are available for this station')
+      }
       historicDataRef.data = historicData
       historicDataRef.loaded = true
       historicDataRef.available = historicData.length > 0
+      status?.remove()
     } catch (error) {
       console.error('Failed to fetch historic data for initial render:', error)
+      if (status) {
+        status.setAttribute('role', 'alert')
+        status.textContent = 'Historic readings could not be loaded. Only currently available readings are shown. Reload the page to try again.'
+      }
     }
   }
 

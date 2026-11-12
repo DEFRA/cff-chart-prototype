@@ -46,8 +46,8 @@ describe('Index route', () => {
     expect(statusCode).toBe(200)
     expect(headers['content-type']).toContain('text/html')
     const $ = load(payload)
-    expect($('form[action="/station"] input').map((_index, input) => $(input).attr('name')).get()).toEqual(['stationId'])
-    expect(payload).not.toContain('Chart style')
+    expect($('form[action="/station"] input').map((_index, input) => $(input).attr('name')).get()).toEqual(['stationId', 'chartStyle', 'chartStyle'])
+    expect(payload).toContain('Chart style')
   })
 
   test.each([
@@ -55,8 +55,9 @@ describe('Index route', () => {
     [{ stationId: '' }, '/station'],
     [{ stationId: '   ' }, '/station'],
     [{}, '/station'],
-    [{ stationId: '3089', chartStyle: 'styleB' }, '/station?stationId=3089']
-  ])('Should redirect using only the station ID from %j', async (payload, location) => {
+    [{ stationId: '3089', chartStyle: 'styleA' }, '/station?stationId=3089'],
+    [{ stationId: '3089', chartStyle: 'styleB' }, '/station/single-chart?stationId=3089']
+  ])('Should route using the selected chart style from %j', async (payload, location) => {
     const response = await server.inject({
       method: 'POST',
       url: '/station',

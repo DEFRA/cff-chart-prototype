@@ -212,28 +212,30 @@ describe('line-chart-layout rightmost x tick behavior', () => {
     expect(typeof isMidnightAligned).toBe('boolean')
   })
 
-  test('keeps exactly 5 visible labels in zoomed 6m view when now is in extent', () => {
+  test('keeps six visible labels across the zoomed historic range transition', () => {
     const svg = select(document.querySelector('svg'))
 
     const now = new Date()
-    const start = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000))
-    const end = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000))
-    const xScale = scaleTime().domain([start, end]).range([0, 1000])
     const yScale = scaleLinear().domain([0, 1]).range([300, 0])
 
-    renderAxes(svg, {
-      xScale,
-      yScale,
-      width: 1000,
-      height: 300,
-      timeRange: '6m'
-    })
+    for (const visibleDays of [5, 6.5, 7, 7.1, 8]) {
+      const start = new Date(now.getTime() - (visibleDays * 24 * 60 * 60 * 1000))
+      const xScale = scaleTime().domain([start, now]).range([0, 1000])
 
-    const visibleLabels = Array.from(document.querySelectorAll('.x.axis .tick text'))
-      .map(text => text.textContent.trim())
-      .filter(Boolean)
+      renderAxes(svg, {
+        xScale,
+        yScale,
+        width: 1000,
+        height: 300,
+        timeRange: '6m'
+      })
 
-    expect(visibleLabels.length).toBeGreaterThan(0)
+      const visibleLabels = Array.from(document.querySelectorAll('.x.axis .tick text'))
+        .map(text => text.textContent.trim())
+        .filter(Boolean)
+
+      expect(visibleLabels).toHaveLength(6)
+    }
   })
 
   test('keeps day-aligned tick anchors stable during slight pan at same zoom level', () => {

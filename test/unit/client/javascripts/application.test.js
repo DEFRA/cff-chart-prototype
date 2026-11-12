@@ -146,6 +146,7 @@ describe('interactive chart rendering', () => {
     const dom = new JSDOM(`
       <body>
         <div id="line-chart"></div>
+        <span id="chart-visible-range">5 days</span>
         <div class="defra-line-chart__control-row"></div>
         <a class="time-filter-link" data-filter="5d" href="#line-chart">5 days</a>
         <a class="time-filter-link" data-filter="6m" href="#line-chart">6 months</a>
@@ -165,6 +166,7 @@ describe('interactive chart rendering', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     globalThis.document = previousDocument
     globalThis.window = previousWindow
     globalThis.flood = previousFlood
@@ -178,6 +180,7 @@ describe('interactive chart rendering', () => {
     expect(renderChart).toHaveBeenLastCalledWith('line-chart', globalThis.flood.model.telemetry, expect.objectContaining({
       timeRange: '5d',
       enableZoom: false,
+      preserveAllPoints: false,
       activeThresholdId: 'top-normal',
       thresholds: expect.arrayContaining([expect.objectContaining({ id: 'top-normal' })])
     }))
@@ -193,7 +196,63 @@ describe('interactive chart rendering', () => {
     const { lineChart: renderChart } = await import('../../../../src/client/javascripts/line-chart.js')
     expect(renderChart).toHaveBeenLastCalledWith('line-chart', {
       observed: [...globalThis.flood.model.historicData, ...globalThis.flood.model.telemetry.observed]
-    }, expect.objectContaining({ timeRange: '6m', enableZoom: true }))
+    }, expect.objectContaining({ timeRange: '6m', enableZoom: true, preserveAllPoints: false }))
     expect(document.querySelector('.defra-line-chart__control-row').style.display).toBe('')
+  })
+
+  test('enables full-resolution rendering for the single-timeline chart', async () => {
+    vi.resetModules()
+    globalThis.flood.model.chartStyle = 'styleB'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ readings: globalThis.flood.model.historicData })
+    }))
+    await vi.importActual('../../../../src/client/javascripts/application.js')
+
+    const { lineChart: renderChart } = await import('../../../../src/client/javascripts/line-chart.js')
+    await vi.waitFor(() => expect(renderChart).toHaveBeenCalled())
+    expect(renderChart).toHaveBeenLastCalledWith('line-chart', {
+      observed: [...globalThis.flood.model.historicData, ...globalThis.flood.model.telemetry.observed]
+    }, expect.objectContaining({
+      timeRange: '3y',
+      enableZoom: true,
+      preserveAllPoints: true,
+      steppedZoom: true,
+      initialZoomDomain: expect.any(Array)
+    }))
+    const options = renderChart.mock.lastCall[2]
+    options.onRangeChange({ label: '15 days' })
+    expect(document.getElementById('chart-visible-range').textContent).toBe('15 days')
+  })
+
+  test('requests fresh history for style B even when no stored history is advertised', async () => {
+    vi.resetModules()
+    globalThis.flood.model.chartStyle = 'styleB'
+    globalThis.flood.model.historicData = []
+    globalThis.flood.model.historicDataAvailable = false
+    const historic = [{ dateTime: new Date(Date.now() - 7 * 86400000).toISOString(), value: 0.3 }]
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ readings: historic })
+    }))
+    await vi.importActual('../../../../src/client/javascripts/application.js')
+    const { lineChart: renderChart } = await import('../../../../src/client/javascripts/line-chart.js')
+    await vi.waitFor(() => expect(renderChart).toHaveBeenCalled())
+
+    expect(fetch).toHaveBeenCalledWith('/station/historic-data?stationId=3089&refresh=true', expect.any(Object))
+    expect(renderChart).toHaveBeenLastCalledWith('line-chart', {
+      observed: [...historic, ...globalThis.flood.model.telemetry.observed]
+    }, expect.objectContaining({ preserveAllPoints: true }))
+    expect(document.querySelector('[role="status"]')).toBeNull()
+  })
+
+  test('shows a visible warning when automatic history loading fails', async () => {
+    vi.resetModules()
+    globalThis.flood.model.chartStyle = 'styleB'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }))
+    await vi.importActual('../../../../src/client/javascripts/application.js')
+
+    await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent)
+      .toContain('Historic readings could not be loaded'))
   })
 })

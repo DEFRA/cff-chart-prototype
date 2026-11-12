@@ -1,4 +1,5 @@
 import { createZoomHandler, setupZoomBehavior, setupZoomControls } from './chart-zoom.js'
+import { setupSteppedZoom, TIMELINE_ZOOM_STEPS } from './chart-stepped-zoom.js'
 import {
   MOBILE_BREAKPOINT,
   DEFAULT_WIDTH,
@@ -32,6 +33,7 @@ function initializeZoom (config) {
     mainGroup,
     stateRef,
     dataCache,
+    processData,
     timeRange,
     significantContainer,
     timeLine,
@@ -39,7 +41,10 @@ function initializeZoom (config) {
     isMobileRef,
     tooltipManager,
     container,
-    zoomRef
+    zoomRef,
+    initialZoomDomain,
+    steppedZoom,
+    onRangeChange
   } = config
 
   zoomRef.baseXScaleRef = zoomRef.baseXScaleRef || { current: stateRef.xScale.copy() }
@@ -108,7 +113,8 @@ function initializeZoom (config) {
     height: stateRef.height,
     margin: stateRef.margin,
     handleZoomEvent,
-    baseXScale: zoomRef.baseXScaleRef.current
+    baseXScale: zoomRef.baseXScaleRef.current,
+    steppedZoom
   })
 
   zoomRef.behavior = zoomSetup.zoomBehavior
@@ -123,6 +129,33 @@ function initializeZoom (config) {
   }
 
   setupZoomControls(container, mainGroup, zoomRef.behavior, zoomSetup.maxScale, getZoomFocalPoint)
+
+  if (steppedZoom) {
+    setupSteppedZoom({
+      container,
+      mainGroup,
+      zoomBehavior: zoomRef.behavior,
+      getBaseScale: () => zoomRef.baseXScaleRef.current,
+      onRangeChange
+    })
+    return
+  }
+
+  if (Array.isArray(initialZoomDomain) && initialZoomDomain.length === 2) {
+    const [visibleStart, visibleEnd] = initialZoomDomain.map(value => new Date(value))
+    const [baseStart, baseEnd] = zoomRef.baseXScaleRef.current.domain().map(value => new Date(value))
+    const visibleDuration = visibleEnd.getTime() - visibleStart.getTime()
+    const baseDuration = baseEnd.getTime() - baseStart.getTime()
+
+    if (visibleDuration > 0 && baseDuration > visibleDuration) {
+      const scale = baseDuration / visibleDuration
+      container.applyZoomTransform({
+        k: scale,
+        x: -scale * zoomRef.baseXScaleRef.current(visibleStart),
+        y: 0
+      })
+    }
+  }
 }
 
 function renderChartComponents (config) {
@@ -162,6 +195,9 @@ function createChartRenderer (config) {
     mainGroup,
     svgElements,
     dataCache,
+    processData,
+    steppedZoom,
+    initialZoomDomain,
     timeRange,
     isMobileRef,
     stateRef,
@@ -169,6 +205,7 @@ function createChartRenderer (config) {
   } = config
 
   const render = (visibleDomain = null) => {
+    const savedDomain = steppedZoom ? container.getVisibleDomain?.() : null
     const enabledThresholds = getEnabledThresholds(stateRef.thresholds)
     ensureActiveThreshold(stateRef, enabledThresholds)
 
@@ -176,6 +213,10 @@ function createChartRenderer (config) {
     const dismissThreshold = createThresholdDismissHandler(stateRef)
 
     const { scale: xScaleNew, extent: xExtentNew } = createXScale(dataCache.observed, dataCache.forecast, stateRef.width || DEFAULT_WIDTH, timeRange)
+    if (steppedZoom) {
+      const end = initialZoomDomain?.[1] || xScaleNew.domain()[1]
+      xScaleNew.domain([TIMELINE_ZOOM_STEPS.at(-1).start(end), end])
+    }
     const effectiveVisibleDomain = visibleDomain || xExtentNew
 
     const processedData = processData(dataCache, effectiveVisibleDomain, timeRange)
@@ -217,6 +258,7 @@ function createChartRenderer (config) {
 
     updateZoomViewport(zoomRef, stateRef)
     syncZoomBaseScales(zoomRef, stateRef)
+    if (savedDomain) container.restoreZoomView(savedDomain)
   }
 
   return render
@@ -266,8 +308,14 @@ function setupChartContext (containerId, data, options) {
 
   return {
     dataCache,
+    processData: (cache, visibleDomain, range) => processData(cache, visibleDomain, range, {
+      preserveAllPoints: options.preserveAllPoints === true
+    }),
     timeRange,
     enableZoom,
+    initialZoomDomain: options.initialZoomDomain,
+    steppedZoom: options.steppedZoom === true,
+    onRangeChange: options.onRangeChange,
     svgElements,
     svg,
     mainGroup,
@@ -326,6 +374,7 @@ function initializeZoomIfEnabled (context, container, tooltipManager) {
     mainGroup: context.mainGroup,
     stateRef: context.stateRef,
     dataCache: context.dataCache,
+    processData: context.processData,
     timeRange: context.timeRange,
     significantContainer: context.significantContainer,
     timeLine: context.timeLine,
@@ -333,7 +382,10 @@ function initializeZoomIfEnabled (context, container, tooltipManager) {
     isMobileRef: context.isMobileRef,
     tooltipManager,
     container,
-    zoomRef: context.zoomRef
+    zoomRef: context.zoomRef,
+    initialZoomDomain: context.initialZoomDomain,
+    steppedZoom: context.steppedZoom,
+    onRangeChange: context.onRangeChange
   })
 }
 
@@ -357,6 +409,9 @@ export function lineChart (containerId, data, options = {}) {
     mainGroup: context.mainGroup,
     svgElements: context.svgElements,
     dataCache: context.dataCache,
+    processData: context.processData,
+    steppedZoom: context.steppedZoom,
+    initialZoomDomain: context.initialZoomDomain,
     timeRange: context.timeRange,
     isMobileRef: context.isMobileRef,
     stateRef: context.stateRef,

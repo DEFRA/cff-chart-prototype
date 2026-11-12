@@ -9,9 +9,13 @@ services:
     volumes:
       - ./src:/home/node/src
       - ./package.json:/home/node/package.json
+      - historic-data:/home/node/data/historic
     env_file:
       - .env
     environment:
       HTTP_PROXY: ${HTTP_PROXY:-${http_proxy:-}}
       HTTPS_PROXY: ${HTTPS_PROXY:-${https_proxy:-}}
       NO_PROXY: ${NO_PROXY:-${no_proxy:-}}
+
+volumes:
+  historic-data:

@@ -36,9 +36,8 @@ const TWO_LINE_MONTH_YEAR_RANGES = new Set([SIX_MONTH_RANGE, ONE_YEAR_RANGE, THR
 const X_AXIS_TIME_TSPAN_DY = '15'
 const TIME_LABEL_DY = '0.71em'
 const FIXED_X_TICK_COUNT = 6
-const HISTORIC_VISIBLE_TICK_COUNT = 6
-const DEFAULT_REMOVE_LAST_N_TICKS = 0
 const MIDNIGHT_HOUR = 0
+const FINAL_HISTORIC_ZOOM_THRESHOLD_DAYS = 6.5
 const MOBILE_VIEWPORT_MAX_WIDTH_PX = 640
 const MOBILE_MAX_WIDTH_MEDIA_QUERY = `(max-width: ${MOBILE_VIEWPORT_MAX_WIDTH_PX}px)`
 const MOBILE_Y_TICK_TEXT_OFFSET = 6
@@ -50,23 +49,7 @@ const FIRST_TICK_OFFSET_MOBILE = '0'
 const TIME_INDICATOR_RANGES = new Set([FIVE_DAY_RANGE, SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE])
 const DAY_ALIGNED_TICK_THRESHOLD_DAYS = 7
 const DAY_ALIGNED_MIN_DURATION_DAYS = 4
-const FINAL_HISTORIC_ZOOM_THRESHOLD_DAYS = 6.5
 const HISTORIC_RANGES = new Set([SIX_MONTH_RANGE, ONE_YEAR_RANGE, THREE_YEAR_RANGE])
-const DAY_ALIGNED_RANGES = HISTORIC_RANGES
-const DAY_CADENCE_HOUR = DISPLAYED_HOUR_ON_X_AXIS
-
-function isNowVisibleInExtent (xExtent, timeRange, width, nowMs = Date.now()) {
-  if (!TIME_INDICATOR_RANGES.has(timeRange)) {
-    return false
-  }
-
-  const minTime = xExtent[0].getTime()
-  const maxTime = xExtent[1].getTime()
-  // Historic domains end at "now", so allow one pixel of slack to match updateTimeIndicator's floored position
-  const onePixelMs = width > 0 ? (maxTime - minTime) / width : 0
-
-  return nowMs >= minTime && nowMs <= maxTime + onePixelMs
-}
 
 function getFiveDayTicksWithTodayEnd (xExtent, nowMs = Date.now()) {
   const maxTime = Math.min(xExtent[1].getTime(), nowMs)
@@ -96,10 +79,9 @@ function getFiveDayTicksWithTodayEnd (xExtent, nowMs = Date.now()) {
   return ticks
 }
 
-function getFixedHourDailyTicks (xExtent, hour = DAY_CADENCE_HOUR) {
+function getFixedHourDailyTicks (xExtent, hour) {
   const startMs = xExtent[0].getTime()
   const endMs = xExtent[1].getTime()
-
   const cursor = new Date(startMs)
   cursor.setHours(hour, 0, 0, 0)
   if (cursor.getTime() < startMs) {
@@ -112,91 +94,37 @@ function getFixedHourDailyTicks (xExtent, hour = DAY_CADENCE_HOUR) {
     cursor.setDate(cursor.getDate() + 1)
   }
 
-  if (ticks.length > 0) {
-    return ticks
-  }
-
-  const fallbackTick = new Date(endMs)
-  fallbackTick.setHours(hour, 0, 0, 0)
-  if (fallbackTick.getTime() > endMs) {
-    fallbackTick.setDate(fallbackTick.getDate() - 1)
-  }
-
-  return [fallbackTick]
-}
-
-function isDayMultipleOf (tick, stepDays) {
-  return Math.floor(tick.getTime() / MS_PER_DAY) % stepDays === 0
-}
-
-function withFinalTick (ticks, finalTick) {
-  if (!finalTick || ticks.at(-1)?.getTime() === finalTick.getTime()) {
-    return ticks
-  }
-
-  return [...ticks, finalTick]
-}
-
-function filterDailyTicksByMinStep (dailyTicks, minStepDays) {
-  if (minStepDays <= 1) {
-    return dailyTicks
-  }
-
-  const filtered = dailyTicks.filter((tick) => isDayMultipleOf(tick, minStepDays))
-  if (filtered.length === 0) {
-    return dailyTicks
-  }
-
-  return withFinalTick(filtered, dailyTicks.at(-1))
-}
-
-function getFixedHourCadenceTicks (xExtent, targetTickCount = FIXED_X_TICK_COUNT, hour = DAY_CADENCE_HOUR, minStepDays = 1) {
-  const dailyTicks = getFixedHourDailyTicks(xExtent, hour)
-  if (dailyTicks.length <= targetTickCount) {
-    return filterDailyTicksByMinStep(dailyTicks, minStepDays)
-  }
-
-  const maxLeadingTicks = Math.max(1, targetTickCount - 1)
-  const stepDays = Math.max(minStepDays, Math.ceil((dailyTicks.length - 1) / maxLeadingTicks))
-  const steppedTicks = dailyTicks.filter((tick) => isDayMultipleOf(tick, stepDays)).slice(0, maxLeadingTicks)
-  const leadingTicks = steppedTicks.length > 0 ? steppedTicks : dailyTicks.slice(0, 1)
-
-  return withFinalTick(leadingTicks, dailyTicks.at(-1)).slice(0, targetTickCount)
+  return ticks
 }
 
 function isDayAlignedZoom (timeRange, visibleDurationDays) {
-  return DAY_ALIGNED_RANGES.has(timeRange) &&
+  return HISTORIC_RANGES.has(timeRange) &&
     visibleDurationDays > DAY_ALIGNED_MIN_DURATION_DAYS &&
     visibleDurationDays <= DAY_ALIGNED_TICK_THRESHOLD_DAYS
 }
 
-// In zoomed historic views, keep stable midnight cadence and match 5-day tick density.
 function getDayAlignedTickValues (xExtent, visibleDurationDays) {
   const dailyTicks = getFixedHourDailyTicks(xExtent, MIDNIGHT_HOUR)
-  const useFixedTickValues =
-    visibleDurationDays <= FINAL_HISTORIC_ZOOM_THRESHOLD_DAYS ||
-    dailyTicks.length < FIXED_X_TICK_COUNT
+  if (visibleDurationDays <= FINAL_HISTORIC_ZOOM_THRESHOLD_DAYS || dailyTicks.length < FIXED_X_TICK_COUNT) {
+    return generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT)
+  }
 
-  return useFixedTickValues
-    ? generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT)
-    : getFixedHourCadenceTicks(xExtent, FIXED_X_TICK_COUNT, MIDNIGHT_HOUR)
+  return dailyTicks.slice(0, FIXED_X_TICK_COUNT)
 }
 
-function getRangeTickValues (xExtent, timeRange, visibleDurationDays, hidesRightmostTick, nowMs) {
+function getRangeTickValues (xExtent, timeRange, visibleDurationDays, nowMs) {
   if (timeRange === FIVE_DAY_RANGE && visibleDurationDays >= FULL_FIVE_DAY_VIEW_DURATION_THRESHOLD) {
     return getFiveDayTicksWithTodayEnd(xExtent, nowMs)
   }
 
   if (HISTORIC_RANGES.has(timeRange)) {
-    // Historic ranges always show the same number of labels, so generate an extra
-    // tick whenever the rightmost one is hidden by the live "now" indicator.
-    return generateFixedTickValues(xExtent, HISTORIC_VISIBLE_TICK_COUNT + (hidesRightmostTick ? 1 : 0))
+    return generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT)
   }
 
   return generateFixedTickValues(xExtent, FIXED_X_TICK_COUNT)
 }
 
-function calculateTickInterval (xExtent, timeRange, width, nowMs = Date.now()) {
+function calculateTickInterval (xExtent, timeRange, nowMs = Date.now()) {
   const labelMode = getLabelModeForExtent(timeRange, xExtent)
   const visibleDurationDays = getVisibleDurationDays(xExtent)
 
@@ -204,41 +132,22 @@ function calculateTickInterval (xExtent, timeRange, width, nowMs = Date.now()) {
     return {
       tickValues: getDayAlignedTickValues(xExtent, visibleDurationDays),
       labelMode,
-      removeLastNTicks: DEFAULT_REMOVE_LAST_N_TICKS,
       hideFirstTickLabel: false
     }
   }
 
-  // Only remove the rightmost tick label while the live "now" indicator is visible.
-  // If users pan/zoom so "now" is out of view, keep a normal rightmost date label.
-  const hidesRightmostTick = isNowVisibleInExtent(xExtent, timeRange, width, nowMs)
-
   return {
-    tickValues: getRangeTickValues(xExtent, timeRange, visibleDurationDays, hidesRightmostTick, nowMs),
+    tickValues: getRangeTickValues(xExtent, timeRange, visibleDurationDays, nowMs),
     labelMode,
-    removeLastNTicks: hidesRightmostTick ? 1 : DEFAULT_REMOVE_LAST_N_TICKS,
     hideFirstTickLabel: false
   }
 }
 
-export function getTickConfigForRender (xScale, timeRange, width, nowMs = Date.now()) {
+export function getTickConfigForRender (xScale, timeRange, _width, nowMs = Date.now()) {
   const visibleExtent = xScale.domain()
-  const tickConfig = calculateTickInterval(visibleExtent, timeRange, width, nowMs)
+  const tickConfig = calculateTickInterval(visibleExtent, timeRange, nowMs)
   tickConfig.timeRange = timeRange
   return tickConfig
-}
-
-function removeLastTickLabel (svg, count = 1) {
-  const xAxisTicks = svg.select('.x.axis').selectAll('.tick')
-  const tickCount = xAxisTicks.size()
-
-  if (tickCount > 0) {
-    for (let i = 0; i < count && i < tickCount; i++) {
-      const tickIndex = tickCount - 1 - i
-      const tick = xAxisTicks.nodes()[tickIndex]
-      select(tick).select('text').remove()
-    }
-  }
 }
 
 function removeFirstTickLabel (svg) {
@@ -385,7 +294,6 @@ export function renderAxes (svg, config) {
   if (tickConfig.hideFirstTickLabel) {
     removeFirstTickLabel(svg)
   }
-  removeLastTickLabel(svg, tickConfig.removeLastNTicks)
   alignEdgeTickLabels(svg)
 
   svg.select(Y_AXIS_CLASS).style(TEXT_ANCHOR_ATTR, TEXT_ANCHOR_START)

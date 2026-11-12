@@ -118,7 +118,7 @@ export function createZoomHandler (config) {
  * Setup zoom behavior for the chart
  */
 export function setupZoomBehavior (config) {
-  const { svg, mainGroup, width, height, margin, handleZoomEvent, baseXScale } = config
+  const { svg, mainGroup, width, height, margin, handleZoomEvent, baseXScale, steppedZoom } = config
   const maxScale = calculateMaxZoomScaleFromDomain(baseXScale)
 
   const zoomBehavior = d3Zoom()
@@ -126,6 +126,9 @@ export function setupZoomBehavior (config) {
     .translateExtent([[0, 0], [width, height]])  // Constrain panning to chart bounds
     .extent([[0, 0], [width, height]])  // Define the viewport extent
     .filter((event) => {
+      if (steppedZoom && (event.type === 'wheel' || event.type === 'dblclick' || event.type.startsWith('touch'))) {
+        return false
+      }
       // Prevent default wheel behavior to stop page scrolling
       if (event.type === 'wheel') {
         event.preventDefault()
@@ -192,6 +195,7 @@ export function setupZoomControls (container, mainGroup, zoomBehavior, maxZoomSc
 
   container.getTouchPanStep = () => TOUCH_PAN_STEP_PX
   container.getMaxZoomScale = () => boundedMaxZoomScale
+  container.getZoomScale = () => zoomTransform(mainGroup.node()).k || ZOOM_MIN_SCALE
 
   container.applyZoomTransform = (transform) => {
     if (!transform || !Number.isFinite(transform.k)) {
@@ -261,4 +265,3 @@ export function setupZoomControls (container, mainGroup, zoomBehavior, maxZoomSc
       .call(zoomBehavior.translateBy, -panStep, 0)
   }
 }
-

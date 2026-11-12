@@ -1,6 +1,6 @@
 # Historic Data
 
-The prototype uses one interactive chart, formerly style C. Chart styles A and B and their selection controls have been removed.
+The prototype offers style A with time-range tabs and style B with a single zoomable timeline.
 
 ## Managing historic data
 
@@ -22,7 +22,15 @@ The chart offers four time ranges:
 
 Historic ranges are disabled when no stored data is available. Historic readings are loaded on demand from `/station/historic-data?stationId=<stationId>`.
 
-For historic views, readings are merged with recent telemetry, with recent telemetry taking precedence for duplicate timestamps. The combined readings are sorted and filtered to the selected range. The chart renderer samples data according to the visible domain as users zoom; the former style B sampling path is no longer used.
+For historic views, readings are merged with recent telemetry, with recent telemetry taking precedence for duplicate timestamps. The combined readings are sorted and filtered to the selected range. Style A samples data according to the visible domain as users zoom.
+
+Style B (`/station/single-chart?stationId=3089`) starts with the latest five days visible within a three-year timeline. It plots every available 15-minute reading at its original timestamp and value, without sampling, bucketing or line simplification at any zoom level. Panning and resizing retain this full resolution. Missing readings are not filled in.
+
+Style B zooms through named windows: **5 days, 10 days, 15 days, 1 month, 3 months, 6 months, 1 year, 2 years and 3 years**. The first three windows divide into five axis intervals of 1, 2 and 3 days respectively. Buttons, mouse-wheel zoom and two-finger pinch use the same steps; a pinch moves one step per gesture. Months and years use calendar durations. The heading announces the selected window, including when viewing older data. Zooming keeps the right-hand date fixed unless the three-year timeline bounds require it to move. Resizing preserves the current window; reset returns to the latest five days. Style A retains continuous zoom.
+
+Style B automatically loads historic data on opening, fetching and saving it from the Hydrology API if the cache is missing, empty or more than 24 hours old. There is no need to visit admin first. Concurrent requests for the same station share a refresh. A loading message is displayed during the request; failures show a warning above the chart rather than silently presenting incomplete history.
+
+Docker Compose stores historic files in the `historic-data` named volume so refreshed readings survive container rebuilds and recreation. Removing this volume (for example with `docker compose down -v`) removes the saved history.
 
 Reference-line controls for the latest level, highest recorded level and top of the normal range are available on every station chart.
 
